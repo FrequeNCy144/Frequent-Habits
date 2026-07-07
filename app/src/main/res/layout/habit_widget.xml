@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <!-- Top Date Navigation Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/widget_prev_day"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/widget_item_normal_bg"
+            android:gravity="center"
+            android:text="◀"
+            android:textColor="#E4E3EC"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_date_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="Heute"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_next_day"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/widget_item_normal_bg"
+            android:gravity="center"
+            android:text="▶"
+            android:textColor="#E4E3EC"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Thicker Progress Bar -->
+    <ProgressBar
+        android:id="@+id/widget_progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="12dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="0"
+        android:progressTint="#7356FF"
+        android:progressBackgroundTint="#201D35" />
+
+    <!-- Slot 1 -->
+    <LinearLayout
+        android:id="@+id/widget_habit_1_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="10dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/widget_item_normal_bg"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_habit_1_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            android:scaleType="fitCenter" />
+
+        <TextView
+            android:id="@+id/widget_habit_1_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Habit 1"
+            android:textColor="#E4E3EC"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/widget_habit_1_minus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="-"
+            android:textColor="#E4E3EC"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/widget_item_normal_bg"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_habit_1_plus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="#E4E3EC"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/widget_item_normal_bg"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/widget_habit_1_check"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_widget_circle_unchecked"
+            android:contentDescription="Check Habit 1" />
+    </LinearLayout>
+
+    <!-- Slot 2 -->
+    <LinearLayout
+        android:id="@+id/widget_habit_2_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="10dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/widget_item_normal_bg"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_habit_2_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            android:scaleType="fitCenter" />
+
+        <TextView
+            android:id="@+id/widget_habit_2_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Habit 2"
+            android:textColor="#E4E3EC"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/widget_habit_2_minus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="-"
+            android:textColor="#E4E3EC"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/widget_item_normal_bg"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_habit_2_plus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="#E4E3EC"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/widget_item_normal_bg"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/widget_habit_2_check"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_widget_circle_unchecked"
+            android:contentDescription="Check Habit 2" />
+    </LinearLayout>
+
+    <!-- Slot 3 -->
+    <LinearLayout
+        android:id="@+id/widget_habit_3_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="10dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/widget_item_normal_bg"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_habit_3_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            android:scaleType="fitCenter" />
+
+        <TextView
+            android:id="@+id/widget_habit_3_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Habit 3"
+            android:textColor="#E4E3EC"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:singleLine="true" />
+
+        <TextView
+            android:id="@+id/widget_habit_3_minus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="-"
+            android:textColor="#E4E3EC"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/widget_item_normal_bg"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_habit_3_plus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="+"
+            android:textColor="#E4E3EC"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/widget_item_normal_bg"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/widget_habit_3_check"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_widget_circle_unchecked"
+            android:contentDescription="Check Habit 3" />
+    </LinearLayout>
+</LinearLayout>

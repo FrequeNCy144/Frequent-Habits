@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Glow / Background Highlight -->
+    <path
+        android:pathData="M 54 24 C 70.57 24 84 37.43 84 54 C 84 70.57 70.57 84 54 84 C 37.43 84 24 70.57 24 54 C 24 37.43 37.43 24 54 24 Z"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeColor="#307356FF" />
+
+    <!-- Sleek Glow Ring representing continuous habits -->
+    <path
+        android:pathData="M 54 28 C 68.36 28 80 39.64 80 54 C 80 68.36 68.36 80 54 80 C 39.64 80 28 68.36 28 54 C 28 39.64 39.64 28 54 28 Z"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeColor="#7356FF" />
+
+    <!-- Sparkle/Success symbol indicating completion inside the ring -->
+    <path
+        android:pathData="M54,42 C54,49.5 54,49.5 61.5,49.5 C54,49.5 54,49.5 54,57 C54,49.5 54,49.5 46.5,49.5 C54,49.5 54,49.5 54,42 Z"
+        android:fillColor="#9481FF" />
+        
+    <!-- A smaller success sparkle at the top right representing growth -->
+    <path
+        android:pathData="M70,34 C70,38 70,38 74,38 C70,38 70,38 70,42 C70,38 70,38 66,38 C70,38 70,38 70,34 Z"
+        android:fillColor="#10B981" />
+</vector>
