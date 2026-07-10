@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.BroadcastReceiver
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -22,64 +23,20 @@ import java.util.*
 class HabitWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        updateAllWidgets(context, appWidgetManager, appWidgetIds)
+        val pendingResult = goAsync()
+        updateAllWidgets(context, appWidgetManager, appWidgetIds, pendingResult)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
         val action = intent.action
         val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
 
         if (action == ACTION_UPDATE_HABITS) {
+            val pendingResult = goAsync()
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, HabitWidgetProvider::class.java)
             val ids = appWidgetManager.getAppWidgetIds(componentName)
-            updateAllWidgets(context, appWidgetManager, ids)
-        } else if (action == ACTION_PREV_DAY || action == ACTION_NEXT_DAY) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val componentName = ComponentName(context, HabitWidgetProvider::class.java)
-            val ids = appWidgetManager.getAppWidgetIds(componentName)
-            val targetWidgetId = if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) widgetId else ids.firstOrNull() ?: return
-            
-            val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
-            val dateKey = "widget_date_$targetWidgetId"
-            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-            val todayStr = sdf.format(Date())
-            val currentSelectedDate = prefs.getString(dateKey, todayStr) ?: todayStr
-            
-            val cal = Calendar.getInstance().apply {
-                time = sdf.parse(currentSelectedDate) ?: Date()
-            }
-            
-            if (action == ACTION_PREV_DAY) {
-                val pendingResult = goAsync()
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val db = AppDatabase.getDatabase(context)
-                        val allHabits = db.habitDao().getAllHabitsRaw()
-                        val oldestMs = allHabits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
-                        val oldestDateStr = sdf.format(Date(oldestMs))
-                        
-                        cal.add(Calendar.DAY_OF_YEAR, -1)
-                        val newDateStr = sdf.format(cal.time)
-                        if (newDateStr >= oldestDateStr) {
-                            prefs.edit().putString(dateKey, newDateStr).apply()
-                        }
-                        triggerUpdate(context)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    } finally {
-                        pendingResult.finish()
-                    }
-                }
-            } else {
-                cal.add(Calendar.DAY_OF_YEAR, 1)
-                val newDateStr = sdf.format(cal.time)
-                if (newDateStr <= todayStr) {
-                    prefs.edit().putString(dateKey, newDateStr).apply()
-                }
-                triggerUpdate(context)
-            }
+            updateAllWidgets(context, appWidgetManager, ids, pendingResult)
         } else if (action == ACTION_TOGGLE_BINARY_HABIT) {
             val habitId = intent.getIntExtra(EXTRA_HABIT_ID, -1)
             val targetWidgetId = if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) widgetId else -1
@@ -90,15 +47,9 @@ class HabitWidgetProvider : AppWidgetProvider() {
                         val db = AppDatabase.getDatabase(context)
                         val habit = db.habitDao().getHabitByIdSuspend(habitId)
                         if (habit != null) {
-                            val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
                             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                             val todayStr = sdf.format(Date())
-                            val dateKey = "widget_date_$targetWidgetId"
-                            val selectedDate = if (targetWidgetId != -1) {
-                                prefs.getString(dateKey, todayStr) ?: todayStr
-                            } else {
-                                todayStr
-                            }
+                            val selectedDate = todayStr
                             
                             val logs = db.habitDao().getLogsForHabitOnDate(habitId, selectedDate)
                             val currentLog = logs.firstOrNull()
@@ -143,7 +94,12 @@ class HabitWidgetProvider : AppWidgetProvider() {
                                 db.habitDao().insertLog(newLog)
                             }
                         }
-                        triggerUpdate(context)
+                        
+                        // Update widgets immediately and synchronously in the same coroutine!
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        val componentName = ComponentName(context, HabitWidgetProvider::class.java)
+                        val ids = appWidgetManager.getAppWidgetIds(componentName)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
@@ -162,15 +118,9 @@ class HabitWidgetProvider : AppWidgetProvider() {
                         val db = AppDatabase.getDatabase(context)
                         val habit = db.habitDao().getHabitByIdSuspend(habitId)
                         if (habit != null) {
-                            val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
                             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                             val todayStr = sdf.format(Date())
-                            val dateKey = "widget_date_$targetWidgetId"
-                            val selectedDate = if (targetWidgetId != -1) {
-                                prefs.getString(dateKey, todayStr) ?: todayStr
-                            } else {
-                                todayStr
-                            }
+                            val selectedDate = todayStr
                             
                             val logs = db.habitDao().getLogsForHabitOnDate(habitId, selectedDate)
                             val currentLog = logs.firstOrNull()
@@ -194,7 +144,12 @@ class HabitWidgetProvider : AppWidgetProvider() {
                                 db.habitDao().insertLog(newLog)
                             }
                         }
-                        triggerUpdate(context)
+                        
+                        // Update widgets immediately and synchronously in the same coroutine!
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        val componentName = ComponentName(context, HabitWidgetProvider::class.java)
+                        val ids = appWidgetManager.getAppWidgetIds(componentName)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
@@ -202,273 +157,283 @@ class HabitWidgetProvider : AppWidgetProvider() {
                     }
                 }
             }
-        }
-    }
+        } else if (action == ACTION_WIDGET_ITEM_CLICK) {
+            val itemAction = intent.getStringExtra("WIDGET_ACTION")
+            val habitId = intent.getIntExtra(EXTRA_HABIT_ID, -1)
+            val delta = intent.getFloatExtra(EXTRA_DELTA, 0f)
+            val targetWidgetId = if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) widgetId else -1
 
-    private fun updateAllWidgets(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val todayStr = sdf.format(Date())
-        val prefs = context.getSharedPreferences("widget_prefs", Context.MODE_PRIVATE)
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val db = AppDatabase.getDatabase(context)
-                val allHabits = db.habitDao().getAllHabitsRaw()
-
-                appWidgetIds.forEach { widgetId ->
-                    val dateKey = "widget_date_$widgetId"
-                    val selectedDate = prefs.getString(dateKey, todayStr) ?: todayStr
-                    val widgetLogs = db.habitDao().getLogsForDateRaw(selectedDate)
-                    val logsMap = widgetLogs.associateBy { it.habitId }
-
-                    val dateCal = Calendar.getInstance().apply {
-                        time = sdf.parse(selectedDate) ?: Date()
-                        set(Calendar.HOUR_OF_DAY, 23)
-                        set(Calendar.MINUTE, 59)
-                        set(Calendar.SECOND, 59)
-                        set(Calendar.MILLISECOND, 999)
-                    }
-                    val dateMs = dateCal.timeInMillis
-
-                    val activeHabits = allHabits
-                        .filter { it.startDate <= dateMs }
-                        .sortedBy { it.id }
-
-                    var completed = 0
-                    val total = activeHabits.size
-
-                    activeHabits.forEach { habit ->
-                        val log = logsMap[habit.id]
-                        val isCompleted = if (log != null) {
-                            when (log.value) {
-                                -1f -> false
-                                -2f -> true
-                                else -> {
-                                    if (habit.type == "BINARY") {
-                                        if (habit.isNegative) false else true
-                                    } else {
-                                        if (habit.isNegative) log.value < habit.targetValue else log.value >= habit.targetValue
-                                    }
-                                }
-                            }
-                        } else {
-                            habit.isNegative
-                        }
-
-                        if (isCompleted) {
-                            completed++
-                        }
-                    }
-
-                    val progressPercent = if (total > 0) (completed.toFloat() / total * 100).toInt() else 0
-
-                    val views = RemoteViews(context.packageName, R.layout.habit_widget)
-                    views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
-                    
-                    val displayDate = getDisplayDate(selectedDate)
-                    views.setTextViewText(R.id.widget_date_title, displayDate)
-
-                    val prevIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                        action = ACTION_PREV_DAY
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                    }
-                    val prevPending = PendingIntent.getBroadcast(
-                        context,
-                        widgetId * 100 + 1,
-                        prevIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_prev_day, prevPending)
-
-                    val nextIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                        action = ACTION_NEXT_DAY
-                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                    }
-                    val nextPending = PendingIntent.getBroadcast(
-                        context,
-                        widgetId * 100 + 2,
-                        nextIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_next_day, nextPending)
-
-                    val maxSlots = 3
-                    val slotsCount = activeHabits.size.coerceAtMost(maxSlots)
-                    
-                    val slotLayouts = intArrayOf(
-                        R.id.widget_habit_1_layout,
-                        R.id.widget_habit_2_layout,
-                        R.id.widget_habit_3_layout
-                    )
-                    val slotIcons = intArrayOf(
-                        R.id.widget_habit_1_icon,
-                        R.id.widget_habit_2_icon,
-                        R.id.widget_habit_3_icon
-                    )
-                    val slotNames = intArrayOf(
-                        R.id.widget_habit_1_name,
-                        R.id.widget_habit_2_name,
-                        R.id.widget_habit_3_name
-                    )
-                    val slotChecks = intArrayOf(
-                        R.id.widget_habit_1_check,
-                        R.id.widget_habit_2_check,
-                        R.id.widget_habit_3_check
-                    )
-                    val slotMinuses = intArrayOf(
-                        R.id.widget_habit_1_minus,
-                        R.id.widget_habit_2_minus,
-                        R.id.widget_habit_3_minus
-                    )
-                    val slotPluses = intArrayOf(
-                        R.id.widget_habit_1_plus,
-                        R.id.widget_habit_2_plus,
-                        R.id.widget_habit_3_plus
-                    )
-
-                    for (i in 0 until maxSlots) {
-                        if (i < slotsCount) {
-                            val habit = activeHabits[i]
-                            val log = logsMap[habit.id]
+            if (itemAction == "TOGGLE" && habitId != -1) {
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val db = AppDatabase.getDatabase(context)
+                        val habit = db.habitDao().getHabitByIdSuspend(habitId)
+                        if (habit != null) {
+                            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                            val todayStr = sdf.format(Date())
+                            val selectedDate = todayStr
                             
-                            val status = when {
-                                log == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
-                                log.value == -1f -> "FAILED"
-                                log.value == -2f -> "SUCCESS"
+                            val logs = db.habitDao().getLogsForHabitOnDate(habitId, selectedDate)
+                            val currentLog = logs.firstOrNull()
+                            
+                            val currentStatus = when {
+                                currentLog == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
+                                currentLog.value == -1f -> "FAILED"
+                                currentLog.value == -2f -> "SUCCESS"
                                 else -> {
                                     if (habit.type == "BINARY") {
                                         if (habit.isNegative) "FAILED" else "SUCCESS"
                                     } else {
                                         if (habit.isNegative) {
-                                            if (log.value >= habit.targetValue) "FAILED" else "PENDING"
+                                            if (currentLog.value >= habit.targetValue) "FAILED" else "PENDING"
                                         } else {
-                                            if (log.value >= habit.targetValue) "SUCCESS" else "PENDING"
+                                            if (currentLog.value >= habit.targetValue) "SUCCESS" else "PENDING"
                                         }
                                     }
                                 }
                             }
-
-                            views.setViewVisibility(slotLayouts[i], android.view.View.VISIBLE)
                             
-                            val bgRes = when (status) {
-                                "SUCCESS" -> R.drawable.widget_item_completed_bg
-                                "FAILED" -> R.drawable.widget_item_failed_bg
-                                else -> R.drawable.widget_item_normal_bg
+                            val nextStatus = when (currentStatus) {
+                                "PENDING" -> "SUCCESS"
+                                "SUCCESS" -> "FAILED"
+                                else -> "PENDING"
                             }
-                            views.setInt(slotLayouts[i], "setBackgroundResource", bgRes)
                             
-                            val habitColorInt = getColorInt(habit.color)
-                            val iconBitmap = drawIconToBitmap(context, habit.icon, habitColorInt)
-                            views.setImageViewBitmap(slotIcons[i], iconBitmap)
-                            views.setViewVisibility(slotIcons[i], android.view.View.VISIBLE)
+                            if (nextStatus == "PENDING") {
+                                db.habitDao().deleteLogsForHabitOnDate(habitId, selectedDate)
+                            } else {
+                                val nextValue = if (nextStatus == "SUCCESS") {
+                                    if (habit.type == "BINARY") -2f else habit.targetValue
+                                } else {
+                                    -1f
+                                }
+                                val newLog = com.example.data.HabitLog(
+                                    id = currentLog?.id ?: 0,
+                                    habitId = habitId,
+                                    date = selectedDate,
+                                    value = nextValue
+                                )
+                                db.habitDao().insertLog(newLog)
+                            }
+                        }
+                        
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        val componentName = ComponentName(context, HabitWidgetProvider::class.java)
+                        val ids = appWidgetManager.getAppWidgetIds(componentName)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
+            } else if (itemAction == "DELTA" && habitId != -1 && delta != 0f) {
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val db = AppDatabase.getDatabase(context)
+                        val habit = db.habitDao().getHabitByIdSuspend(habitId)
+                        if (habit != null) {
+                            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                            val todayStr = sdf.format(Date())
+                            val selectedDate = todayStr
                             
-                            val currentVal = when (log?.value) {
+                            val logs = db.habitDao().getLogsForHabitOnDate(habitId, selectedDate)
+                            val currentLog = logs.firstOrNull()
+                            val currentValue = when (currentLog?.value) {
                                 null -> 0f
                                 -1f -> 0f
                                 -2f -> habit.targetValue
-                                else -> log.value
+                                else -> currentLog.value
                             }
-
-                            val nameText = if (habit.type == "BINARY") {
-                                habit.name
+                            val newValue = (currentValue + delta).coerceAtLeast(0f)
+                            
+                            if (newValue <= 0f) {
+                                db.habitDao().deleteLogsForHabitOnDate(habitId, selectedDate)
                             } else {
-                                "${habit.name} (${currentVal.toInt()}/${habit.targetValue.toInt()} ${habit.unit})"
-                            }
-                            views.setTextViewText(slotNames[i], nameText)
-                            
-                            val checkIcon = when (status) {
-                                "SUCCESS" -> R.drawable.ic_widget_circle_checked
-                                "FAILED" -> R.drawable.ic_widget_failed_cross
-                                else -> R.drawable.ic_widget_circle_unchecked
-                            }
-                            views.setImageViewResource(slotChecks[i], checkIcon)
-                            views.setInt(slotChecks[i], "setColorFilter", habitColorInt)
-                            
-                            val toggleIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                                action = ACTION_TOGGLE_BINARY_HABIT
-                                putExtra(EXTRA_HABIT_ID, habit.id)
-                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                            }
-                            val pIntent = PendingIntent.getBroadcast(
-                                context,
-                                widgetId * 1000 + habit.id,
-                                toggleIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
-                            views.setOnClickPendingIntent(slotChecks[i], pIntent)
-                            
-                            if (habit.type == "NUMBER" || habit.type == "NUMERICAL") {
-                                views.setViewVisibility(slotMinuses[i], android.view.View.VISIBLE)
-                                views.setViewVisibility(slotPluses[i], android.view.View.VISIBLE)
-                                
-                                val minusIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                                    action = ACTION_WIDGET_ADD_VALUE_DIRECT
-                                    putExtra(EXTRA_HABIT_ID, habit.id)
-                                    putExtra(EXTRA_DELTA, -1f)
-                                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                                }
-                                val minusPIntent = PendingIntent.getBroadcast(
-                                    context,
-                                    widgetId * 2000 + habit.id,
-                                    minusIntent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                                val newLog = com.example.data.HabitLog(
+                                    id = currentLog?.id ?: 0,
+                                    habitId = habitId,
+                                    date = selectedDate,
+                                    value = newValue
                                 )
-                                views.setOnClickPendingIntent(slotMinuses[i], minusPIntent)
-
-                                val plusIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                                    action = ACTION_WIDGET_ADD_VALUE_DIRECT
-                                    putExtra(EXTRA_HABIT_ID, habit.id)
-                                    putExtra(EXTRA_DELTA, 1f)
-                                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                                }
-                                val plusPIntent = PendingIntent.getBroadcast(
-                                    context,
-                                    widgetId * 3000 + habit.id,
-                                    plusIntent,
-                                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                                )
-                                views.setOnClickPendingIntent(slotPluses[i], plusPIntent)
-                            } else {
-                                views.setViewVisibility(slotMinuses[i], android.view.View.GONE)
-                                views.setViewVisibility(slotPluses[i], android.view.View.GONE)
+                                db.habitDao().insertLog(newLog)
                             }
-
+                        }
+                        
+                        val appWidgetManager = AppWidgetManager.getInstance(context)
+                        val componentName = ComponentName(context, HabitWidgetProvider::class.java)
+                        val ids = appWidgetManager.getAppWidgetIds(componentName)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        pendingResult.finish()
+                    }
+                }
+            } else if (itemAction == "OPEN_APP" && habitId != -1) {
+                val db = AppDatabase.getDatabase(context)
+                val pendingResult = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val habit = db.habitDao().getHabitByIdSuspend(habitId)
+                        if (habit != null) {
                             val openAppIntent = Intent(context, MainActivity::class.java).apply {
                                 if (habit.type == "NUMBER" || habit.type == "NUMERICAL") {
-                                    action = ACTION_WIDGET_ADD_VALUE
-                                    putExtra(EXTRA_HABIT_ID, habit.id)
+                                    setAction(ACTION_WIDGET_ADD_VALUE)
+                                    putExtra(EXTRA_HABIT_ID, habitId)
                                 }
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                             }
-                            val openAppPendingIntent = PendingIntent.getActivity(
-                                context,
-                                widgetId * 4000 + habit.id,
-                                openAppIntent,
-                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                            )
-                            views.setOnClickPendingIntent(slotNames[i], openAppPendingIntent)
-                            views.setOnClickPendingIntent(slotLayouts[i], openAppPendingIntent)
-                        } else {
-                            views.setViewVisibility(slotLayouts[i], android.view.View.GONE)
+                            context.startActivity(openAppIntent)
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        pendingResult.finish()
                     }
-                    
-                    val openAppInt = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    }
-                    val pendingInt = PendingIntent.getActivity(
-                        context,
-                        widgetId * 5000,
-                        openAppInt,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_progress_bar, pendingInt)
-                    
-                    appWidgetManager.updateAppWidget(widgetId, views)
                 }
+            }
+        } else {
+            super.onReceive(context, intent)
+        }
+    }
+
+    private fun updateAllWidgets(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        pendingResult: BroadcastReceiver.PendingResult? = null,
+        isFullUpdate: Boolean = true
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds, isFullUpdate)
             } catch (e: Exception) {
                 e.printStackTrace()
+            } finally {
+                pendingResult?.finish()
             }
+        }
+    }
+
+    private suspend fun updateAllWidgetsSuspend(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray,
+        isFullUpdate: Boolean = true
+    ) {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val todayStr = sdf.format(Date())
+        val db = AppDatabase.getDatabase(context)
+        val allHabits = db.habitDao().getAllHabitsRaw()
+
+        appWidgetIds.forEach { widgetId ->
+            val selectedDate = todayStr
+            val widgetLogs = db.habitDao().getLogsForDateRaw(selectedDate)
+            val logsMap = widgetLogs.associateBy { it.habitId }
+
+            val dateCal = Calendar.getInstance().apply {
+                time = sdf.parse(selectedDate) ?: Date()
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }
+            val dateMs = dateCal.timeInMillis
+
+            val activeHabits = allHabits
+                .filter { !it.isArchived && com.example.data.isHabitActiveOnDate(it, todayStr) }
+                .sortedWith(compareBy<com.example.data.Habit> { it.sortOrder }.thenByDescending { it.id })
+
+            var completed = 0
+            var nonPausedCount = 0
+
+            activeHabits.forEach { habit ->
+                val log = logsMap[habit.id]
+                val isPaused = log != null && log.isPaused
+                if (!isPaused) {
+                    nonPausedCount++
+                    if (com.example.data.isLogCompleted(habit, log)) {
+                        completed++
+                    }
+                }
+            }
+
+            val progressPercent = if (nonPausedCount > 0) (completed.toFloat() / nonPausedCount * 100).toInt() else 0
+
+            if (isFullUpdate) {
+                val views = RemoteViews(context.packageName, R.layout.habit_widget)
+                
+                views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
+                val progressColor = if (progressPercent >= 100 && nonPausedCount > 0) {
+                    0xFF10B981.toInt() // Green
+                } else {
+                    0xFF7356FF.toInt() // PrimaryViolet
+                }
+                views.setColorStateList(R.id.widget_progress_bar, "setProgressTintList", android.content.res.ColorStateList.valueOf(progressColor))
+
+                val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
+                views.setTextViewText(R.id.widget_progress_text, progressTextVal)
+
+                val displayDate = getDisplayDate(selectedDate)
+                views.setTextViewText(R.id.widget_date_title, displayDate)
+
+                // Set up RemoteViewsService for the ListView
+                val serviceIntent = Intent(context, HabitWidgetService::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                }
+                views.setRemoteAdapter(R.id.widget_habits_list, serviceIntent)
+
+                // Set up PendingIntent Template for ListView item clicks
+                val clickIntent = Intent(context, HabitWidgetProvider::class.java).apply {
+                    action = ACTION_WIDGET_ITEM_CLICK
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                }
+                val clickPIntent = PendingIntent.getBroadcast(
+                    context,
+                    widgetId * 1000 + 5,
+                    clickIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                views.setPendingIntentTemplate(R.id.widget_habits_list, clickPIntent)
+
+                val openAppInt = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val pendingInt = PendingIntent.getActivity(
+                    context,
+                    widgetId * 5000,
+                    openAppInt,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_date_title, pendingInt)
+                views.setOnClickPendingIntent(R.id.widget_progress_container, pendingInt)
+                
+                appWidgetManager.updateAppWidget(widgetId, views)
+            } else {
+                val partialViews = RemoteViews(context.packageName, R.layout.habit_widget)
+                
+                partialViews.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
+                val progressColor = if (progressPercent >= 100 && nonPausedCount > 0) {
+                    0xFF10B981.toInt() // Green
+                } else {
+                    0xFF7356FF.toInt() // PrimaryViolet
+                }
+                partialViews.setColorStateList(R.id.widget_progress_bar, "setProgressTintList", android.content.res.ColorStateList.valueOf(progressColor))
+
+                val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
+                partialViews.setTextViewText(R.id.widget_progress_text, progressTextVal)
+
+                val displayDate = getDisplayDate(selectedDate)
+                partialViews.setTextViewText(R.id.widget_date_title, displayDate)
+
+                appWidgetManager.partiallyUpdateAppWidget(widgetId, partialViews)
+            }
+            
+            appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_habits_list)
         }
     }
 
@@ -480,7 +445,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
             try {
                 val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr)
                 if (date != null) {
-                    SimpleDateFormat("d.M", Locale.GERMAN).format(date)
+                    SimpleDateFormat("dd.MM", Locale.GERMAN).format(date)
                 } else {
                     dateStr
                 }
@@ -505,7 +470,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun drawIconToBitmap(context: Context, iconName: String, colorInt: Int): Bitmap {
+    fun drawIconToBitmap(context: Context, iconName: String, colorInt: Int): Bitmap {
         val size = 48
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -781,9 +746,8 @@ class HabitWidgetProvider : AppWidgetProvider() {
         const val ACTION_UPDATE_HABITS = "com.example.widget.ACTION_UPDATE_HABITS"
         const val ACTION_TOGGLE_BINARY_HABIT = "com.example.widget.ACTION_TOGGLE_BINARY_HABIT"
         const val ACTION_WIDGET_ADD_VALUE = "com.example.widget.ACTION_WIDGET_ADD_VALUE"
-        const val ACTION_PREV_DAY = "com.example.widget.ACTION_PREV_DAY"
-        const val ACTION_NEXT_DAY = "com.example.widget.ACTION_NEXT_DAY"
         const val ACTION_WIDGET_ADD_VALUE_DIRECT = "com.example.widget.ACTION_WIDGET_ADD_VALUE_DIRECT"
+        const val ACTION_WIDGET_ITEM_CLICK = "com.example.widget.ACTION_WIDGET_ITEM_CLICK"
         const val EXTRA_HABIT_ID = "com.example.widget.EXTRA_HABIT_ID"
         const val EXTRA_DELTA = "com.example.widget.EXTRA_DELTA"
 

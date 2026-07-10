@@ -18,9 +18,10 @@ object BackupManager {
         val db = AppDatabase.getDatabase(context)
         val habits = db.habitDao().getAllHabitsRaw()
         val logs = db.habitDao().getAllLogsRaw()
+        val notes = db.habitDao().getAllDailyNotesRaw()
 
         val rootJson = JSONObject()
-        rootJson.put("version", 1)
+        rootJson.put("version", 2)
 
         val habitsArray = JSONArray()
         for (habit in habits) {
@@ -37,6 +38,10 @@ object BackupManager {
                 put("frequency", habit.frequency)
                 put("startDate", habit.startDate)
                 put("createdAt", habit.createdAt)
+                put("sortOrder", habit.sortOrder)
+                put("reminderEnabled", habit.reminderEnabled)
+                put("reminderHour", habit.reminderHour)
+                put("reminderMinute", habit.reminderMinute)
             }
             habitsArray.put(hJson)
         }
@@ -50,10 +55,21 @@ object BackupManager {
                 put("date", log.date)
                 put("value", log.value.toDouble())
                 put("timestamp", log.timestamp)
+                put("isPaused", log.isPaused)
             }
             logsArray.put(lJson)
         }
         rootJson.put("logs", logsArray)
+
+        val notesArray = JSONArray()
+        for (note in notes) {
+            val nJson = JSONObject().apply {
+                put("date", note.date)
+                put("content", note.content)
+            }
+            notesArray.put(nJson)
+        }
+        rootJson.put("dailyNotes", notesArray)
 
         rootJson.toString(2)
     }
@@ -63,12 +79,14 @@ object BackupManager {
             val rootJson = JSONObject(jsonString)
             val habitsArray = rootJson.getJSONArray("habits")
             val logsArray = rootJson.getJSONArray("logs")
+            val notesArray = rootJson.optJSONArray("dailyNotes")
 
             val db = AppDatabase.getDatabase(context)
             
             // Perform restore sequentially
             db.habitDao().clearAllLogs()
             db.habitDao().clearAllHabits()
+            db.habitDao().clearAllDailyNotes()
 
             for (i in 0 until habitsArray.length()) {
                 val hJson = habitsArray.getJSONObject(i)
@@ -84,7 +102,11 @@ object BackupManager {
                     targetValue = hJson.optDouble("targetValue", 1.0).toFloat(),
                     frequency = hJson.optString("frequency", "DAILY"),
                     startDate = hJson.optLong("startDate", System.currentTimeMillis()),
-                    createdAt = hJson.optLong("createdAt", System.currentTimeMillis())
+                    createdAt = hJson.optLong("createdAt", System.currentTimeMillis()),
+                    sortOrder = hJson.optInt("sortOrder", 0),
+                    reminderEnabled = hJson.optBoolean("reminderEnabled", false),
+                    reminderHour = hJson.optInt("reminderHour", 18),
+                    reminderMinute = hJson.optInt("reminderMinute", 0)
                 )
                 db.habitDao().insertHabit(habit)
             }
@@ -96,9 +118,21 @@ object BackupManager {
                     habitId = lJson.getInt("habitId"),
                     date = lJson.getString("date"),
                     value = lJson.optDouble("value", 1.0).toFloat(),
-                    timestamp = lJson.optLong("timestamp", System.currentTimeMillis())
+                    timestamp = lJson.optLong("timestamp", System.currentTimeMillis()),
+                    isPaused = lJson.optBoolean("isPaused", false)
                 )
                 db.habitDao().insertLog(log)
+            }
+
+            if (notesArray != null) {
+                for (i in 0 until notesArray.length()) {
+                    val nJson = notesArray.getJSONObject(i)
+                    val note = DailyNote(
+                        date = nJson.getString("date"),
+                        content = nJson.getString("content")
+                    )
+                    db.habitDao().insertDailyNote(note)
+                }
             }
             true
         } catch (e: Exception) {

@@ -45,6 +45,10 @@
             android:name=".HabitReminderReceiver"
             android:exported="false" />
 
+        <service
+            android:name=".HabitWidgetService"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
     </application>
 
 </manifest>

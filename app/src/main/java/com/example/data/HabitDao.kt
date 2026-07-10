@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HabitDao {
 
-    @Query("SELECT * FROM habits ORDER BY id DESC")
+    @Query("SELECT * FROM habits ORDER BY sortOrder ASC, id DESC")
     fun getAllHabits(): Flow<List<Habit>>
 
     @Query("SELECT * FROM habits")
@@ -62,4 +62,25 @@ interface HabitDao {
 
     @Query("DELETE FROM habits")
     suspend fun clearAllHabits()
+
+    @Query("SELECT * FROM daily_notes WHERE date = :date LIMIT 1")
+    fun getDailyNote(date: String): Flow<DailyNote?>
+
+    @Query("SELECT * FROM daily_notes WHERE date = :date LIMIT 1")
+    suspend fun getDailyNoteRaw(date: String): DailyNote?
+
+    @Query("SELECT * FROM daily_notes")
+    fun getAllDailyNotes(): Flow<List<DailyNote>>
+
+    @Query("SELECT * FROM daily_notes")
+    suspend fun getAllDailyNotesRaw(): List<DailyNote>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDailyNote(note: DailyNote)
+
+    @Delete
+    suspend fun deleteDailyNote(note: DailyNote)
+
+    @Query("DELETE FROM daily_notes")
+    suspend fun clearAllDailyNotes()
 }

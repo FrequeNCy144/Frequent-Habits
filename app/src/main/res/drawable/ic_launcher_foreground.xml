@@ -4,27 +4,41 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Outer Glow / Background Highlight -->
-    <path
-        android:pathData="M 54 24 C 70.57 24 84 37.43 84 54 C 84 70.57 70.57 84 54 84 C 37.43 84 24 70.57 24 54 C 24 37.43 37.43 24 54 24 Z"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeColor="#307356FF" />
 
-    <!-- Sleek Glow Ring representing continuous habits -->
+    <!-- Outer Violet Wave Glow -->
     <path
-        android:pathData="M 54 28 C 68.36 28 80 39.64 80 54 C 80 68.36 68.36 80 54 80 C 39.64 80 28 68.36 28 54 C 28 39.64 39.64 28 54 28 Z"
-        android:strokeWidth="4"
+        android:pathData="M 20,54 C 28,34 34,34 40,54 C 46,74 52,74 58,54 C 64,24 70,24 76,54 C 82,68 84,68 88,54"
+        android:strokeWidth="8"
         android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeColor="#257356FF" />
+
+    <!-- Inner Cyan Wave Glow -->
+    <path
+        android:pathData="M 20,54 C 28,42 34,42 40,54 C 46,66 52,66 58,54 C 64,34 70,34 76,54 C 82,62 84,62 88,54"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeColor="#2500E5FF" />
+
+    <!-- Main Outer Violet Wave -->
+    <path
+        android:pathData="M 20,54 C 28,34 34,34 40,54 C 46,74 52,74 58,54 C 64,24 70,24 76,54 C 82,68 84,68 88,54"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
         android:strokeColor="#7356FF" />
 
-    <!-- Sparkle/Success symbol indicating completion inside the ring -->
+    <!-- Main Inner Cyan Wave -->
     <path
-        android:pathData="M54,42 C54,49.5 54,49.5 61.5,49.5 C54,49.5 54,49.5 54,57 C54,49.5 54,49.5 46.5,49.5 C54,49.5 54,49.5 54,42 Z"
-        android:fillColor="#9481FF" />
-        
-    <!-- A smaller success sparkle at the top right representing growth -->
+        android:pathData="M 20,54 C 28,42 34,42 40,54 C 46,66 52,66 58,54 C 64,34 70,34 76,54 C 82,62 84,62 88,54"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeColor="#00E5FF" />
+
+    <!-- Center active indicator pulse -->
     <path
-        android:pathData="M70,34 C70,38 70,38 74,38 C70,38 70,38 70,42 C70,38 70,38 66,38 C70,38 70,38 70,34 Z"
-        android:fillColor="#10B981" />
+        android:pathData="M54,52 C55.1,52 56,52.9 56,54 C56,55.1 55.1,56 54,56 C52.9,56 52,55.1 52,54 C52,52.9 52.9,52 54,52 Z"
+        android:fillColor="#00E5FF" />
 </vector>

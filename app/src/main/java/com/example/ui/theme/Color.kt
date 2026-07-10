@@ -19,6 +19,7 @@ val SuccessBg = Color(0xFF0F2B22)
 val ErrorRed = Color(0xFFEF4444)
 val FailedRed = Color(0xFFEF4444)
 val FailedBg = Color(0xFF2C1118)
+val PausedBg = Color(0xFF2E1A10)
 
 // Habit customized dot colors
 val HabitBlue = Color(0xFF3B82F6)
