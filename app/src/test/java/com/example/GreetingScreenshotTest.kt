@@ -26,7 +26,7 @@ class GreetingScreenshotTest {
       MyApplicationTheme {
         CalendarDayCell(
           dayNum = "15",
-          isCompleted = true,
+          status = "SUCCESS",
           habitColor = Color(0xFF8B5CF6) // Purple color
         )
       }

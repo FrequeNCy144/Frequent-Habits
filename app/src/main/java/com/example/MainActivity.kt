@@ -75,6 +75,8 @@ import com.example.data.HabitDetailUiState
 import com.example.data.isHabitActiveOnDate
 import com.example.data.isLogCompleted
 import com.example.data.getLogStatus
+import com.example.data.CalendarGridCellData
+import com.example.data.HabitUiItem
 import com.example.ui.HabitIconMapping
 import com.example.ui.HabitsViewModel
 import com.example.ui.theme.*
@@ -107,35 +109,17 @@ fun MainAppScreen() {
     var selectedTab by remember { mutableStateOf("TODAY") }
     val navController = rememberNavController()
     val language by viewModel.language.collectAsStateWithLifecycle()
-    val habitLogsByHabitId by viewModel.habitLogsByHabitId.collectAsStateWithLifecycle()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
 
-    var widgetAddValueHabitId by remember { mutableStateOf<Int?>(null) }
     var editingHabit by remember { mutableStateOf<Habit?>(null) }
-    var longPressedHabit by remember { mutableStateOf<Habit?>(null) }
-    var showDeleteConfirmHabit by remember { mutableStateOf<Habit?>(null) }
-    var showArchiveConfirmHabit by remember { mutableStateOf<Habit?>(null) }
 
     // Keep tab selected state in synchronization if user navigates
     LaunchedEffect(currentRoute) {
         if (currentRoute != null && !currentRoute.startsWith("DETAIL") && selectedTab != currentRoute) {
             selectedTab = currentRoute
-        }
-    }
-
-    // Intercept intent from Widget for numerical habit logging
-    LaunchedEffect(activity?.intent) {
-        val intent = activity?.intent
-        if (intent?.action == "com.example.widget.ACTION_WIDGET_ADD_VALUE") {
-            val habitId = intent.getIntExtra("com.example.widget.EXTRA_HABIT_ID", -1)
-            if (habitId != -1) {
-                widgetAddValueHabitId = habitId
-                // Reset action so it doesn't trigger again on configuration change
-                intent.action = null
-            }
         }
     }
 
@@ -205,8 +189,11 @@ fun MainAppScreen() {
                         viewModel = viewModel,
                         language = language,
                         onAddClick = onAddClick,
-                        onHabitLongClick = { habit ->
-                            longPressedHabit = habit
+                        onEditHabit = { habit ->
+                            editingHabit = habit
+                            navController.navigate("CREATE") {
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }
@@ -365,291 +352,6 @@ fun MainAppScreen() {
                                 )
                             )
                         )
-                )
-            }
-
-            if (longPressedHabit != null) {
-                val habit = longPressedHabit!!
-                val isPausedOnSelectedDate = habitLogsByHabitId[habit.id]?.isPaused == true
-
-                AlertDialog(
-                    onDismissRequest = { longPressedHabit = null },
-                    containerColor = DarkCard,
-                    title = {
-                        Text(
-                            text = habit.name,
-                            color = TextPrimary,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    },
-                    text = {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = if (language == "de") {
-                                    "Wähle eine Aktion für diese Gewohnheit:"
-                                } else {
-                                    "Choose an action for this habit:"
-                                },
-                                color = TextSecondary,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-
-                            // Pausieren / Fortsetzen Action
-                            Button(
-                                onClick = {
-                                    viewModel.togglePauseHabit(habit.id)
-                                    longPressedHabit = null
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isPausedOnSelectedDate) SuccessGreen else HabitOrange,
-                                    contentColor = DarkBg
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = if (isPausedOnSelectedDate) Icons.Default.PlayArrow else Icons.Default.Pause,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isPausedOnSelectedDate) {
-                                        if (language == "de") "Pausierung beenden" else "Resume Habit"
-                                    } else {
-                                        if (language == "de") "Heute pausieren" else "Pause today"
-                                    },
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-
-                            // Bearbeiten Action
-                            Button(
-                                onClick = {
-                                    val habitToEdit = habit
-                                    longPressedHabit = null
-                                    editingHabit = habitToEdit
-                                    navController.navigate("CREATE") {
-                                        launchSingleTop = true
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = PrimaryViolet,
-                                    contentColor = TextPrimary
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (language == "de") "Bearbeiten" else "Edit",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-
-                            // Reorder Actions
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        viewModel.moveHabitUp(habit.id)
-                                        longPressedHabit = null
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = DarkBorder,
-                                        contentColor = TextPrimary
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.weight(1f).height(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowUpward,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (language == "de") "Nach oben" else "Move Up",
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-
-                                Button(
-                                    onClick = {
-                                        viewModel.moveHabitDown(habit.id)
-                                        longPressedHabit = null
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = DarkBorder,
-                                        contentColor = TextPrimary
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.weight(1f).height(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowDownward,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (language == "de") "Nach unten" else "Move Down",
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-
-                            // Archivieren Action
-                            Button(
-                                onClick = {
-                                    val habitToArchive = habit
-                                    longPressedHabit = null
-                                    showArchiveConfirmHabit = habitToArchive
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = HabitOrange,
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Inbox,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (language == "de") "Archivieren" else "Archive",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-
-                            // Löschen Action
-                            OutlinedButton(
-                                onClick = {
-                                    val habitToDelete = habit
-                                    longPressedHabit = null
-                                    showDeleteConfirmHabit = habitToDelete
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = ErrorRed
-                                ),
-                                border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (language == "de") "Unwiderruflich löschen" else "Delete permanently",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {},
-                    dismissButton = {
-                        TextButton(
-                            onClick = { longPressedHabit = null }
-                        ) {
-                            Text(
-                                text = if (language == "de") "Abbrechen" else "Cancel",
-                                color = TextSecondary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                )
-            }
-
-            if (showDeleteConfirmHabit != null) {
-                AlertDialog(
-                    onDismissRequest = { showDeleteConfirmHabit = null },
-                    containerColor = DarkCard,
-                    title = { Text(text = if (language == "de") "Habit löschen?" else "Delete Habit?") },
-                    text = { Text(text = if (language == "de") "Möchtest du diese Gewohnheit wirklich unwiderruflich löschen?" else "Are you sure you want to delete this habit permanently?") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                val habit = showDeleteConfirmHabit!!
-                                viewModel.deleteHabit(habit)
-                                showDeleteConfirmHabit = null
-                                Toast.makeText(
-                                    context,
-                                    if (language == "de") "Gewohnheit gelöscht" else "Habit deleted",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        ) {
-                            Text(if (language == "de") "Löschen" else "Delete", color = ErrorRed)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDeleteConfirmHabit = null }) {
-                            Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
-                        }
-                    }
-                )
-            }
-
-            if (showArchiveConfirmHabit != null) {
-                AlertDialog(
-                    onDismissRequest = { showArchiveConfirmHabit = null },
-                    containerColor = DarkCard,
-                    title = { Text(text = if (language == "de") "Gewohnheit archivieren?" else "Archive Habit?") },
-                    text = { Text(text = if (language == "de") "Möchtest du diese Gewohnheit archivieren? Sie wird vom Dashboard und den Statistiken ausgeblendet, kann aber in den Einstellungen jederzeit wieder reaktiviert werden." else "Do you want to archive this habit? It will be hidden from the dashboard and stats, but can be reactivated at any time in settings.") },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                val habit = showArchiveConfirmHabit!!
-                                viewModel.archiveHabit(habit)
-                                showArchiveConfirmHabit = null
-                                Toast.makeText(
-                                    context,
-                                    if (language == "de") "Gewohnheit archiviert" else "Habit archived",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        ) {
-                            Text(if (language == "de") "Archivieren" else "Archive", color = HabitOrange)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showArchiveConfirmHabit = null }) {
-                            Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
-                        }
-                    }
-                )
-            }
-
-            if (widgetAddValueHabitId != null) {
-                WidgetAddValueDialog(
-                    habitId = widgetAddValueHabitId!!,
-                    viewModel = viewModel,
-                    language = language,
-                    onDismiss = { widgetAddValueHabitId = null }
                 )
             }
         }
@@ -982,17 +684,35 @@ fun TodayScreen(
     viewModel: HabitsViewModel,
     language: String,
     onAddClick: () -> Unit,
-    onHabitLongClick: (Habit) -> Unit
+    onEditHabit: (Habit) -> Unit
 ) {
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val weekStartCalendar by viewModel.currentWeekStart.collectAsStateWithLifecycle()
     val todayProgressTuple by viewModel.todayProgress.collectAsStateWithLifecycle()
 
-    val activeHabitsForSelectedDate by viewModel.activeHabitsForSelectedDate.collectAsStateWithLifecycle()
-    val habitLogsByHabitId by viewModel.habitLogsByHabitId.collectAsStateWithLifecycle()
-    
+    val activeHabitUiItemsForSelectedDate by viewModel.activeHabitUiItemsForSelectedDate.collectAsStateWithLifecycle()
     val allHabits by viewModel.allHabits.collectAsStateWithLifecycle()
-    val allLogs by viewModel.allLogs.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val activity = context as? Activity
+
+    var widgetAddValueHabitId by remember { mutableStateOf<Int?>(null) }
+    var longPressedHabit by remember { mutableStateOf<Habit?>(null) }
+    var showDeleteConfirmHabit by remember { mutableStateOf<Habit?>(null) }
+    var showArchiveConfirmHabit by remember { mutableStateOf<Habit?>(null) }
+
+    // Intercept intent from Widget for numerical habit logging
+    LaunchedEffect(activity?.intent) {
+        val intent = activity?.intent
+        if (intent?.action == "com.example.widget.ACTION_WIDGET_ADD_VALUE") {
+            val habitId = intent.getIntExtra("com.example.widget.EXTRA_HABIT_ID", -1)
+            if (habitId != -1) {
+                widgetAddValueHabitId = habitId
+                // Reset action so it doesn't trigger again on configuration change
+                intent.action = null
+            }
+        }
+    }
 
     val oldestHabitDateMs = remember(allHabits) {
         allHabits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
@@ -1253,7 +973,7 @@ fun TodayScreen(
             }
         }
 
-        if (activeHabitsForSelectedDate.isEmpty()) {
+        if (activeHabitUiItemsForSelectedDate.isEmpty()) {
             item(key = "today_habits_empty") {
                 Box(
                     modifier = Modifier
@@ -1293,43 +1013,17 @@ fun TodayScreen(
                 }
             }
         } else {
-            items(activeHabitsForSelectedDate, key = { it.id }) { habit ->
-                val log = habitLogsByHabitId[habit.id]
-                val currentProgressValue = log?.value ?: 0f
-                val hasLog = log != null
-                val isPaused = log?.isPaused == true
-                
-                val status = when {
-                    isPaused -> "PAUSED"
-                    log == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
-                    log.value == -1f -> "FAILED"
-                    log.value == -2f -> "SUCCESS"
-                    else -> {
-                        if (habit.type == "BINARY") {
-                            if (habit.isNegative) "FAILED" else "SUCCESS"
-                        } else {
-                            if (habit.isNegative) {
-                                if (log.value >= habit.targetValue) "FAILED" else "PENDING"
-                            } else {
-                                if (log.value >= habit.targetValue) "SUCCESS" else "PENDING"
-                            }
-                        }
-                    }
-                }
-                
-                val isCompleted = status == "SUCCESS"
-                val isFailed = status == "FAILED"
-
+            items(activeHabitUiItemsForSelectedDate, key = { it.habit.id }) { uiItem ->
                 HabitItemRow(
-                    habit = habit,
-                    currentValue = currentProgressValue,
-                    isCompleted = isCompleted,
-                    isFailed = isFailed,
-                    isPaused = isPaused,
-                    hasLog = hasLog,
+                    habit = uiItem.habit,
+                    currentValue = uiItem.currentValue,
+                    isCompleted = uiItem.isCompleted,
+                    isFailed = uiItem.isFailed,
+                    isPaused = uiItem.isPaused,
+                    hasLog = uiItem.hasLog,
                     onToggle = onToggleRemembered,
                     onAddQuantity = onAddQuantityRemembered,
-                    onLongClick = onHabitLongClick,
+                    onLongClick = { habit -> longPressedHabit = habit },
                     language = language
                 )
             }
@@ -1515,6 +1209,288 @@ fun TodayScreen(
                 modifier = Modifier.size(24.dp)
             )
         }
+    }
+
+    if (longPressedHabit != null) {
+        val habit = longPressedHabit!!
+        val isPausedOnSelectedDate = activeHabitUiItemsForSelectedDate.find { it.habit.id == habit.id }?.isPaused == true
+
+        AlertDialog(
+            onDismissRequest = { longPressedHabit = null },
+            containerColor = DarkCard,
+            title = {
+                Text(
+                    text = habit.name,
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (language == "de") {
+                            "Wähle eine Aktion für diese Gewohnheit:"
+                        } else {
+                            "Choose an action for this habit:"
+                        },
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    // Pausieren / Fortsetzen Action
+                    Button(
+                        onClick = {
+                            viewModel.togglePauseHabit(habit.id)
+                            longPressedHabit = null
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isPausedOnSelectedDate) SuccessGreen else HabitOrange,
+                            contentColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isPausedOnSelectedDate) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isPausedOnSelectedDate) {
+                                if (language == "de") "Pausierung beenden" else "Resume Habit"
+                            } else {
+                                if (language == "de") "Heute pausieren" else "Pause today"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+
+                    // Bearbeiten Action
+                    Button(
+                        onClick = {
+                            val habitToEdit = habit
+                            longPressedHabit = null
+                            onEditHabit(habitToEdit)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryViolet,
+                            contentColor = TextPrimary
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == "de") "Bearbeiten" else "Edit",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+
+                    // Reorder Actions
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.moveHabitUp(habit.id)
+                                longPressedHabit = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DarkBorder,
+                                contentColor = TextPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f).height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowUpward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (language == "de") "Nach oben" else "Move Up",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                viewModel.moveHabitDown(habit.id)
+                                longPressedHabit = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DarkBorder,
+                                contentColor = TextPrimary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f).height(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowDownward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (language == "de") "Nach unten" else "Move Down",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+
+                    // Archivieren Action
+                    Button(
+                        onClick = {
+                            val habitToArchive = habit
+                            longPressedHabit = null
+                            showArchiveConfirmHabit = habitToArchive
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = HabitOrange,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Inbox,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == "de") "Archivieren" else "Archive",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+
+                    // Löschen Action
+                    OutlinedButton(
+                        onClick = {
+                            val habitToDelete = habit
+                            longPressedHabit = null
+                            showDeleteConfirmHabit = habitToDelete
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = ErrorRed
+                        ),
+                        border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == "de") "Unwiderruflich löschen" else "Delete permanently",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { longPressedHabit = null }
+                ) {
+                    Text(
+                        text = if (language == "de") "Abbrechen" else "Cancel",
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirmHabit != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmHabit = null },
+            containerColor = DarkCard,
+            title = { Text(text = if (language == "de") "Habit löschen?" else "Delete Habit?") },
+            text = { Text(text = if (language == "de") "Möchtest du diese Gewohnheit wirklich unwiderruflich löschen?" else "Are you sure you want to delete this habit permanently?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val habit = showDeleteConfirmHabit!!
+                        viewModel.deleteHabit(habit)
+                        showDeleteConfirmHabit = null
+                        Toast.makeText(
+                            context,
+                            if (language == "de") "Gewohnheit gelöscht" else "Habit deleted",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                ) {
+                    Text(if (language == "de") "Löschen" else "Delete", color = ErrorRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmHabit = null }) {
+                    Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    if (showArchiveConfirmHabit != null) {
+        AlertDialog(
+            onDismissRequest = { showArchiveConfirmHabit = null },
+            containerColor = DarkCard,
+            title = { Text(text = if (language == "de") "Gewohnheit archivieren?" else "Archive Habit?") },
+            text = { Text(text = if (language == "de") "Möchtest du diese Gewohnheit archivieren? Sie wird vom Dashboard und den Statistiken ausgeblendet, kann aber in den Einstellungen jederzeit wieder reaktiviert werden." else "Do you want to archive this habit? It will be hidden from the dashboard and stats, but can be reactivated at any time in settings.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val habit = showArchiveConfirmHabit!!
+                        viewModel.archiveHabit(habit)
+                        showArchiveConfirmHabit = null
+                        Toast.makeText(
+                            context,
+                            if (language == "de") "Gewohnheit archiviert" else "Habit archived",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                ) {
+                    Text(if (language == "de") "Archivieren" else "Archive", color = HabitOrange)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showArchiveConfirmHabit = null }) {
+                    Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    if (widgetAddValueHabitId != null) {
+        WidgetAddValueDialog(
+            habitId = widgetAddValueHabitId!!,
+            viewModel = viewModel,
+            language = language,
+            onDismiss = { widgetAddValueHabitId = null }
+        )
     }
 }
 
@@ -2541,6 +2517,7 @@ fun OverallStatsScreen(
     val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     val allHabits by viewModel.allHabits.collectAsStateWithLifecycle()
     val allLogs by viewModel.allLogs.collectAsStateWithLifecycle()
+    val overallCalData by viewModel.overallCalendarData.collectAsStateWithLifecycle()
 
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -2819,42 +2796,64 @@ fun OverallStatsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Grid Days
-                        val sdfDb = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
-                        val temp = monthViewCalendar.clone() as Calendar
-                        temp.set(Calendar.DAY_OF_MONTH, 1)
-                        val daysInMonth = temp.getActualMaximum(Calendar.DAY_OF_MONTH)
-                        val firstDayOfWeek = temp.get(Calendar.DAY_OF_WEEK)
-                        val leadEmptyDays = (firstDayOfWeek - Calendar.MONDAY + 7) % 7
-                        val totalGridCells = leadEmptyDays + daysInMonth
-
-                        val rows = (totalGridCells + 6) / 7
-                        for (r in 0 until rows) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
+                        val gridData = remember(monthViewCalendar, overallCalData) {
+                            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                            val today = sdf.format(Date())
+                            val temp = monthViewCalendar.clone() as Calendar
+                            temp.set(Calendar.DAY_OF_MONTH, 1)
+                            val daysInMonth = temp.getActualMaximum(Calendar.DAY_OF_MONTH)
+                            val firstDayOfWeek = temp.get(Calendar.DAY_OF_WEEK)
+                            val leadEmptyDays = (firstDayOfWeek - Calendar.MONDAY + 7) % 7
+                            val totalGridCells = leadEmptyDays + daysInMonth
+                            val rowsCount = (totalGridCells + 6) / 7
+                            
+                            val list = mutableListOf<List<CalendarGridCellData?>>()
+                            for (r in 0 until rowsCount) {
+                                val rowList = mutableListOf<CalendarGridCellData?>()
                                 for (c in 0 until 7) {
                                     val cellIndex = r * 7 + c
                                     if (cellIndex < leadEmptyDays || cellIndex >= totalGridCells) {
-                                        Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                        rowList.add(null)
                                     } else {
                                         val day = cellIndex - leadEmptyDays + 1
                                         val dayCal = (monthViewCalendar.clone() as Calendar).apply {
                                             set(Calendar.DAY_OF_MONTH, day)
                                         }
-                                        val dateStr = sdfDb.format(dayCal.time)
-                                        val (completed, total) = getHabitProgressForDate(dateStr, allHabits, allLogs)
+                                        val dateStr = sdf.format(dayCal.time)
+                                        val progress = overallCalData.progressMap[dateStr] ?: (0 to 0)
+                                        val combinedStatus = overallCalData.statusMap[dateStr] ?: "INACTIVE"
+                                        rowList.add(
+                                            CalendarGridCellData(
+                                                day = day,
+                                                dateStr = dateStr,
+                                                combinedStatus = combinedStatus,
+                                                isToday = dateStr == today,
+                                                isFuture = dateStr > today,
+                                                total = progress.second,
+                                                completed = progress.first
+                                            )
+                                        )
+                                    }
+                                }
+                                list.add(rowList)
+                            }
+                            list
+                        }
 
-                                        val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
-                                        val isToday = dateStr == todayStr
-                                        val isFuture = dateStr > todayStr
-
-                                        val combinedStatus = if (isFuture) "INACTIVE" else getDayCombinedStatus(dateStr, allHabits, allLogs)
-                                        val bgColor = when (combinedStatus) {
+                        gridData.forEach { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                row.forEach { cell ->
+                                    if (cell == null) {
+                                        Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                    } else {
+                                        val bgColor = when (cell.combinedStatus) {
                                             "SUCCESS" -> SuccessGreen
                                             "FAILED" -> ErrorRed
                                             "PENDING" -> HabitYellow
-                                            "PAUSED" -> PrimaryViolet.copy(alpha = 0.15f)
+                                            "PAUSED" -> HabitOrange
                                             else -> PrimaryViolet.copy(alpha = 0.15f)
                                         }
 
@@ -2865,22 +2864,22 @@ fun OverallStatsScreen(
                                                 .padding(2.dp)
                                                 .background(bgColor, RoundedCornerShape(8.dp))
                                                 .then(
-                                                    if (isToday) {
+                                                    if (cell.isToday) {
                                                         Modifier.border(1.5.dp, PrimaryViolet.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                                                     } else Modifier
                                                 )
-                                                .clickable(enabled = !isFuture) {
-                                                    viewModel.selectDate(dateStr)
+                                                .clickable(enabled = !cell.isFuture) {
+                                                    viewModel.selectDate(cell.dateStr)
                                                     onBack()
                                                 },
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            val textColor = when (combinedStatus) {
-                                                "SUCCESS", "FAILED", "PENDING" -> DarkBg
-                                                else -> if (total > 0) TextPrimary else TextSecondary
+                                            val textColor = when (cell.combinedStatus) {
+                                                "SUCCESS", "FAILED", "PENDING", "PAUSED" -> DarkBg
+                                                else -> if (cell.total > 0) TextPrimary else TextSecondary
                                             }
                                             Text(
-                                                text = day.toString(),
+                                                text = cell.day.toString(),
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = textColor,
                                                 fontWeight = FontWeight.Bold
@@ -2960,7 +2959,7 @@ fun OverallStatsScreen(
                                         modifier = Modifier
                                             .size(10.dp)
                                             .clip(CircleShape)
-                                            .background(PrimaryViolet.copy(alpha = 0.3f))
+                                            .background(HabitOrange)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(text = if (language == "de") "Pausiert" else "Paused", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
@@ -3236,12 +3235,12 @@ fun CalendarDayCell(
         "SUCCESS" -> SuccessGreen
         "FAILED" -> ErrorRed
         "PENDING" -> HabitYellow
-        "PAUSED" -> PrimaryViolet.copy(alpha = 0.15f)
+        "PAUSED" -> HabitOrange
         else -> PrimaryViolet.copy(alpha = 0.15f) // Soft lila tint for inactive/future days
     }
     val textColor = when (status) {
-        "SUCCESS", "FAILED", "PENDING" -> DarkBg
-        else -> if (status == "INACTIVE" || status == "PAUSED") TextSecondary else TextPrimary
+        "SUCCESS", "FAILED", "PENDING", "PAUSED" -> DarkBg
+        else -> if (status == "INACTIVE") TextSecondary else TextPrimary
     }
 
     Box(
@@ -5419,50 +5418,29 @@ fun ProfileScreen(
 ) {
     val habits by viewModel.allHabits.collectAsStateWithLifecycle()
     val allLogs by viewModel.allLogs.collectAsStateWithLifecycle()
+    val profileStats by viewModel.profileStats.collectAsStateWithLifecycle()
     val perfectDaysState by viewModel.perfectDaysStats.collectAsStateWithLifecycle()
     val perfectDaysStreak = perfectDaysState.perfectDaysStreak
 
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = Freigeschaltet, 1 = Alle Erfolge
 
-    // Calculate totals dynamically!
-    val totalGlobalCompletions = remember(allLogs, habits) {
-        allLogs.count { log ->
-            val habit = habits.find { it.id == log.habitId }
-            habit != null && isLogCompleted(habit, log)
-        }
-    }
+    val totalGlobalCompletions = profileStats.totalGlobalCompletions
+    val unlockedCompletions = profileStats.unlockedCompletions
+    val unlockedPerfectDays = profileStats.unlockedPerfectDays
 
-    val unlockedCompletions = remember(totalGlobalCompletions) {
-        listOf(10, 50, 200, 500).count { totalGlobalCompletions >= it }
-    }
-    
-    val unlockedPerfectDays = remember(perfectDaysStreak) {
-        listOf(7, 30, 100).count { perfectDaysStreak >= it }
-    }
-
-    val habitStreaksList = remember(habits, allLogs) {
-        habits.map { habit ->
-            val (_, longestStreak) = viewModel.calculateStreak(habit, allLogs)
+    val habitStreaksList = remember(profileStats.habitStreaks) {
+        profileStats.habitStreaks.map { streakInfo ->
+            val habit = streakInfo.habit
+            val longestStreak = streakInfo.longestStreak
             val hColor = HabitIconMapping.getColor(habit.color)
             val hIcon = HabitIconMapping.getIcon(habit.icon)
             Triple(habit, longestStreak, Pair(hColor, hIcon))
         }
     }
 
-    val unlockedHabitStreaks = remember(habitStreaksList) {
-        habitStreaksList.sumOf { (_, longestStreak, _) ->
-            var count = 0
-            if (longestStreak >= 7) count++
-            if (longestStreak >= 14) count++
-            if (longestStreak >= 30) count++
-            if (longestStreak >= 100) count++
-            count
-        }
-    }
-
-    val totalUnlockedCount = unlockedCompletions + unlockedPerfectDays + unlockedHabitStreaks
-    val totalPossibleCount = 4 + 3 + (habits.size * 4)
+    val totalUnlockedCount = profileStats.totalUnlockedCount
+    val totalPossibleCount = profileStats.totalPossibleCount
 
     val globalCompletionsAchievements = remember(totalGlobalCompletions, language) {
         listOf(

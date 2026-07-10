@@ -200,4 +200,50 @@ fun getLogStatus(habit: Habit, log: HabitLog?, dateStr: String, startSdfStr: Str
     return "PENDING"
 }
 
+@Immutable
+data class ProfileHabitStreak(
+    val habit: Habit,
+    val longestStreak: Int
+)
+
+@Immutable
+data class ProfileStats(
+    val totalGlobalCompletions: Int = 0,
+    val unlockedCompletions: Int = 0,
+    val unlockedPerfectDays: Int = 0,
+    val habitStreaks: List<ProfileHabitStreak> = emptyList(),
+    val unlockedHabitStreaks: Int = 0,
+    val totalUnlockedCount: Int = 0,
+    val totalPossibleCount: Int = 0
+)
+
+@Immutable
+data class OverallCalendarData(
+    val statusMap: Map<String, String> = emptyMap(),
+    val progressMap: Map<String, Pair<Int, Int>> = emptyMap()
+)
+
+@Immutable
+data class HabitUiItem(
+    val habit: Habit,
+    val currentValue: Float,
+    val isCompleted: Boolean,
+    val isFailed: Boolean,
+    val isPaused: Boolean,
+    val hasLog: Boolean
+)
+
+@Immutable
+data class CalendarGridCellData(
+    val day: Int,
+    val dateStr: String,
+    val combinedStatus: String,
+    val isToday: Boolean,
+    val isFuture: Boolean,
+    val total: Int,
+    val completed: Int
+)
+
+
+
 

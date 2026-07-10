@@ -180,6 +180,53 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = emptyList()
     )
 
+    val activeHabitUiItemsForSelectedDate: StateFlow<List<HabitUiItem>> = combine(
+        allHabits,
+        allLogs,
+        selectedDate
+    ) { habits, logs, date ->
+        val activeHabits = habits.filter { isHabitActiveOnDate(it, date) }
+        val logsForDateMap = logs.filter { it.date == date }.associateBy { it.habitId }
+        activeHabits.map { habit ->
+            val log = logsForDateMap[habit.id]
+            val currentValue = log?.value ?: 0f
+            val hasLog = log != null
+            val isPaused = log?.isPaused == true
+            
+            val status = when {
+                isPaused -> "PAUSED"
+                log == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
+                log.value == -1f -> "FAILED"
+                log.value == -2f -> "SUCCESS"
+                else -> {
+                    if (habit.type == "BINARY") {
+                        if (habit.isNegative) "FAILED" else "SUCCESS"
+                    } else {
+                        if (habit.isNegative) {
+                            if (log.value >= habit.targetValue) "FAILED" else "PENDING"
+                        } else {
+                            if (log.value >= habit.targetValue) "SUCCESS" else "PENDING"
+                        }
+                    }
+                }
+            }
+            val isCompleted = status == "SUCCESS"
+            val isFailed = status == "FAILED"
+            HabitUiItem(
+                habit = habit,
+                currentValue = currentValue,
+                isCompleted = isCompleted,
+                isFailed = isFailed,
+                isPaused = isPaused,
+                hasLog = hasLog
+            )
+        }
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val habitLogsByHabitId: StateFlow<Map<Int, HabitLog>> = combine(allLogs, selectedDate) { logs, date ->
         logs.filter { it.date == date }.associateBy { it.habitId }
     }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
@@ -210,6 +257,138 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = PerfectDaysStats()
+    )
+
+    val profileStats: StateFlow<ProfileStats> = combine(allHabits, allLogs, perfectDaysStats) { habits, logs, perfectDaysState ->
+        val totalGlobalCompletions = logs.count { log ->
+            val habit = habits.find { it.id == log.habitId }
+            habit != null && isLogCompleted(habit, log)
+        }
+
+        val unlockedCompletions = listOf(10, 50, 200, 500).count { totalGlobalCompletions >= it }
+        val perfectDaysStreak = perfectDaysState.perfectDaysStreak
+        val unlockedPerfectDays = listOf(7, 30, 100).count { perfectDaysStreak >= it }
+
+        val habitStreaks = habits.map { habit ->
+            val (_, longestStreak) = calculateStreak(habit, logs)
+            ProfileHabitStreak(habit, longestStreak)
+        }
+
+        val unlockedHabitStreaks = habitStreaks.sumOf { streakInfo ->
+            val longestStreak = streakInfo.longestStreak
+            var count = 0
+            if (longestStreak >= 7) count++
+            if (longestStreak >= 14) count++
+            if (longestStreak >= 30) count++
+            if (longestStreak >= 100) count++
+            count
+        }
+
+        val totalUnlockedCount = unlockedCompletions + unlockedPerfectDays + unlockedHabitStreaks
+        val totalPossibleCount = 4 + 3 + (habits.size * 4)
+
+        ProfileStats(
+            totalGlobalCompletions = totalGlobalCompletions,
+            unlockedCompletions = unlockedCompletions,
+            unlockedPerfectDays = unlockedPerfectDays,
+            habitStreaks = habitStreaks,
+            unlockedHabitStreaks = unlockedHabitStreaks,
+            totalUnlockedCount = totalUnlockedCount,
+            totalPossibleCount = totalPossibleCount
+        )
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ProfileStats()
+    )
+
+    val overallCalendarData: StateFlow<OverallCalendarData> = combine(allHabits, allLogs) { habits, logs ->
+        val statusMap = mutableMapOf<String, String>()
+        val progressMap = mutableMapOf<String, Pair<Int, Int>>()
+        if (habits.isNotEmpty()) {
+            val oldestHabitDateMs = habits.map {
+                if (it.startDate > 946684800000L) {
+                    it.startDate
+                } else if (it.createdAt > 946684800000L) {
+                    it.createdAt
+                } else {
+                    System.currentTimeMillis()
+                }
+            }.minOrNull() ?: System.currentTimeMillis()
+            val startCal = Calendar.getInstance().apply { timeInMillis = oldestHabitDateMs }
+            val todayCal = Calendar.getInstance()
+            val maxCal = Calendar.getInstance().apply {
+                add(Calendar.MONTH, 1)
+                set(Calendar.DAY_OF_MONTH, 1)
+            }
+            
+            val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val todayStr = sdfDb.format(todayCal.time)
+            
+            val cal = startCal.clone() as Calendar
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            
+            while (cal.timeInMillis <= maxCal.timeInMillis) {
+                val dateStr = sdfDb.format(cal.time)
+                
+                val activeHabits = habits.filter { isHabitActiveOnDate(it, dateStr) }
+                if (activeHabits.isNotEmpty()) {
+                    val logsMap = logs.filter { it.date == dateStr }.associateBy { it.habitId }
+                    var completedCount = 0
+                    var nonPausedActiveCount = 0
+                    
+                    var anyPending = false
+                    var anyFailed = false
+                    var anySuccess = false
+                    var anyPaused = false
+                    
+                    activeHabits.forEach { habit ->
+                        val log = logsMap[habit.id]
+                        val isPaused = log != null && log.isPaused
+                        if (!isPaused) {
+                            nonPausedActiveCount++
+                            if (isLogCompleted(habit, log)) {
+                                completedCount++
+                            }
+                        }
+                        
+                        val hStatus = getLogStatus(habit, log, dateStr, "1970-01-01", todayStr)
+                        if (hStatus == "PENDING") anyPending = true
+                        if (hStatus == "FAILED") anyFailed = true
+                        if (hStatus == "SUCCESS") anySuccess = true
+                        if (hStatus == "PAUSED") anyPaused = true
+                    }
+                    
+                    progressMap[dateStr] = completedCount to nonPausedActiveCount
+                    
+                    val combinedStatus = if (dateStr > todayStr) {
+                        "INACTIVE"
+                    } else {
+                        when {
+                            anyPending -> "PENDING"
+                            anyFailed -> "FAILED"
+                            anySuccess -> "SUCCESS"
+                            anyPaused -> "PAUSED"
+                            else -> "SUCCESS"
+                        }
+                    }
+                    statusMap[dateStr] = combinedStatus
+                } else {
+                    progressMap[dateStr] = 0 to 0
+                    statusMap[dateStr] = "INACTIVE"
+                }
+                
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+        OverallCalendarData(statusMap, progressMap)
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = OverallCalendarData()
     )
 
     val statsScreenData: StateFlow<List<HabitStatModel>> = combine(allHabits, allLogs, language) { habits, logs, lang ->
@@ -1220,7 +1399,13 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         // Oldest start epoch
         var oldestStartEpoch = todayEpoch
         habits.forEach { habit ->
-            val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
+            val validStartMillis = if (habit.startDate > 946684800000L) {
+                habit.startDate
+            } else if (habit.createdAt > 946684800000L) {
+                habit.createdAt
+            } else {
+                System.currentTimeMillis()
+            }
             val startEpoch = millisToEpochDays(validStartMillis)
             if (startEpoch < oldestStartEpoch) {
                 oldestStartEpoch = startEpoch
