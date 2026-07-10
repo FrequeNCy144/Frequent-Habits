@@ -1012,10 +1012,21 @@ fun TodayScreen(
                     }
                 }
             }
-        } else {
-            items(activeHabitUiItemsForSelectedDate, key = { it.habit.id }) { uiItem ->
+} else {
+            items(
+                items = activeHabitUiItemsForSelectedDate, 
+                key = { it.habit.id },
+                contentType = { "HABIT_CARD" } // FIX 1: Jetpack Compose kann die Karten jetzt recyceln!
+            ) { uiItem ->
+                val currentHabit = uiItem.habit
+                
+                // FIX 2: Das Lambda wird zwischengespeichert und triggert kein Ruckeln mehr!
+                val onLongClickRemembered = remember(currentHabit.id) {
+                    { habit: Habit -> longPressedHabit = habit }
+                }
+
                 HabitItemRow(
-                    habit = uiItem.habit,
+                    habit = currentHabit,
                     currentValue = uiItem.currentValue,
                     isCompleted = uiItem.isCompleted,
                     isFailed = uiItem.isFailed,
@@ -1023,7 +1034,7 @@ fun TodayScreen(
                     hasLog = uiItem.hasLog,
                     onToggle = onToggleRemembered,
                     onAddQuantity = onAddQuantityRemembered,
-                    onLongClick = { habit -> longPressedHabit = habit },
+                    onLongClick = onLongClickRemembered,
                     language = language
                 )
             }
@@ -1932,8 +1943,12 @@ fun StatsScreen(
                         color = TextSecondary
                     )
                 }
-            } else {
-                items(habitsWithStats, key = { it.habit.id }) { model ->
+} else {
+                items(
+                    items = habitsWithStats, 
+                    key = { it.habit.id },
+                    contentType = { "STAT_CARD" } // FIX: Jetpack Compose recycelt jetzt auch die Statistik-Karten beim Scrollen!
+                ) { model ->
                     HabitStatItem(
                         model = model,
                         shortDayNames = shortDayNames,
@@ -1943,7 +1958,6 @@ fun StatsScreen(
                     )
                 }
             }
-        }
 
         if (activeExplanation != null) {
             ExplanationDialog(
@@ -6338,43 +6352,46 @@ fun HabitAnalyticsSection(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.size(110.dp)
                     ) {
+                        // FIX 3: Den "Pinsel" (Stroke) nur EINMAL laden und sich merken, 
+                        // anstatt ihn beim Scrollen 60 Mal pro Sekunde neu zu erschaffen!
+                        val donutStroke = remember { Stroke(width = 30f) }
+                        
                         Canvas(modifier = Modifier.size(110.dp)) {
                             val sweepSuccess = (successCount.toFloat() / totalValidDays.toFloat()) * 360f
                             val sweepFailed = (failedCount.toFloat() / totalValidDays.toFloat()) * 360f
                             val sweepPending = (pendingCount.toFloat() / totalValidDays.toFloat()) * 360f
                             val sweepPaused = (pausedCount.toFloat() / totalValidDays.toFloat()) * 360f
 
-                            val stroke = Stroke(width = 30f)
-
                             drawArc(
                                 color = SuccessGreen,
                                 startAngle = -90f,
                                 sweepAngle = sweepSuccess,
                                 useCenter = false,
-                                style = stroke
+                                style = donutStroke
                             )
                             drawArc(
                                 color = ErrorRed,
                                 startAngle = -90f + sweepSuccess,
                                 sweepAngle = sweepFailed,
                                 useCenter = false,
-                                style = stroke
+                                style = donutStroke
                             )
                             drawArc(
                                 color = HabitYellow,
                                 startAngle = -90f + sweepSuccess + sweepFailed,
                                 sweepAngle = sweepPending,
                                 useCenter = false,
-                                style = stroke
+                                style = donutStroke
                             )
                             drawArc(
                                 color = HabitOrange,
                                 startAngle = -90f + sweepSuccess + sweepFailed + sweepPending,
                                 sweepAngle = sweepPaused,
                                 useCenter = false,
-                                style = stroke
+                                style = donutStroke
                             )
                         }
+                    } // Vergiss nicht, die Box hier am Ende wieder zu schließen!
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -6774,6 +6791,9 @@ fun TargetWithArrowsIcon(
     arrowCount: Int,
     modifier: Modifier = Modifier
 ) {
+    // FIX: Die Liste wird einmal gemerkt und nicht 60x pro Sekunde neu berechnet!
+    val baseAngles = remember { listOf(-45f, 135f, 15f, 75f, -105f, -165f) }
+
     Canvas(modifier = modifier) {
         val width = size.width
         val height = size.height
@@ -6808,8 +6828,6 @@ fun TargetWithArrowsIcon(
         )
         
         // Draw arrows piercing the bullseye at different angles
-        // Based on arrowCount (e.g. 1 to 6 arrows)
-        val baseAngles = listOf(-45f, 135f, 15f, 75f, -105f, -165f)
         for (i in 0 until arrowCount.coerceAtMost(6)) {
             val angleDeg = baseAngles[i]
             val angleRad = Math.toRadians(angleDeg.toDouble())
@@ -6833,7 +6851,6 @@ fun TargetWithArrowsIcon(
                 )
                 
                 // 2. Arrow Head (Steel silver color) pointing into the gold center
-                // The arrowhead points to the right (towards endX)
                 val arrowHeadSize = width * 0.08f
                 drawPath(
                     path = androidx.compose.ui.graphics.Path().apply {
@@ -6873,19 +6890,21 @@ fun CalendarWithRingsIcon(
     ringCount: Int,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val center = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f)
-        
-        // Define orbit ring colors
-        val ringColors = listOf(
+    // FIX: Farben-Liste einmal speichern und merken!
+    val ringColors = remember { 
+        listOf(
             Color(0xFF4CAF50), // Green for 3 days
             Color(0xFFFFC107), // Yellow/Bronze for 10 days
             Color(0xFF9C27B0), // Purple for 30 days
             Color(0xFFFF9800), // Gold/Amber for 100 days
             Color(0xFF00BCD4)  // Cyan/Cosmic for 365 days
-        )
+        ) 
+    }
+
+    Canvas(modifier = modifier) {
+        val width = size.width
+        val height = size.height
+        val center = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f)
         
         // Draw outer orbits (concentric orbital rings with varying rotation offsets)
         for (i in 0 until ringCount.coerceAtMost(5)) {
