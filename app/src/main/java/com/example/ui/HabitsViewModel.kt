@@ -18,6 +18,13 @@ import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
+import java.time.YearMonth
+import java.time.temporal.ChronoUnit
+import java.time.format.DateTimeFormatter
+import androidx.compose.runtime.Immutable
 
 class HabitsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -26,6 +33,17 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
     private val database = AppDatabase.getDatabase(application)
     private val repository = HabitRepository(database.habitDao())
+
+    private val _pendingWidgetHabitId = MutableStateFlow<Int?>(null)
+    val pendingWidgetHabitId: StateFlow<Int?> = _pendingWidgetHabitId.asStateFlow()
+
+    fun setPendingWidgetHabitId(id: Int) {
+        _pendingWidgetHabitId.value = id
+    }
+
+    fun clearPendingWidgetHabitId() {
+        _pendingWidgetHabitId.value = null
+    }
 
     init {
         viewModelScope.launch {
@@ -55,6 +73,43 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
+    )
+
+    val minWeekStartMillis: StateFlow<Long> = allHabits.map { habits ->
+        val earliestMs = if (habits.isNotEmpty()) {
+            habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
+        } else {
+            System.currentTimeMillis()
+        }
+        val cal = Calendar.getInstance().apply {
+            firstDayOfWeek = Calendar.MONDAY
+            timeInMillis = earliestMs
+            val dayOfWeek = get(Calendar.DAY_OF_WEEK)
+            val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+            add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        cal.timeInMillis
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = System.currentTimeMillis()
+    )
+
+    val minDateStr: StateFlow<String> = allHabits.map { habits ->
+        val earliestMs = if (habits.isNotEmpty()) {
+            habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
+        } else {
+            System.currentTimeMillis()
+        }
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(earliestMs))
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ""
     )
 
     val archivedHabits: StateFlow<List<Habit>> = repository.allHabits.map { habits ->
@@ -144,6 +199,273 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         set(Calendar.MILLISECOND, 0)
     })
     val currentWeekStart: StateFlow<Calendar> = _currentWeekStart.asStateFlow()
+
+    val currentWeekDaysData: StateFlow<List<Triple<String, String, String>>> = _currentWeekStart
+        .map { calendar ->
+            val startLocalDate = Instant.ofEpochMilli(calendar.timeInMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+            val dbFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.US)
+            val dayNumFormatter = DateTimeFormatter.ofPattern("d", Locale.GERMANY)
+            val dayNameFormatter = DateTimeFormatter.ofPattern("E", Locale.GERMANY)
+            (0 until 7).map { i ->
+                val date = startLocalDate.plusDays(i.toLong())
+                val dayStr = date.format(dbFormatter)
+                val dayNum = date.format(dayNumFormatter)
+                val dayName = date.format(dayNameFormatter).uppercase(Locale.GERMANY).take(2)
+                Triple(dayStr, dayNum, dayName)
+            }
+        }
+        .flowOn(kotlinx.coroutines.Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val formattedDisplayDate: StateFlow<String> = combine(selectedDate, language) { dateStr, lang ->
+        try {
+            val localDate = LocalDate.parse(dateStr)
+            val formatter = DateTimeFormatter.ofPattern("d. MMMM", if (lang == "de") Locale.GERMANY else Locale.US)
+            val displayDate = localDate.format(formatter)
+            val todayStr = LocalDate.now().toString()
+            if (dateStr == todayStr) {
+                "$displayDate (${if (lang == "de") "Heute" else "Today"})"
+            } else {
+                displayDate
+            }
+        } catch (e: Exception) {
+            dateStr
+        }
+    }
+    .flowOn(kotlinx.coroutines.Dispatchers.Default)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    // Habit Analytics States
+    private val _analyticsFilter = MutableStateFlow("WEEK")
+    val analyticsFilter: StateFlow<String> = _analyticsFilter.asStateFlow()
+
+    private val _analyticsVerlaufOffset = MutableStateFlow(0)
+    val analyticsVerlaufOffset: StateFlow<Int> = _analyticsVerlaufOffset.asStateFlow()
+
+    fun setAnalyticsFilter(filter: String) {
+        _analyticsFilter.value = filter
+        _analyticsVerlaufOffset.value = 0
+    }
+
+    fun navigateAnalyticsVerlauf(delta: Int) {
+        _analyticsVerlaufOffset.update { it + delta }
+    }
+
+    val habitAnalyticsState: StateFlow<HabitAnalyticsUiState?> = combine(
+        _selectedHabitIdForDetail,
+        allHabits,
+        allLogs,
+        language,
+        _analyticsFilter,
+        _analyticsVerlaufOffset
+    ) { flowsArray ->
+        val habitId = flowsArray[0] as Int?
+        @Suppress("UNCHECKED_CAST")
+        val habits = flowsArray[1] as List<Habit>
+        @Suppress("UNCHECKED_CAST")
+        val logs = flowsArray[2] as List<HabitLog>
+        val lang = flowsArray[3] as String
+        val filter = flowsArray[4] as String
+        val verlaufOffset = flowsArray[5] as Int
+
+        if (habitId == null) return@combine null
+        val habit = habits.find { it.id == habitId } ?: return@combine null
+        val habitLogs = logs.filter { it.habitId == habitId }
+        
+        val today = LocalDate.now()
+        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
+        val startDate = Instant.ofEpochMilli(validStartMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        
+        val minVerlaufOffset = when (filter) {
+            "WEEK" -> {
+                val todayMonday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+                val startMonday = startDate.minusDays((startDate.dayOfWeek.value - 1).toLong())
+                val diffDays = ChronoUnit.DAYS.between(startMonday, todayMonday)
+                val diffWeeks = diffDays / 7
+                -diffWeeks.toInt()
+            }
+            "MONTH" -> {
+                val diffMonths = ChronoUnit.MONTHS.between(
+                    startDate.withDayOfMonth(1),
+                    today.withDayOfMonth(1)
+                )
+                -diffMonths.toInt()
+            }
+            "YEAR" -> {
+                val diffYears = ChronoUnit.YEARS.between(
+                    startDate.withDayOfYear(1),
+                    today.withDayOfYear(1)
+                )
+                -diffYears.toInt()
+            }
+            else -> 0
+        }.coerceAtMost(0)
+        
+        val coercedOffset = verlaufOffset.coerceAtLeast(minVerlaufOffset).coerceAtMost(0)
+        
+        val verlaufTitle = when (filter) {
+            "WEEK" -> {
+                val targetMonday = today.minusDays((today.dayOfWeek.value - 1).toLong()).plusWeeks(coercedOffset.toLong())
+                val targetSunday = targetMonday.plusDays(6)
+                val formatter = DateTimeFormatter.ofPattern("d. MMM", if (lang == "de") Locale.GERMANY else Locale.US)
+                "${targetMonday.format(formatter)} - ${targetSunday.format(formatter)} ${targetSunday.year}"
+            }
+            "MONTH" -> {
+                val targetMonthDate = today.withDayOfMonth(1).plusMonths(coercedOffset.toLong())
+                val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", if (lang == "de") Locale.GERMANY else Locale.US)
+                targetMonthDate.format(formatter)
+            }
+            else -> {
+                val targetYearDate = today.plusYears(coercedOffset.toLong())
+                "${targetYearDate.year}"
+            }
+        }
+        
+        val canPrevVerlauf = coercedOffset > minVerlaufOffset
+        val canNextVerlauf = coercedOffset < 0
+        
+        val barData = mutableListOf<Pair<String, Float>>()
+        val todayStr = today.toString()
+        val startSdfStr = startDate.toString()
+        
+        when (filter) {
+            "WEEK" -> {
+                val targetMonday = today.minusDays((today.dayOfWeek.value - 1).toLong()).plusWeeks(coercedOffset.toLong())
+                val labels = if (lang == "de") listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So") else listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+                
+                for (i in 0 until 7) {
+                    val dDate = targetMonday.plusDays(i.toLong())
+                    val dStr = dDate.toString()
+                    val isOutOfRange = dStr < startSdfStr || dStr > todayStr
+                    val ratio = if (isOutOfRange) {
+                        0f
+                    } else {
+                        val logForDate = habitLogs.find { it.date == dStr }
+                        if (habit.type == "BINARY") {
+                            val isSuccess = if (logForDate == null) {
+                                habit.isNegative
+                            } else {
+                                when (logForDate.value) {
+                                    -2f -> true
+                                    -1f -> false
+                                    else -> !habit.isNegative
+                                }
+                            }
+                            if (isSuccess) 1f else 0f
+                        } else {
+                            if (logForDate == null) {
+                                if (habit.isNegative) 1f else 0f
+                            } else {
+                                if (habit.isNegative) {
+                                    if (logForDate.value >= habit.targetValue) 0f else 1f
+                                } else {
+                                    (logForDate.value / habit.targetValue.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                                }
+                            }
+                        }
+                    }
+                    barData.add(labels[i] to ratio)
+                }
+            }
+            "MONTH" -> {
+                val targetMonthDate = today.withDayOfMonth(1).plusMonths(coercedOffset.toLong())
+                val daysCount = targetMonthDate.lengthOfMonth()
+                
+                for (i in 1..daysCount) {
+                    val dDate = targetMonthDate.withDayOfMonth(i)
+                    val dStr = dDate.toString()
+                    val isOutOfRange = dStr < startSdfStr || dStr > todayStr
+                    val ratio = if (isOutOfRange) {
+                        0f
+                    } else {
+                        val logForDate = habitLogs.find { it.date == dStr }
+                        if (habit.type == "BINARY") {
+                            val isSuccess = if (logForDate == null) {
+                                habit.isNegative
+                            } else {
+                                when (logForDate.value) {
+                                    -2f -> true
+                                    -1f -> false
+                                    else -> !habit.isNegative
+                                }
+                            }
+                            if (isSuccess) 1f else 0f
+                        } else {
+                            if (logForDate == null) {
+                                if (habit.isNegative) 1f else 0f
+                            } else {
+                                if (habit.isNegative) {
+                                    if (logForDate.value >= habit.targetValue) 0f else 1f
+                                } else {
+                                    (logForDate.value / habit.targetValue.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                                }
+                            }
+                        }
+                    }
+                    barData.add(i.toString() to ratio)
+                }
+            }
+            else -> {
+                val targetYear = today.year + coercedOffset
+                val months = if (lang == "de") 
+                    listOf("Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez")
+                else 
+                    listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+                
+                for (m in 1..12) {
+                    val targetMonthDate = LocalDate.of(targetYear, m, 1)
+                    val maxDays = targetMonthDate.lengthOfMonth()
+                    var completedDays = 0
+                    var validDaysInMonth = 0
+                    
+                    for (d in 1..maxDays) {
+                        val dDate = LocalDate.of(targetYear, m, d)
+                        val dStr = dDate.toString()
+                        if (dStr >= startSdfStr && dStr <= todayStr) {
+                            validDaysInMonth++
+                            val logForDate = habitLogs.find { it.date == dStr }
+                            val isSuccess = if (habit.type == "BINARY") {
+                                if (logForDate == null) {
+                                    habit.isNegative
+                                } else {
+                                    when (logForDate.value) {
+                                        -2f -> true
+                                        -1f -> false
+                                        else -> !habit.isNegative
+                                    }
+                                }
+                            } else {
+                                if (logForDate == null) {
+                                    habit.isNegative
+                                } else {
+                                    if (habit.isNegative) {
+                                        logForDate.value < habit.targetValue
+                                    } else {
+                                        logForDate.value >= habit.targetValue
+                                    }
+                                }
+                            }
+                            if (isSuccess) completedDays++
+                        }
+                    }
+                    val ratio = if (validDaysInMonth > 0) completedDays.toFloat() / validDaysInMonth.toFloat() else 0f
+                    barData.add(months[m - 1] to ratio)
+                }
+            }
+        }
+        
+        HabitAnalyticsUiState(
+            minVerlaufOffset = minVerlaufOffset,
+            verlaufTitle = verlaufTitle,
+            canPrevVerlauf = canPrevVerlauf,
+            canNextVerlauf = canNextVerlauf,
+            barData = barData
+        )
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        null
+    )
 
     // Cache computed stats to keep the UI smooth
     val todayProgress: StateFlow<Pair<Int, Int>> = combine(allHabits, allLogs, selectedDate) { habits, logs, date ->
@@ -260,9 +582,8 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     val profileStats: StateFlow<ProfileStats> = combine(allHabits, allLogs, perfectDaysStats) { habits, logs, perfectDaysState ->
-        val totalGlobalCompletions = logs.count { log ->
-            val habit = habits.find { it.id == log.habitId }
-            habit != null && isLogCompleted(habit, log)
+        val totalGlobalCompletions = habits.sumOf { habit ->
+            getCompletedLogsCount(habit, logs, "ALL")
         }
 
         val unlockedCompletions = listOf(10, 50, 200, 500).count { totalGlobalCompletions >= it }
@@ -440,14 +761,15 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         val habit = habits.find { it.id == habitId } ?: return@combine null
 
         val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-        val startSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val startSdfStr = startSdf.format(Date(validStartMillis))
+        val startDate = Instant.ofEpochMilli(validStartMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+        val startSdfStr = startDate.toString()
 
-        val currentCal = Calendar.getInstance()
-        val startCal = Calendar.getInstance().apply { timeInMillis = validStartMillis }
-        val diffYears = currentCal.get(Calendar.YEAR) - startCal.get(Calendar.YEAR)
-        val diffMonths = currentCal.get(Calendar.MONTH) - startCal.get(Calendar.MONTH)
-        val minMonthOffset = -(diffYears * 12 + diffMonths)
+        val today = LocalDate.now()
+        val diffMonths = ChronoUnit.MONTHS.between(
+            startDate.withDayOfMonth(1),
+            today.withDayOfMonth(1)
+        )
+        val minMonthOffset = -diffMonths.toInt()
 
         val actualOffset = monthOffset.coerceIn(minMonthOffset, 0)
         val canPrevMonth = actualOffset > minMonthOffset
@@ -464,33 +786,31 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
         val habitLogs = logs.filter { it.habitId == habitId }
         val logsByDate = habitLogs.associateBy { it.date }
-        val cal = Calendar.getInstance()
-        if (actualOffset != 0) {
-            cal.add(Calendar.MONTH, actualOffset)
-        }
-        val sdfMonthName = SimpleDateFormat("MMMM yyyy", if (lang == "de") Locale.GERMANY else Locale.US)
-        val monthNameStr = sdfMonthName.format(cal.time)
-        val currentMonthDaysCount = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-        
-        cal.set(Calendar.DAY_OF_MONTH, 1)
-        val firstDayOfWeekOffset = (cal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
 
-        val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val todayStr = sdfDb.format(Date())
+        val targetMonthDate = today.withDayOfMonth(1).plusMonths(actualOffset.toLong())
+        val monthNameFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", if (lang == "de") Locale.GERMANY else Locale.US)
+        val monthNameStr = targetMonthDate.format(monthNameFormatter)
+
+        val currentMonthDaysCount = targetMonthDate.lengthOfMonth()
+        val firstDayOfWeekOffset = (targetMonthDate.dayOfWeek.value - 1) // 0 is Monday, ..., 6 is Sunday
+
+        val todayStr = today.toString()
         val daysList = mutableListOf<CalendarCellState?>()
 
         for (i in 0 until firstDayOfWeekOffset) {
             daysList.add(null)
         }
         for (i in 1..currentMonthDaysCount) {
-            cal.set(Calendar.DAY_OF_MONTH, i)
-            val dateStr = sdfDb.format(cal.time)
+            val dateVal = targetMonthDate.withDayOfMonth(i)
+            val dateStr = dateVal.toString()
             val log = logsByDate[dateStr]
             val isCompleted = isLogCompleted(habit, log)
             val status = getLogStatus(habit, log, dateStr, startSdfStr, todayStr)
             
             daysList.add(CalendarCellState(id = dateStr, dayNum = i.toString(), isCompleted = isCompleted, status = status))
         }
+
+        val targetStats = com.example.data.calculateTargetPeriodStats(habit, logs)
 
         HabitDetailUiState(
             habit = habit,
@@ -505,7 +825,8 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             monthName = monthNameStr,
             canPrevMonth = canPrevMonth,
             canNextMonth = canNextMonth,
-            completionRate = completionRate
+            completionRate = completionRate,
+            targetStats = targetStats
         )
     }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
         scope = viewModelScope,
@@ -516,12 +837,16 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     fun selectDate(date: String) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         if (date > todayStr) return
+        val minDate = getMinDateStr()
+        if (date < minDate) return
         _selectedDate.value = date
     }
 
     fun selectDateAndSyncWeek(dateStr: String) {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
         if (dateStr > todayStr) return
+        val minDate = getMinDateStr()
+        if (dateStr < minDate) return
         _selectedDate.value = dateStr
         val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         try {
@@ -565,6 +890,44 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             set(Calendar.MILLISECOND, 0)
         }
         return cal.timeInMillis
+    }
+
+    fun getMinDateStr(): String {
+        val habits = allHabits.value
+        val earliestMs = if (habits.isNotEmpty()) {
+            habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
+        } else {
+            System.currentTimeMillis()
+        }
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(earliestMs))
+    }
+
+    fun adjustDateAndWeekIfOutOfRange() {
+        val minDate = getMinDateStr()
+        val currentSelected = _selectedDate.value
+        if (currentSelected < minDate) {
+            _selectedDate.value = minDate
+            val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            try {
+                val parsed = sdfDb.parse(minDate)
+                if (parsed != null) {
+                    val cal = Calendar.getInstance().apply {
+                        firstDayOfWeek = Calendar.MONDAY
+                        time = parsed
+                        val dayOfWeek = get(Calendar.DAY_OF_WEEK)
+                        val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+                        add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    _currentWeekStart.value = cal
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun selectHabitForDetail(habitId: Int?) {
@@ -734,6 +1097,24 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     fun deleteHabit(habit: Habit) {
         viewModelScope.launch {
             repository.deleteHabit(habit)
+            
+            // Clean up notes with no active habits
+            try {
+                val remainingHabits = repository.allHabits.first()
+                val allNotes = repository.allDailyNotes.first()
+                allNotes.forEach { note ->
+                    val hasActiveHabit = remainingHabits.any { isHabitActiveOnDate(it, note.date) }
+                    if (!hasActiveHabit) {
+                        repository.saveDailyNote(note.date, "")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // Adjust current selected date and week start if they became out-of-bounds
+            adjustDateAndWeekIfOutOfRange()
+
             com.example.NotificationHelper.cancelHabitReminder(
                 getApplication(),
                 habit.id
@@ -866,7 +1247,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
     fun logNumericalHabit(habitId: Int, date: String, value: Float) {
         viewModelScope.launch {
-            if (value <= 0f) {
+            if (value == 0f) {
                 repository.unlogHabit(habitId, date)
             } else {
                 repository.logHabit(habitId, date, value)
@@ -1364,24 +1745,66 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             "WEEK" -> {
                 cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
                 cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
                 cal.timeInMillis
             }
             "MONTH" -> {
                 cal.set(Calendar.DAY_OF_MONTH, 1)
                 cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
                 cal.timeInMillis
             }
             "YEAR" -> {
                 cal.set(Calendar.DAY_OF_YEAR, 1)
                 cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
                 cal.timeInMillis
             }
             else -> 0L
         }
 
-        return habitLogs.count { log ->
-            val logTime = parseDateStringToMillis(log.date)
-            logTime >= limit && isLogCompleted(habit, log)
+        if (!habit.isNegative) {
+            return habitLogs.count { log ->
+                val logTime = parseDateStringToMillis(log.date)
+                logTime >= limit && isLogCompleted(habit, log)
+            }
+        } else {
+            val startEpoch = millisToEpochDays(validStartMillis)
+            val todayEpoch = millisToEpochDays(System.currentTimeMillis())
+            val limitEpoch = if (limit > 0L) millisToEpochDays(limit) else startEpoch
+            
+            val searchStart = maxOf(startEpoch, limitEpoch)
+            if (searchStart > todayEpoch) return 0
+
+            val completedEpochDays = habitLogs.filter { log ->
+                isLogCompleted(habit, log)
+            }.map { dateToEpochDaysFast(it.date) }.toSet()
+
+            val loggedEpochDays = habitLogs.map { dateToEpochDaysFast(it.date) }.toSet()
+
+            var completedDays = 0
+            val getDayStr = { ep: Int ->
+                val localDate = java.time.LocalDate.ofEpochDay(ep.toLong())
+                String.format(Locale.US, "%04d-%02d-%02d", localDate.year, localDate.monthValue, localDate.dayOfMonth)
+            }
+
+            for (d in searchStart..todayEpoch) {
+                val dStr = getDayStr(d)
+                if (!isHabitActiveOnDate(habit, dStr)) {
+                    continue
+                }
+                val successful = !loggedEpochDays.contains(d) || completedEpochDays.contains(d)
+                if (successful) {
+                    completedDays++
+                }
+            }
+            return completedDays
         }
     }
 
@@ -1527,3 +1950,12 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 }
+
+@Immutable
+data class HabitAnalyticsUiState(
+    val minVerlaufOffset: Int = 0,
+    val verlaufTitle: String = "",
+    val canPrevVerlauf: Boolean = false,
+    val canNextVerlauf: Boolean = false,
+    val barData: List<Pair<String, Float>> = emptyList()
+)

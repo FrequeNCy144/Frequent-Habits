@@ -10,13 +10,14 @@
     <TextView
         android:id="@+id/widget_date_title"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:visibility="gone"
         android:gravity="center"
         android:text="Heute"
         android:textColor="#FFFFFF"
         android:textSize="15sp"
         android:textStyle="bold"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="0dp" />
 
     <!-- Rounded training progress bar matching the app's style -->
     <FrameLayout

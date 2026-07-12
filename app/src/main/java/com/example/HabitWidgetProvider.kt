@@ -366,13 +366,13 @@ class HabitWidgetProvider : AppWidgetProvider() {
             if (isFullUpdate) {
                 val views = RemoteViews(context.packageName, R.layout.habit_widget)
                 
-                views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
-                val progressColor = if (progressPercent >= 100 && nonPausedCount > 0) {
-                    0xFF10B981.toInt() // Green
+                val progressDrawableRes = if (progressPercent >= 100 && nonPausedCount > 0) {
+                    R.drawable.widget_progress_bar_completed
                 } else {
-                    0xFF7356FF.toInt() // PrimaryViolet
+                    R.drawable.widget_progress_bar_custom
                 }
-                views.setColorStateList(R.id.widget_progress_bar, "setProgressTintList", android.content.res.ColorStateList.valueOf(progressColor))
+                views.setInt(R.id.widget_progress_bar, "setProgressDrawable", progressDrawableRes)
+                views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
 
                 val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
                 views.setTextViewText(R.id.widget_progress_text, progressTextVal)
@@ -416,13 +416,13 @@ class HabitWidgetProvider : AppWidgetProvider() {
             } else {
                 val partialViews = RemoteViews(context.packageName, R.layout.habit_widget)
                 
-                partialViews.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
-                val progressColor = if (progressPercent >= 100 && nonPausedCount > 0) {
-                    0xFF10B981.toInt() // Green
+                val progressDrawableRes = if (progressPercent >= 100 && nonPausedCount > 0) {
+                    R.drawable.widget_progress_bar_completed
                 } else {
-                    0xFF7356FF.toInt() // PrimaryViolet
+                    R.drawable.widget_progress_bar_custom
                 }
-                partialViews.setColorStateList(R.id.widget_progress_bar, "setProgressTintList", android.content.res.ColorStateList.valueOf(progressColor))
+                partialViews.setInt(R.id.widget_progress_bar, "setProgressDrawable", progressDrawableRes)
+                partialViews.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
 
                 val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
                 partialViews.setTextViewText(R.id.widget_progress_text, progressTextVal)

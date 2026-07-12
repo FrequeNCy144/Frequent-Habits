@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.ui.theme.*
+import com.example.R
 
 object HabitIconMapping {
 
@@ -77,6 +78,30 @@ object HabitIconMapping {
             "pink" -> HabitPink
             "slate", "grey", "gray" -> HabitSlate
             else -> PrimaryViolet
+        }
+    }
+
+    fun getIconDrawableId(name: String): Int {
+        return when (name.lowercase()) {
+            "sparkle" -> R.drawable.ic_sparkle
+            "moon" -> R.drawable.ic_moon
+            "sun" -> R.drawable.ic_sun
+            "water" -> R.drawable.ic_water
+            "heart" -> R.drawable.ic_heart
+            "dumbbell" -> R.drawable.ic_dumbbell
+            "book" -> R.drawable.ic_book
+            "coffee" -> R.drawable.ic_coffee
+            "run" -> R.drawable.ic_run
+            "code" -> R.drawable.ic_code
+            "music" -> R.drawable.ic_music
+            "phone" -> R.drawable.ic_phone
+            "meditation" -> R.drawable.ic_meditation
+            "clock" -> R.drawable.ic_clock
+            "food" -> R.drawable.ic_food
+            "money" -> R.drawable.ic_money
+            "work" -> R.drawable.ic_work
+            "clean" -> R.drawable.ic_clean
+            else -> R.drawable.ic_sparkle
         }
     }
 }

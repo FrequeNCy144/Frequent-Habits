@@ -88,6 +88,143 @@ data class HabitStatModel(
 )
 
 @Immutable
+data class TargetPeriodStats(
+    val actualValue: Float,
+    val targetValue: Float,
+    val isNumerical: Boolean
+)
+
+@Immutable
+data class HabitTargetStats(
+    val today: TargetPeriodStats,
+    val week: TargetPeriodStats,
+    val month: TargetPeriodStats,
+    val quarter: TargetPeriodStats,
+    val year: TargetPeriodStats
+)
+
+fun calculateTargetPeriodStats(habit: Habit, logs: List<HabitLog>): HabitTargetStats {
+    val today = java.time.LocalDate.now()
+    val todayStr = today.toString()
+    
+    // Filter logs for this habit
+    val habitLogs = logs.filter { it.habitId == habit.id }
+    val logsByDate = habitLogs.associateBy { it.date }
+    
+    // Get start of week (Monday) and end of week (Sunday)
+    val startOfWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+    val endOfWeek = startOfWeek.plusDays(6)
+    
+    // Get start of month and end of month
+    val startOfMonth = today.withDayOfMonth(1)
+    val endOfMonth = today.withDayOfMonth(today.lengthOfMonth())
+    
+    // Get start of quarter and end of quarter
+    val currentMonthValue = today.monthValue
+    val startMonthOfQuarter = ((currentMonthValue - 1) / 3) * 3 + 1
+    val startOfQuarter = today.withMonth(startMonthOfQuarter).withDayOfMonth(1)
+    val endOfQuarter = startOfQuarter.plusMonths(2).let { it.withDayOfMonth(it.lengthOfMonth()) }
+    
+    // Get start of year and end of year
+    val startOfYear = today.withDayOfYear(1)
+    val endOfYear = today.withMonth(12).withDayOfMonth(31)
+    
+    // Helper to calculate target days for DAILY or SPECIFIC
+    fun getScheduledDaysCount(start: java.time.LocalDate, end: java.time.LocalDate): Int {
+        var count = 0
+        var current = start
+        while (!current.isAfter(end)) {
+            if (isHabitActiveOnDate(habit, current.toString())) {
+                count++
+            }
+            current = current.plusDays(1)
+        }
+        return count
+    }
+    
+    // Helper to count days in period
+    fun getDaysInPeriod(start: java.time.LocalDate, end: java.time.LocalDate): Int {
+        return (java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1).toInt()
+    }
+    
+    // Function to calculate Target Day/Value count based on frequency
+    fun getTargetCount(start: java.time.LocalDate, end: java.time.LocalDate): Float {
+        return if (habit.frequency == "TIMES_WEEKLY") {
+            val timesWeekly = habit.specificDays.toIntOrNull() ?: 3
+            val daysInPeriod = getDaysInPeriod(start, end)
+            // Proportional target
+            (timesWeekly * (daysInPeriod / 7f))
+        } else {
+            getScheduledDaysCount(start, end).toFloat()
+        }
+    }
+    
+    // Calculate targets
+    val todayTargetCount = if (isHabitActiveOnDate(habit, todayStr)) 1f else 0f
+    val weekTargetCount = getTargetCount(startOfWeek, endOfWeek)
+    val monthTargetCount = getTargetCount(startOfMonth, endOfMonth)
+    val quarterTargetCount = getTargetCount(startOfQuarter, endOfQuarter)
+    val yearTargetCount = getTargetCount(startOfYear, endOfYear)
+    
+    // Helper to sum or count logs in a period
+    fun getActualStatsInPeriod(start: java.time.LocalDate, end: java.time.LocalDate): Float {
+        var sum = 0f
+        var count = 0f
+        var current = start
+        while (!current.isAfter(end)) {
+            val log = logsByDate[current.toString()]
+            if (log != null) {
+                if (habit.type == "NUMBER") {
+                    if (log.value > 0f) {
+                        sum += log.value
+                    }
+                } else {
+                    if (isLogCompleted(habit, log)) {
+                        count += 1f
+                    }
+                }
+            } else {
+                // For negative habits, a missing log counts as completed
+                if (habit.type == "BINARY" && habit.isNegative) {
+                    count += 1f
+                }
+            }
+            current = current.plusDays(1)
+        }
+        return if (habit.type == "NUMBER") sum else count
+    }
+    
+    val isNumerical = habit.type == "NUMBER"
+    
+    // Today actual
+    val todayLog = logsByDate[todayStr]
+    val todayActual = if (isNumerical) {
+        todayLog?.value ?: 0f
+    } else {
+        if (todayLog != null && isLogCompleted(habit, todayLog)) 1f else if (todayLog == null && habit.isNegative) 1f else 0f
+    }
+    
+    val todayTarget = if (isNumerical) todayTargetCount * habit.targetValue else todayTargetCount
+    val weekTarget = if (isNumerical) weekTargetCount * habit.targetValue else weekTargetCount
+    val monthTarget = if (isNumerical) monthTargetCount * habit.targetValue else monthTargetCount
+    val quarterTarget = if (isNumerical) quarterTargetCount * habit.targetValue else quarterTargetCount
+    val yearTarget = if (isNumerical) yearTargetCount * habit.targetValue else yearTargetCount
+    
+    val weekActual = getActualStatsInPeriod(startOfWeek, endOfWeek)
+    val monthActual = getActualStatsInPeriod(startOfMonth, endOfMonth)
+    val quarterActual = getActualStatsInPeriod(startOfQuarter, endOfQuarter)
+    val yearActual = getActualStatsInPeriod(startOfYear, endOfYear)
+    
+    return HabitTargetStats(
+        today = TargetPeriodStats(todayActual, todayTarget, isNumerical),
+        week = TargetPeriodStats(weekActual, weekTarget, isNumerical),
+        month = TargetPeriodStats(monthActual, monthTarget, isNumerical),
+        quarter = TargetPeriodStats(quarterActual, quarterTarget, isNumerical),
+        year = TargetPeriodStats(yearActual, yearTarget, isNumerical)
+    )
+}
+
+@Immutable
 data class HabitDetailUiState(
     val habit: Habit,
     val currentStreak: Int,
@@ -101,7 +238,8 @@ data class HabitDetailUiState(
     val monthName: String,
     val canPrevMonth: Boolean = true,
     val canNextMonth: Boolean = true,
-    val completionRate: Int = 0
+    val completionRate: Int = 0,
+    val targetStats: HabitTargetStats? = null
 )
 
 @Immutable
@@ -113,39 +251,23 @@ data class PerfectDaysStats(
 )
 
 fun isHabitActiveOnDate(habit: Habit, dateStr: String): Boolean {
-    val dateMs = try {
-        val baseTime = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr)?.time ?: 0L
-        baseTime + 86399000L // cover full day
+    val date = try {
+        java.time.LocalDate.parse(dateStr)
     } catch (e: Exception) {
-        0L
-    }
-    val validStart = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-    if (validStart > dateMs) {
         return false
     }
-
-    val calendar = Calendar.getInstance(Locale.GERMANY).apply {
-        time = try {
-            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr) ?: Date()
-        } catch (e: Exception) {
-            Date()
-        }
+    
+    val validStart = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
+    val startLocalDate = java.time.Instant.ofEpochMilli(validStart).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+    
+    if (startLocalDate.isAfter(date)) {
+        return false
     }
-    val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
 
     return when (habit.frequency) {
         "DAILY", "TIMES_WEEKLY" -> true
         "SPECIFIC" -> {
-            val isoDayNum = when (dayOfWeek) {
-                Calendar.MONDAY -> 1
-                Calendar.TUESDAY -> 2
-                Calendar.WEDNESDAY -> 3
-                Calendar.THURSDAY -> 4
-                Calendar.FRIDAY -> 5
-                Calendar.SATURDAY -> 6
-                Calendar.SUNDAY -> 7
-                else -> 1
-            }
+            val isoDayNum = date.dayOfWeek.value // Monday = 1, ..., Sunday = 7
             val specList = habit.specificDays.split(",").mapNotNull { it.trim().toIntOrNull() }
             specList.contains(isoDayNum)
         }
@@ -194,9 +316,6 @@ fun getLogStatus(habit: Habit, log: HabitLog?, dateStr: String, startSdfStr: Str
     if (log != null && log.value == -1f) {
         return "FAILED"
     }
-    if (log != null && log.value > 0f) {
-        return "FAILED"
-    }
     return "PENDING"
 }
 
@@ -241,7 +360,8 @@ data class CalendarGridCellData(
     val isToday: Boolean,
     val isFuture: Boolean,
     val total: Int,
-    val completed: Int
+    val completed: Int,
+    val isOutOfRange: Boolean = false
 )
 
 

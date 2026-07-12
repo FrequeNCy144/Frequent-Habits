@@ -90,9 +90,9 @@ class HabitWidgetFactory(private val context: Context, intent: Intent) : RemoteV
             } else {
                 getColorInt(habit.color)
             }
-            val provider = HabitWidgetProvider()
-            val iconBitmap = provider.drawIconToBitmap(context, habit.icon, habitColorInt)
-            views.setImageViewBitmap(R.id.widget_habit_icon, iconBitmap)
+            val iconResId = com.example.ui.HabitIconMapping.getIconDrawableId(habit.icon)
+            views.setImageViewResource(R.id.widget_habit_icon, iconResId)
+            views.setInt(R.id.widget_habit_icon, "setColorFilter", habitColorInt)
             views.setViewVisibility(R.id.widget_habit_icon, android.view.View.VISIBLE)
 
             val currentVal = when (log?.value) {
@@ -102,10 +102,12 @@ class HabitWidgetFactory(private val context: Context, intent: Intent) : RemoteV
                 else -> log.value
             }
 
-            val nameText = if (habit.type == "BINARY") {
-                habit.name
+            val nameText = if (habit.type == "NUMBER" || habit.type == "NUMERICAL") {
+                val formattedCurrent = if (currentVal % 1f == 0f) currentVal.toInt().toString() else String.format(Locale.US, "%.1f", currentVal)
+                val formattedTarget = if (habit.targetValue % 1f == 0f) habit.targetValue.toInt().toString() else String.format(Locale.US, "%.1f", habit.targetValue)
+                "${habit.name} ($formattedCurrent/$formattedTarget)"
             } else {
-                "${habit.name} (${currentVal.toInt()}/${habit.targetValue.toInt()} ${habit.unit})"
+                habit.name
             }
             views.setTextViewText(R.id.widget_habit_name, nameText)
 
@@ -126,34 +128,33 @@ class HabitWidgetFactory(private val context: Context, intent: Intent) : RemoteV
             }
 
             if (habit.type == "NUMBER" || habit.type == "NUMERICAL") {
-                views.setViewVisibility(R.id.widget_habit_minus, android.view.View.VISIBLE)
-                views.setViewVisibility(R.id.widget_habit_plus, android.view.View.VISIBLE)
+                views.setViewVisibility(R.id.widget_habit_minus, android.view.View.GONE)
+                views.setViewVisibility(R.id.widget_habit_plus, android.view.View.GONE)
 
-                // For numerical, clicks on check or name toggle the habit, separate from +/-
-                views.setOnClickFillInIntent(R.id.widget_habit_check, toggleIntent)
-                views.setOnClickFillInIntent(R.id.widget_habit_name, toggleIntent)
-
-                val minusIntent = Intent().apply {
+                // When clicking layout or name, open the app
+                val openAppIntent = Intent().apply {
                     putExtra(HabitWidgetProvider.EXTRA_HABIT_ID, habit.id)
-                    putExtra(HabitWidgetProvider.EXTRA_DELTA, -1f)
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                    putExtra("WIDGET_ACTION", "DELTA")
+                    putExtra("WIDGET_ACTION", "OPEN_APP")
                 }
-                views.setOnClickFillInIntent(R.id.widget_habit_minus, minusIntent)
+                views.setOnClickFillInIntent(R.id.widget_habit_layout, openAppIntent)
+                views.setOnClickFillInIntent(R.id.widget_habit_name, openAppIntent)
 
-                val plusIntent = Intent().apply {
+                // Direct delta increment when clicking the check circle on numerical habits
+                val directIncrementIntent = Intent().apply {
                     putExtra(HabitWidgetProvider.EXTRA_HABIT_ID, habit.id)
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                     putExtra(HabitWidgetProvider.EXTRA_DELTA, 1f)
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                     putExtra("WIDGET_ACTION", "DELTA")
                 }
-                views.setOnClickFillInIntent(R.id.widget_habit_plus, plusIntent)
+                views.setOnClickFillInIntent(R.id.widget_habit_check, directIncrementIntent)
             } else {
                 views.setViewVisibility(R.id.widget_habit_minus, android.view.View.GONE)
                 views.setViewVisibility(R.id.widget_habit_plus, android.view.View.GONE)
                 
-                // For binary habits, clicking the entire layout (the whole tile) toggles the habit
+                // For binary habits, clicking the layout or check circle toggles the habit
                 views.setOnClickFillInIntent(R.id.widget_habit_layout, toggleIntent)
+                views.setOnClickFillInIntent(R.id.widget_habit_check, toggleIntent)
             }
 
             return views
