@@ -1,4 +1,5 @@
 
+
 # Frequent Habits 🌟
 
 Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Android, der dir hilft, gute Gewohnheiten aufzubauen und schlechte loszuwerden. Komplett Open Source, ohne Werbung und ohne Tracking.
@@ -32,7 +33,7 @@ Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Androi
 | Heute-Ansicht | Statistik & Heatmap | Detail & Ränge |
 | :---: | :---: | :---: |
 | `<img src="link_zu_bild1.png" width="250"/>` | `<img src="link_zu_bild2.png" width="250"/>` | `<img src="link_zu_bild3.png" width="250"/>` |
-
+<img width="1080" height="2400" alt="Screenshot_20260713-151659" src="https://github.com/user-attachments/assets/55b3066f-d261-4705-93b8-05e3f8a9d8b1" />
 ---
 
 ## 🛠 Tech Stack
