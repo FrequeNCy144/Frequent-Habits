@@ -8,16 +8,14 @@ A privacy-friendly, local, and motivating habit tracker for Android that helps y
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-**Frequent Habits** focuses on the essentials: your goals, your data, and your motivation.
-
-*   🔒 **100% Privacy & Offline-First:** No servers, no cloud requirements, no analytics tools. All data stays local on your device.
-*   🎮 **Motivating Gamification:** Earn experience, build streaks, and rank up (from Wood to Unreal).
-*   📊 **Detailed Statistics:** Track your progress with an interactive, GitHub-inspired activity heatmap for the entire year.
-*   🎯 **Flexible Habit Types:** Supports simple Yes/No habits as well as numerical goals (e.g., "drink 2 liters of water" or "read 30 minutes").
-*   💾 **Full Data Control:** Integrated local backup & restore (SAF), allowing you to save your history as a JSON file.
-*   🌍 **Bilingual:** Fully localized in German and English.
+*   🎨 **Unique, Aesthetic Design:** A stunning interface with vibrant accent colors, fluid animations, and a clean UI that makes checking off your daily tasks a true premium experience.
+*   📊 **Unrivaled Statistics & Analytics:** Go far beyond simple streak counting. Understand your behavior through detailed yearly heatmaps, precise weekday frequencies, top & bottom habit insights, and visually striking progress bars.
+*   🛡️ **100% Private & Offline:** Your life is your business. No tracking, no ads, no mandatory cloud. Includes a secure, local backup feature (SAF).
+*   🎮 **Motivation through Gamification:** Achieve "Gold Series", keep your streaks alive, and unlock exclusive trophies and milestones that keep you motivated every single day.
+*   ⏱️ **Built-in Timer:** Complete number- and time-based habits (like 30 minutes of meditation or reading) with a dedicated timer—including background audio—directly within the app.
+*   📝 **Integrated Mini-Notebook:** Jot down your thoughts, successes, or reasons for a
 
 ---
 
