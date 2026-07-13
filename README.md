@@ -25,11 +25,11 @@ A privacy-friendly, local, and motivating habit tracker for Android that helps y
 
 | Today View | Create Habit | Stats Overview |
 | :---: | :---: | :---: |
-| <img width="200" alt="Today" src="https://github.com/user-attachments/assets/c4022b1b-c260-4ffa-81e9-88c9c47ef80e" /> | <img width="200" alt="Create" src="https://github.com/user-attachments/assets/7e5c7144-c71e-45e4-9fe7-bf5a01640ea4" /> | <img width="200" alt="Stats-Detail" src="https://github.com/user-attachments/assets/16658192-f47a-46ca-8fca-d16062885efe" /> |
+| <img width="200" alt="Today" src="https://github.com/user-attachments/assets/c4022b1b-c260-4ffa-81e9-88c9c47ef80e" /> | <img width="200" alt="Create" src="https://github.com/user-attachments/assets/7e5c7144-c71e-45e4-9fe7-bf5a01640ea4" /> | <img width="200" alt="Stats" src="https://github.com/user-attachments/assets/c7f7f4a0-85a8-4d94-9250-79b642eb0dfc" /> |
 
 | Stats Detail | Ranks & Achievements |
 | :---: | :---: |
-| <img width="200" alt="Stats" src="https://github.com/user-attachments/assets/c7f7f4a0-85a8-4d94-9250-79b642eb0dfc" /> | <img width="200" alt="Ranks" src="https://github.com/user-attachments/assets/5bc7a3c3-45be-429f-99cd-7dfce499043e" /> |
+| <img width="200" alt="Stats-Detail" src="https://github.com/user-attachments/assets/16658192-f47a-46ca-8fca-d16062885efe" /> | <img width="200" alt="Ranks" src="https://github.com/user-attachments/assets/5bc7a3c3-45be-429f-99cd-7dfce499043e" /> |
 
 ---
 
