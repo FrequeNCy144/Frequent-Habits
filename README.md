@@ -9,8 +9,6 @@ Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Androi
 ![Status: Aktiv](https://img.shields.io/badge/Status-Active-success.svg)
 
 
-<img width="1080" height="2400" alt="Screenshot_20260713-151659" src="https://github.com/user-attachments/assets/35d6b65a-a995-4b17-8652-2f470da56c42" />
-
 
 
 ---
@@ -34,8 +32,7 @@ Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Androi
 
 | Heute-Ansicht | Statistik & Heatmap | Detail & Ränge |
 | :---: | :---: | :---: |
-| <img src=<img width="1080" height="2400" alt="Screenshot_20260713-151659" src="https://github.com/user-attachments/assets/f7cd1e80-918f-4d6d-87b3-5d66aaae8b1c" />
-width="250"/> | <img src="DEIN_LINK_2" width="250"/> | <img src="DEIN_LINK_3" width="250"/> |
+| <img width="200" alt="Screenshot_1" src="https://github.com/user-attachments/assets/c4022b1b-c260-4ffa-81e9-88c9c47ef80e" /> | <img width="200" alt="Screenshot_2" src="https://github.com/user-attachments/assets/c7f7f4a0-85a8-4d94-9250-79b642eb0dfc" /> | <img width="200" alt="Screenshot_3" src="https://github.com/user-attachments/assets/5bc7a3c3-45be-429f-99cd-7dfce499043e" /> |
 
 ---
 
