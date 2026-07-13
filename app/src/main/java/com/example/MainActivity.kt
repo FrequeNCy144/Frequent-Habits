@@ -3651,9 +3651,12 @@ fun OverallStatsScreen(
     val heatmapYearGridData by viewModel.heatmapYearGridData.collectAsStateWithLifecycle()
     val heatmapYearMonthLabels by viewModel.heatmapYearMonthLabels.collectAsStateWithLifecycle()
 
+    val selectedHeatmapCell by viewModel.selectedHeatmapCell.collectAsStateWithLifecycle()
+    val heatmapViewMode by viewModel.heatmapViewMode.collectAsStateWithLifecycle()
+    val activeCell by viewModel.activeHeatmapCell.collectAsStateWithLifecycle()
+    val formattedDate by viewModel.formattedActiveCellDate.collectAsStateWithLifecycle()
+
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var selectedHeatmapCell by remember { mutableStateOf<CalendarGridCellData?>(null) }
-    var heatmapViewMode by remember { mutableStateOf("month") } // "month" or "year"
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -3848,7 +3851,7 @@ fun OverallStatsScreen(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(if (isSelected) PrimaryViolet else Color.Transparent)
-                                            .clickable { heatmapViewMode = mode }
+                                            .clickable { viewModel.setHeatmapViewMode(mode) }
                                             .padding(horizontal = 10.dp, vertical = 4.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -3861,17 +3864,6 @@ fun OverallStatsScreen(
                                     }
                                 }
                             }
-                        }
-
-                        // Determine the active cell based on active view mode so details below update correctly
-                        val activeCell = remember(selectedHeatmapCell, heatmapViewMode, heatmapMonthGridData, heatmapYearGridData) {
-                            val activeGrid = if (heatmapViewMode == "month") {
-                                heatmapMonthGridData.flatten().filterNotNull()
-                            } else {
-                                heatmapYearGridData.flatten()
-                            }
-                            val match = activeGrid.firstOrNull { it.dateStr == selectedHeatmapCell?.dateStr }
-                            match ?: activeGrid.firstOrNull { it.isToday } ?: activeGrid.firstOrNull()
                         }
 
                         if (heatmapViewMode == "month") {
@@ -4010,7 +4002,7 @@ fun OverallStatsScreen(
                                                                 } else Modifier
                                                             )
                                                             .clickable(enabled = !cell.isOutOfRange) {
-                                                                selectedHeatmapCell = cell
+                                                                viewModel.selectHeatmapCell(cell)
                                                             },
                                                         contentAlignment = Alignment.Center
                                                     ) {
@@ -4159,7 +4151,7 @@ fun OverallStatsScreen(
                                                                 } else Modifier
                                                             )
                                                             .clickable(enabled = !cell.isOutOfRange) {
-                                                                selectedHeatmapCell = cell
+                                                                viewModel.selectHeatmapCell(cell)
                                                             }
                                                     )
                                                 }
@@ -4209,18 +4201,9 @@ fun OverallStatsScreen(
                         }
 
                         // Tapped cell details container
-                        if (activeCell != null) {
+                        val cell = activeCell
+                        if (cell != null) {
                             Spacer(modifier = Modifier.height(16.dp))
-                            val formattedDate = remember(activeCell, language) {
-                                try {
-                                    val localDate = java.time.LocalDate.parse(activeCell.dateStr)
-                                    val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy", if (language == "de") java.util.Locale.GERMANY else java.util.Locale.US)
-                                    localDate.format(formatter)
-                                } catch (e: Exception) {
-                                    activeCell.dateStr
-                                }
-                            }
-                            
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -4239,33 +4222,33 @@ fun OverallStatsScreen(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     val statusText = when {
-                                        activeCell.isFuture -> {
+                                        cell.isFuture -> {
                                             if (language == "de") "Zukünftiger Tag" else "Future day"
                                         }
-                                        activeCell.total == 0 -> {
+                                        cell.total == 0 -> {
                                             if (language == "de") "Keine Gewohnheiten an diesem Tag" else "No habits active on this day"
                                         }
                                         else -> {
-                                            val pct = (activeCell.completed.toFloat() / activeCell.total.toFloat() * 100).toInt()
+                                            val pct = (cell.completed.toFloat() / cell.total.toFloat() * 100).toInt()
                                             if (language == "de") {
-                                                "${activeCell.completed} von ${activeCell.total} Gewohnheiten abgeschlossen ($pct%)"
+                                                "${cell.completed} von ${cell.total} Gewohnheiten abgeschlossen ($pct%)"
                                             } else {
-                                                "${activeCell.completed} of ${activeCell.total} habits completed ($pct%)"
+                                                "${cell.completed} of ${cell.total} habits completed ($pct%)"
                                             }
                                         }
                                     }
                                     Text(
                                         text = statusText,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = if (activeCell.total > 0 && activeCell.completed == activeCell.total) SuccessGreen else TextPrimary,
+                                        color = if (cell.total > 0 && cell.completed == cell.total) SuccessGreen else TextPrimary,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
                                 
-                                if (!activeCell.isFuture) {
+                                if (!cell.isFuture) {
                                     TextButton(
                                         onClick = {
-                                            viewModel.selectDateAndSyncWeek(activeCell.dateStr)
+                                            viewModel.selectDateAndSyncWeek(cell.dateStr)
                                             onBack()
                                         },
                                         colors = ButtonDefaults.textButtonColors(contentColor = PrimaryViolet)

@@ -84,7 +84,10 @@ data class CalendarCellState(
 data class HabitStatModel(
     val habit: Habit,
     val strength: Int,
-    val past7DaysStatuses: List<String>
+    val past7DaysStatuses: List<String>,
+    val monthGridData: List<List<CalendarGridCellData?>>,
+    val yearGridData: List<List<CalendarGridCellData>>,
+    val yearMonthLabels: List<Pair<Int, String>>
 )
 
 @Immutable

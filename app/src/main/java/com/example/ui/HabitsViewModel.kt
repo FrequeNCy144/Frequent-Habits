@@ -925,12 +925,65 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     }.flowOn(kotlinx.coroutines.Dispatchers.Default)
      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private val _selectedHeatmapCell = MutableStateFlow<CalendarGridCellData?>(null)
+    val selectedHeatmapCell = _selectedHeatmapCell.asStateFlow()
+    
+    private val _heatmapViewMode = MutableStateFlow("month")
+    val heatmapViewMode = _heatmapViewMode.asStateFlow()
+    
+    fun selectHeatmapCell(cell: CalendarGridCellData?) {
+        _selectedHeatmapCell.value = cell
+    }
+    
+    fun setHeatmapViewMode(mode: String) {
+        _heatmapViewMode.value = mode
+    }
+
+    val activeHeatmapCell: StateFlow<CalendarGridCellData?> = combine(
+        _selectedHeatmapCell,
+        _heatmapViewMode,
+        heatmapMonthGridData,
+        heatmapYearGridData
+    ) { selectedCell, viewMode, monthGrid, yearGrid ->
+        val activeGrid = if (viewMode == "month") {
+            monthGrid.flatten().filterNotNull()
+        } else {
+            yearGrid.flatten()
+        }
+        val match = activeGrid.firstOrNull { it.dateStr == selectedCell?.dateStr }
+        match ?: activeGrid.firstOrNull { it.isToday } ?: activeGrid.firstOrNull()
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val formattedActiveCellDate: StateFlow<String> = combine(
+        activeHeatmapCell,
+        language
+    ) { activeCell, lang ->
+        if (activeCell == null) return@combine ""
+        try {
+            val localDate = java.time.LocalDate.parse(activeCell.dateStr)
+            val formatter = java.time.format.DateTimeFormatter.ofPattern(
+                "EEEE, d. MMMM yyyy",
+                if (lang == "de") Locale.GERMANY else Locale.US
+            )
+            localDate.format(formatter)
+        } catch (e: Exception) {
+            activeCell.dateStr
+        }
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
     val oldestHabitDateMs: StateFlow<Long> = allHabits.map { habits ->
         habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), System.currentTimeMillis())
 
-    val statsScreenData: StateFlow<List<HabitStatModel>> = combine(allHabits, allLogs, language) { habits, logs, lang ->
+    val statsScreenData: StateFlow<List<HabitStatModel>> = combine(
+        allHabits,
+        allLogs,
+        combine(language, heatmapMonthCalendar, minDateStr) { l, m, minD -> Triple(l, m, minD) }
+    ) { habits, logs, (lang, monthCal, minDate) ->
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val today = sdf.format(Date())
         val daysList = mutableListOf<String>()
         val cal = Calendar.getInstance()
         for (i in 0 until 7) {
@@ -954,11 +1007,172 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                 val log = logsByDate[dateStr]
                 getLogStatus(habit, log, dateStr, startSdfStr, todayStr)
             }
+
+            // Month Grid calculation for this specific habit
+            val temp = monthCal.clone() as Calendar
+            temp.set(Calendar.DAY_OF_MONTH, 1)
+            val year = temp.get(Calendar.YEAR)
+            val month = temp.get(Calendar.MONTH)
             
+            temp.firstDayOfWeek = Calendar.MONDAY
+            val dayOfWeek = temp.get(Calendar.DAY_OF_WEEK)
+            val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+            temp.add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+            
+            val monthGridList = mutableListOf<List<CalendarGridCellData?>>()
+            val cursor = temp.clone() as Calendar
+            
+            for (w in 0 until 6) {
+                if (w >= 4 && cursor.get(Calendar.MONTH) != month) {
+                    break
+                }
+                
+                val weekDays = mutableListOf<CalendarGridCellData?>()
+                var hasDaysInMonth = false
+                for (d in 0 until 7) {
+                    val cellYear = cursor.get(Calendar.YEAR)
+                    val cellMonth = cursor.get(Calendar.MONTH)
+                    val dateStr = sdf.format(cursor.time)
+                    
+                    if (cellYear == year && cellMonth == month) {
+                        hasDaysInMonth = true
+                        
+                        val isActive = isHabitActiveOnDate(habit, dateStr)
+                        var progressTotal = 0
+                        var progressCompleted = 0
+                        var combinedStatus = "INACTIVE"
+                        
+                        if (isActive) {
+                            val log = logsByDate[dateStr]
+                            val isPaused = log != null && log.isPaused
+                            if (!isPaused) {
+                                progressTotal = 1
+                                if (isLogCompleted(habit, log)) {
+                                    progressCompleted = 1
+                                }
+                            }
+                            combinedStatus = getLogStatus(habit, log, dateStr, startSdfStr, todayStr)
+                        }
+                        
+                        val isToday = dateStr == todayStr
+                        val isFuture = dateStr > todayStr
+                        val isOutOfRange = dateStr < minDate
+                        val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
+                        
+                        weekDays.add(
+                            CalendarGridCellData(
+                                day = dayOfMonth,
+                                dateStr = dateStr,
+                                combinedStatus = combinedStatus,
+                                isToday = isToday,
+                                isFuture = isFuture,
+                                total = progressTotal,
+                                completed = progressCompleted,
+                                isOutOfRange = isOutOfRange
+                            )
+                        )
+                    } else {
+                        weekDays.add(null)
+                    }
+                    cursor.add(Calendar.DAY_OF_YEAR, 1)
+                }
+                if (hasDaysInMonth) {
+                    monthGridList.add(weekDays)
+                }
+            }
+
+            // Year Grid calculation for this specific habit
+            val currentCal = Calendar.getInstance().apply {
+                firstDayOfWeek = Calendar.MONDAY
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                
+                val dayOfWeek = get(Calendar.DAY_OF_WEEK)
+                val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+                add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+            }
+            
+            val startCal = (currentCal.clone() as Calendar).apply {
+                add(Calendar.WEEK_OF_YEAR, -23)
+            }
+            
+            val yearWeeksList = mutableListOf<List<CalendarGridCellData>>()
+            val yearCursor = startCal.clone() as Calendar
+            for (w in 0 until 24) {
+                val weekDays = mutableListOf<CalendarGridCellData>()
+                for (d in 0 until 7) {
+                    val dateStr = sdf.format(yearCursor.time)
+                    
+                    val isActive = isHabitActiveOnDate(habit, dateStr)
+                    var progressTotal = 0
+                    var progressCompleted = 0
+                    var combinedStatus = "INACTIVE"
+                    
+                    if (isActive) {
+                        val log = logsByDate[dateStr]
+                        val isPaused = log != null && log.isPaused
+                        if (!isPaused) {
+                            progressTotal = 1
+                            if (isLogCompleted(habit, log)) {
+                                progressCompleted = 1
+                            }
+                        }
+                        combinedStatus = getLogStatus(habit, log, dateStr, startSdfStr, todayStr)
+                    }
+                    
+                    val isToday = dateStr == todayStr
+                    val isFuture = dateStr > todayStr
+                    val isOutOfRange = dateStr < minDate
+                    val dayOfMonth = yearCursor.get(Calendar.DAY_OF_MONTH)
+                    
+                    weekDays.add(
+                        CalendarGridCellData(
+                            day = dayOfMonth,
+                            dateStr = dateStr,
+                            combinedStatus = combinedStatus,
+                            isToday = isToday,
+                            isFuture = isFuture,
+                            total = progressTotal,
+                            completed = progressCompleted,
+                            isOutOfRange = isOutOfRange
+                        )
+                    )
+                    yearCursor.add(Calendar.DAY_OF_YEAR, 1)
+                }
+                yearWeeksList.add(weekDays)
+            }
+
+            // Year Month Labels for this specific habit
+            val yearMonthLabels = mutableListOf<Pair<Int, String>>()
+            val sdfMonth = SimpleDateFormat("MMM", if (lang == "de") Locale.GERMANY else Locale.US)
+            var lastAddedIndex = -10
+            var lastMonthStr = ""
+            
+            yearWeeksList.forEachIndexed { index, weekDays ->
+                val mondayDate = weekDays.first().dateStr
+                val date = sdf.parse(mondayDate)
+                if (date != null) {
+                    val calForLabel = Calendar.getInstance().apply { time = date }
+                    val monthStr = sdfMonth.format(calForLabel.time)
+                    if (monthStr != lastMonthStr) {
+                        if (index - lastAddedIndex >= 3) {
+                            yearMonthLabels.add(index to monthStr)
+                            lastAddedIndex = index
+                        }
+                        lastMonthStr = monthStr
+                    }
+                }
+            }
+
             HabitStatModel(
                 habit = habit,
                 strength = strength,
-                past7DaysStatuses = past7DaysStatuses
+                past7DaysStatuses = past7DaysStatuses,
+                monthGridData = monthGridList,
+                yearGridData = yearWeeksList,
+                yearMonthLabels = yearMonthLabels
             )
         }
     }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
