@@ -19,6 +19,33 @@
         android:textStyle="bold"
         android:layout_marginBottom="0dp" />
 
+    <!-- Progress Header with Text -->
+    <LinearLayout
+        android:id="@+id/widget_progress_text_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="6dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Tagesfortschritt"
+            android:textColor="#E4E3EC"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_progress_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0%"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
     <!-- Rounded training progress bar matching the app's style -->
     <FrameLayout
         android:id="@+id/widget_progress_container"
@@ -34,37 +61,18 @@
             android:indeterminate="false"
             android:max="100"
             android:progress="0"
-            android:progressTint="#7356FF"
-            android:progressBackgroundTint="#201D35"
             android:progressDrawable="@drawable/widget_progress_bar_custom" />
 
-        <RelativeLayout
+        <ProgressBar
+            android:id="@+id/widget_progress_bar_completed"
+            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:visibility="gone"
-            android:paddingHorizontal="12dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentLeft="true"
-                android:layout_centerInParent="true"
-                android:text="Tagesfortschritt"
-                android:textColor="#E4E3EC"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_progress_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentRight="true"
-                android:layout_centerInParent="true"
-                android:text="0%"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </RelativeLayout>
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="0"
+            android:progressDrawable="@drawable/widget_progress_bar_completed"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- Scrollable Habits List -->

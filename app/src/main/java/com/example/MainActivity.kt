@@ -86,7 +86,6 @@ import com.example.data.HabitUiItem
 import com.example.ui.HabitIconMapping
 import com.example.ui.HabitsViewModel
 import com.example.ui.theme.*
-import java.text.SimpleDateFormat
 import java.util.*
 import android.media.MediaPlayer
 import android.media.RingtoneManager
@@ -626,9 +625,11 @@ fun WidgetAddValueDialog(
                 ) {
                     if (hasTimer) {
                         // TIMER SECTION
-                        val displayMinutes = timerSecondsRemaining / 60
-                        val displaySeconds = timerSecondsRemaining % 60
-                        val timeText = String.format(Locale.US, "%02d:%02d", displayMinutes, displaySeconds)
+                        val timeText = remember(timerSecondsRemaining) {
+                            val displayMinutes = timerSecondsRemaining / 60
+                            val displaySeconds = timerSecondsRemaining % 60
+                            String.format(Locale.US, "%02d:%02d", displayMinutes, displaySeconds)
+                        }
                         val progressFraction = if (initialTimerSeconds > 0) {
                             timerSecondsRemaining.toFloat() / initialTimerSeconds.toFloat()
                         } else {
@@ -667,27 +668,29 @@ fun WidgetAddValueDialog(
                                     modifier = Modifier
                                         .size(120.dp)
                                         .padding(4.dp)
-                                ) {
-                                    Canvas(modifier = Modifier.fillMaxSize()) {
-                                        drawCircle(
-                                            color = ProgressTrack,
-                                            radius = size.minDimension / 2f,
-                                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6.dp.toPx())
-                                        )
-                                    }
-
-                                    Canvas(modifier = Modifier.fillMaxSize()) {
-                                        drawArc(
-                                            color = PrimaryViolet,
-                                            startAngle = -90f,
-                                            sweepAngle = 360f * progressFraction,
-                                            useCenter = false,
-                                            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                                width = 6.dp.toPx(),
+                                        .drawWithCache {
+                                            val strokeWidth = 6.dp.toPx()
+                                            val trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                                            val progressStroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                                                width = strokeWidth,
                                                 cap = StrokeCap.Round
                                             )
-                                        )
-                                    }
+                                            onDrawBehind {
+                                                drawCircle(
+                                                    color = ProgressTrack,
+                                                    radius = size.minDimension / 2f,
+                                                    style = trackStroke
+                                                )
+                                                drawArc(
+                                                    color = PrimaryViolet,
+                                                    startAngle = -90f,
+                                                    sweepAngle = 360f * progressFraction,
+                                                    useCenter = false,
+                                                    style = progressStroke
+                                                )
+                                            }
+                                        }
+                                ) {
 
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         if (isEditingDuration && !isTimerRunning) {
@@ -1223,6 +1226,8 @@ fun CalendarDayItem(
     dayName: String,
     isSelected: Boolean,
     onSelect: (String) -> Unit,
+    isToday: Boolean,
+    isFuture: Boolean,
     modifier: Modifier = Modifier,
     isEnabled: Boolean = true
 ) {
@@ -1231,10 +1236,6 @@ fun CalendarDayItem(
         animationSpec = tween(120),
         label = "dayScale"
     )
-
-    val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
-    val isToday = dayStr == todayStr
-    val isFuture = dayStr > todayStr
 
     val weekdayColor = when {
         !isEnabled -> TextSecondary.copy(alpha = 0.3f)
@@ -1316,8 +1317,7 @@ fun getHabitProgressForDate(dateStr: String, habits: List<Habit>, logs: List<Hab
 }
 
 fun getDayCombinedStatus(dateStr: String, habits: List<Habit>, logs: List<HabitLog>): String {
-    val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val todayStr = sdfDb.format(Date())
+    val todayStr = java.time.LocalDate.now().toString()
     if (dateStr > todayStr) return "INACTIVE"
 
     val activeHabits = habits.filter { isHabitActiveOnDate(it, dateStr) }
@@ -1364,6 +1364,10 @@ fun TodayScreen(
     val activeHabitUiItemsForSelectedDate by viewModel.activeHabitUiItemsForSelectedDate.collectAsStateWithLifecycle()
     val minWeekStartMillis by viewModel.minWeekStartMillis.collectAsStateWithLifecycle()
     val minDateStr by viewModel.minDateStr.collectAsStateWithLifecycle()
+
+    val todayDateString by viewModel.todayDateString.collectAsStateWithLifecycle()
+    val canPrevWeek by viewModel.canPrevWeek.collectAsStateWithLifecycle()
+    val canNextWeek by viewModel.canNextWeek.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val activity = context as? Activity
@@ -1476,24 +1480,6 @@ fun TodayScreen(
         item(key = "today_calendar_strip") {
             var offsetX by remember { mutableStateOf(0f) }
             val swipeThreshold = 120f
-            
-            val canPrevWeek = remember(weekStartCalendar, minWeekStartMillis) {
-                weekStartCalendar.timeInMillis > minWeekStartMillis
-            }
-
-            val canNextWeek = remember(weekStartCalendar) {
-                val maxWeekStart = Calendar.getInstance().apply {
-                    firstDayOfWeek = Calendar.MONDAY
-                    val dayOfWeek = get(Calendar.DAY_OF_WEEK)
-                    val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
-                    add(Calendar.DAY_OF_YEAR, -daysToSubtract)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                weekStartCalendar.timeInMillis < maxWeekStart.timeInMillis
-            }
 
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -1561,6 +1547,8 @@ fun TodayScreen(
                                     dayName = dayName,
                                     isSelected = isSelected,
                                     onSelect = onSelectDayRemembered,
+                                    isToday = dayStr == todayDateString,
+                                    isFuture = dayStr > todayDateString,
                                     modifier = Modifier.weight(1f),
                                     isEnabled = isDayEnabled
                                 )
@@ -1585,9 +1573,8 @@ fun TodayScreen(
         }
 
         item(key = "today_progress_card") {
-            val isPastDay = remember(selectedDate) {
-                val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                selectedDate < today
+            val isPastDay = remember(selectedDate, todayDateString) {
+                selectedDate < todayDateString
             }
             val (completed, total) = todayProgressTuple
             val fraction = remember(todayProgressTuple) {
@@ -2286,6 +2273,11 @@ fun StatsScreen(
     val currentWeekDaysData by viewModel.currentWeekDaysData.collectAsStateWithLifecycle()
     val formattedDisplayDate by viewModel.formattedDisplayDate.collectAsStateWithLifecycle()
 
+    val todayDateString by viewModel.todayDateString.collectAsStateWithLifecycle()
+    val canPrevWeek by viewModel.canPrevWeek.collectAsStateWithLifecycle()
+    val canNextWeek by viewModel.canNextWeek.collectAsStateWithLifecycle()
+    val statsDayNamesAndNumbers by viewModel.statsDayNamesAndNumbers.collectAsStateWithLifecycle()
+
     val allDailyNotes by viewModel.allDailyNotes.collectAsStateWithLifecycle()
     val currentNote = remember(allDailyNotes, selectedDate) {
         allDailyNotes.find { it.date == selectedDate }?.content ?: ""
@@ -2301,9 +2293,8 @@ fun StatsScreen(
 
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    val isPastDay = remember(selectedDate) {
-        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-        selectedDate < today
+    val isPastDay = remember(selectedDate, todayDateString) {
+        selectedDate < todayDateString
     }
 
     val encouragementText = remember(todayProgressTuple, language) {
@@ -2316,28 +2307,8 @@ fun StatsScreen(
         }
     }
 
-    val shortDayNames = remember(language) {
-        val sdfDayInitial = SimpleDateFormat("E", if (language == "de") Locale.GERMANY else Locale.US)
-        val list = mutableListOf<String>()
-        val cal = Calendar.getInstance()
-        for (i in 0 until 7) {
-            list.add(sdfDayInitial.format(cal.time).take(2).uppercase(if (language == "de") Locale.GERMANY else Locale.US))
-            cal.add(Calendar.DAY_OF_YEAR, -1)
-        }
-        list.reverse()
-        list
-    }
-
-    val dayNumbers = remember {
-        val list = mutableListOf<String>()
-        val cal = Calendar.getInstance()
-        for (i in 0 until 7) {
-            list.add(cal.get(Calendar.DAY_OF_MONTH).toString())
-            cal.add(Calendar.DAY_OF_YEAR, -1)
-        }
-        list.reverse()
-        list
-    }
+    val shortDayNames = statsDayNamesAndNumbers.first
+    val dayNumbers = statsDayNamesAndNumbers.second
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -2416,24 +2387,6 @@ fun StatsScreen(
             item(key = "stats_calendar_strip") {
                 var offsetX by remember { mutableStateOf(0f) }
                 val swipeThreshold = 120f
-                
-                val canPrevWeek = remember(weekStartCalendar, minWeekStartMillis) {
-                    weekStartCalendar.timeInMillis > minWeekStartMillis
-                }
-
-                val canNextWeek = remember(weekStartCalendar) {
-                    val maxWeekStart = Calendar.getInstance().apply {
-                        firstDayOfWeek = Calendar.MONDAY
-                        val dayOfWeek = get(Calendar.DAY_OF_WEEK)
-                        val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
-                        add(Calendar.DAY_OF_YEAR, -daysToSubtract)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }
-                    weekStartCalendar.timeInMillis < maxWeekStart.timeInMillis
-                }
 
                 Column(
                     modifier = Modifier.fillMaxWidth()
@@ -2501,6 +2454,8 @@ fun StatsScreen(
                                         dayName = dayName,
                                         isSelected = isSelected,
                                         onSelect = onSelectDayRemembered,
+                                        isToday = dayStr == todayDateString,
+                                        isFuture = dayStr > todayDateString,
                                         modifier = Modifier.weight(1f),
                                         isEnabled = isDayEnabled
                                     )
@@ -3213,10 +3168,10 @@ fun HabitDetailScreen(
 
         // Weekday Frequency Section (For ALL habits!)
         item(key = "detail_frequency") {
-            val logs by viewModel.allLogs.collectAsStateWithLifecycle()
             WeekdayFrequencySection(
-                habit = habit,
-                logs = logs,
+                weekdayStats = state?.weekdayStats ?: emptyList(),
+                gridData = state?.weekdayGridData ?: emptyList(),
+                weeksWithMonthLabels = state?.weeksWithMonthLabels ?: emptyList(),
                 language = language,
                 onInfoClick = { t, e -> activeExplanation = t to e }
             )
@@ -3265,109 +3220,12 @@ fun HabitDetailScreen(
 @SuppressLint("NewApi")
 @Composable
 fun WeekdayFrequencySection(
-    habit: Habit,
-    logs: List<HabitLog>,
+    weekdayStats: List<Triple<Int, Int, Int>>,
+    gridData: List<List<Pair<java.time.LocalDate, String>>>,
+    weeksWithMonthLabels: List<String>,
     language: String,
     onInfoClick: (String, String) -> Unit
 ) {
-    // Calculate historical weekday frequency (0 = Mon, ..., 6 = Sun)
-    val weekdayStats = remember(habit, logs) {
-        val habitLogs = logs.filter { it.habitId == habit.id }
-        val completedDates = habitLogs.filter { log ->
-            isLogCompleted(habit, log)
-        }.map { it.date }.toSet()
-
-        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-        val startDate = java.time.Instant.ofEpochMilli(validStartMillis)
-            .atZone(java.time.ZoneId.systemDefault())
-            .toLocalDate()
-        val today = java.time.LocalDate.now()
-
-        val occurrences = IntArray(7)
-        val completions = IntArray(7)
-
-        var current = startDate
-        if (!current.isAfter(today)) {
-            while (!current.isAfter(today)) {
-                val dayOfWeekIndex = current.dayOfWeek.value - 1
-                if (dayOfWeekIndex in 0..6) {
-                    occurrences[dayOfWeekIndex]++
-                    if (completedDates.contains(current.toString())) {
-                        completions[dayOfWeekIndex]++
-                    }
-                }
-                current = current.plusDays(1)
-            }
-        }
-
-        List(7) { index ->
-            val total = occurrences[index]
-            val completed = completions[index]
-            val pct = if (total > 0) (completed.toFloat() / total.toFloat() * 100).toInt() else 0
-            Triple(index, completed, pct)
-        }
-    }
-
-    // Calculate last 15 weeks grid
-    val gridData = remember(habit, logs) {
-        val habitLogs = logs.filter { it.habitId == habit.id }
-        val completedDates = habitLogs.filter { log ->
-            isLogCompleted(habit, log)
-        }.map { it.date }.toSet()
-
-        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-        val startDate = java.time.Instant.ofEpochMilli(validStartMillis)
-            .atZone(java.time.ZoneId.systemDefault())
-            .toLocalDate()
-        val today = java.time.LocalDate.now()
-
-        val mondayOfCurrentWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-        
-        val numWeeks = 15
-        List(numWeeks) { weekOffset ->
-            val weekStart = mondayOfCurrentWeek.minusWeeks((numWeeks - 1 - weekOffset).toLong())
-            List(7) { dayOffset ->
-                val cellDate = weekStart.plusDays(dayOffset.toLong())
-                val dateStr = cellDate.toString()
-                val isCompleted = completedDates.contains(dateStr)
-                val isFuture = cellDate.isAfter(today)
-                val isBeforeStart = cellDate.isBefore(startDate)
-                
-                val status = when {
-                    isBeforeStart || isFuture -> "INACTIVE"
-                    isCompleted -> "SUCCESS"
-                    else -> "FAILED"
-                }
-                
-                cellDate to status
-            }
-        }
-    }
-
-    val weeksWithMonthLabels = remember(gridData, language) {
-        val labels = Array(gridData.size) { "" }
-        var lastMonth = -1
-        var lastAddedIndex = -10
-        gridData.forEachIndexed { index, weekDays ->
-            val monday = weekDays.first().first
-            val monthVal = monday.monthValue
-            if (monthVal != lastMonth) {
-                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM", if (language == "de") Locale.GERMANY else Locale.US)
-                val labelStr = monday.format(formatter)
-                if (index - lastAddedIndex >= 3) {
-                    labels[index] = labelStr
-                    lastAddedIndex = index
-                } else if (lastAddedIndex == 0) {
-                    labels[0] = ""
-                    labels[index] = labelStr
-                    lastAddedIndex = index
-                }
-                lastMonth = monthVal
-            }
-        }
-        labels
-    }
-
     val daysAbbr = if (language == "de") {
         listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
     } else {
@@ -3664,12 +3522,22 @@ fun TargetProgressRow(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        val progressFraction = if (target > 0f) (actual / target).coerceIn(0f, 1f) else 0f
-        val hasOverachieved = target > 0f && actual > target
+        val progressFraction = remember(actual, target) {
+            if (target > 0f) (actual / target).coerceIn(0f, 1f) else 0f
+        }
+        val hasOverachieved = remember(actual, target) {
+            target > 0f && actual > target
+        }
 
-        val formattedActual = if (actual % 1f == 0f) actual.toInt().toString() else String.format(Locale.US, "%.1f", actual)
-        val formattedTarget = if (target % 1f == 0f) target.toInt().toString() else String.format(Locale.US, "%.1f", target)
-        val unitSuffix = if (isNumerical && unit.isNotEmpty()) " $unit" else ""
+        val formattedActual = remember(actual) {
+            if (actual % 1f == 0f) actual.toInt().toString() else String.format(Locale.US, "%.1f", actual)
+        }
+        val formattedTarget = remember(target) {
+            if (target % 1f == 0f) target.toInt().toString() else String.format(Locale.US, "%.1f", target)
+        }
+        val unitSuffix = remember(isNumerical, unit) {
+            if (isNumerical && unit.isNotEmpty()) " $unit" else ""
+        }
 
         // Row 1: Period label and Value text
         Row(
@@ -3695,9 +3563,13 @@ fun TargetProgressRow(
                 )
 
                 if (target > 0f) {
-                    val diff = actual - target
-                    val formattedDiff = if (diff % 1f == 0f) diff.toInt().toString() else String.format(Locale.US, "%.1f", diff)
-                    val targetLabel = if (language == "de") " / Ziel: $formattedTarget$unitSuffix" else " / Target: $formattedTarget$unitSuffix"
+                    val formattedDiff = remember(actual, target) {
+                        val diff = actual - target
+                        if (diff % 1f == 0f) diff.toInt().toString() else String.format(Locale.US, "%.1f", diff)
+                    }
+                    val targetLabel = remember(language, formattedTarget, unitSuffix) {
+                        if (language == "de") " / Ziel: $formattedTarget$unitSuffix" else " / Target: $formattedTarget$unitSuffix"
+                    }
 
                     Text(
                         text = buildAnnotatedString {
@@ -3771,38 +3643,17 @@ fun OverallStatsScreen(
     val overallCalData by viewModel.overallCalendarData.collectAsStateWithLifecycle()
     val allDailyNotes by viewModel.allDailyNotes.collectAsStateWithLifecycle()
 
+    val heatmapMonthOffset by viewModel.heatmapMonthOffset.collectAsStateWithLifecycle()
+    val heatmapCanPrevMonth by viewModel.heatmapCanPrevMonth.collectAsStateWithLifecycle()
+    val heatmapCanNextMonth by viewModel.heatmapCanNextMonth.collectAsStateWithLifecycle()
+    val heatmapMonthNameAndYear by viewModel.heatmapMonthNameAndYear.collectAsStateWithLifecycle()
+    val heatmapMonthGridData by viewModel.heatmapMonthGridData.collectAsStateWithLifecycle()
+    val heatmapYearGridData by viewModel.heatmapYearGridData.collectAsStateWithLifecycle()
+    val heatmapYearMonthLabels by viewModel.heatmapYearMonthLabels.collectAsStateWithLifecycle()
+
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
     var selectedHeatmapCell by remember { mutableStateOf<CalendarGridCellData?>(null) }
     var heatmapViewMode by remember { mutableStateOf("month") } // "month" or "year"
-
-    var monthViewCalendar by remember(selectedDate) {
-        val cal = Calendar.getInstance()
-        val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        try {
-            val d = sdfDb.parse(selectedDate)
-            if (d != null) cal.time = d
-        } catch (e: Exception) {}
-        cal.set(Calendar.DAY_OF_MONTH, 1)
-        mutableStateOf(cal)
-    }
-
-    val oldestHabitDateMs = remember(allHabits) {
-        allHabits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
-    }
-
-    val canPrevMonth = remember(monthViewCalendar, oldestHabitDateMs) {
-        val oldestCal = Calendar.getInstance().apply { timeInMillis = oldestHabitDateMs }
-        val currentCalMonth = monthViewCalendar.get(Calendar.MONTH) + monthViewCalendar.get(Calendar.YEAR) * 12
-        val oldestCalMonth = oldestCal.get(Calendar.MONTH) + oldestCal.get(Calendar.YEAR) * 12
-        currentCalMonth > oldestCalMonth
-    }
-
-    val canNextMonth = remember(monthViewCalendar) {
-        val today = Calendar.getInstance()
-        val currentCalMonth = monthViewCalendar.get(Calendar.MONTH) + monthViewCalendar.get(Calendar.YEAR) * 12
-        val todayCalMonth = today.get(Calendar.MONTH) + today.get(Calendar.YEAR) * 12
-        currentCalMonth < todayCalMonth
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -4013,118 +3864,14 @@ fun OverallStatsScreen(
                         }
 
                         // Determine the active cell based on active view mode so details below update correctly
-                        val activeCell = remember(selectedHeatmapCell, heatmapViewMode, overallCalData, allHabits, monthViewCalendar) {
-                            if (heatmapViewMode == "month") {
-                                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                                val today = sdf.format(Date())
-                                val minDateStr = viewModel.getMinDateStr()
-                                
-                                val temp = monthViewCalendar.clone() as Calendar
-                                temp.set(Calendar.DAY_OF_MONTH, 1)
-                                val year = temp.get(Calendar.YEAR)
-                                val month = temp.get(Calendar.MONTH)
-                                
-                                temp.firstDayOfWeek = Calendar.MONDAY
-                                val dayOfWeek = temp.get(Calendar.DAY_OF_WEEK)
-                                val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
-                                temp.add(Calendar.DAY_OF_YEAR, -daysToSubtract)
-                                
-                                val list = mutableListOf<CalendarGridCellData>()
-                                val cursor = temp.clone() as Calendar
-                                for (w in 0 until 6) {
-                                    if (w >= 4 && cursor.get(Calendar.MONTH) != month) {
-                                        break
-                                    }
-                                    for (d in 0 until 7) {
-                                        val cellYear = cursor.get(Calendar.YEAR)
-                                        val cellMonth = cursor.get(Calendar.MONTH)
-                                        val dateStr = sdf.format(cursor.time)
-                                        
-                                        if (cellYear == year && cellMonth == month) {
-                                            val progress = overallCalData.progressMap[dateStr] ?: (0 to 0)
-                                            val combinedStatus = overallCalData.statusMap[dateStr] ?: "INACTIVE"
-                                            val isToday = dateStr == today
-                                            val isFuture = dateStr > today
-                                            val isOutOfRange = dateStr < minDateStr
-                                            val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
-                                            
-                                            list.add(
-                                                CalendarGridCellData(
-                                                    day = dayOfMonth,
-                                                    dateStr = dateStr,
-                                                    combinedStatus = combinedStatus,
-                                                    isToday = isToday,
-                                                    isFuture = isFuture,
-                                                    total = progress.second,
-                                                    completed = progress.first,
-                                                    isOutOfRange = isOutOfRange
-                                                )
-                                            )
-                                        }
-                                        cursor.add(Calendar.DAY_OF_YEAR, 1)
-                                    }
-                                }
-                                val match = list.firstOrNull { it.dateStr == selectedHeatmapCell?.dateStr }
-                                if (match != null) {
-                                    match
-                                } else {
-                                    list.firstOrNull { it.isToday } ?: list.firstOrNull()
-                                }
+                        val activeCell = remember(selectedHeatmapCell, heatmapViewMode, heatmapMonthGridData, heatmapYearGridData) {
+                            val activeGrid = if (heatmapViewMode == "month") {
+                                heatmapMonthGridData.flatten().filterNotNull()
                             } else {
-                                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                                val today = sdf.format(Date())
-                                val minDateStr = viewModel.getMinDateStr()
-                                
-                                val currentCal = Calendar.getInstance().apply {
-                                    firstDayOfWeek = Calendar.MONDAY
-                                    set(Calendar.HOUR_OF_DAY, 0)
-                                    set(Calendar.MINUTE, 0)
-                                    set(Calendar.SECOND, 0)
-                                    set(Calendar.MILLISECOND, 0)
-                                    
-                                    val dayOfWeek = get(Calendar.DAY_OF_WEEK)
-                                    val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
-                                    add(Calendar.DAY_OF_YEAR, -daysToSubtract)
-                                }
-                                
-                                val startCal = (currentCal.clone() as Calendar).apply {
-                                    add(Calendar.WEEK_OF_YEAR, -23)
-                                }
-                                
-                                val list = mutableListOf<CalendarGridCellData>()
-                                val cursor = startCal.clone() as Calendar
-                                for (w in 0 until 24) {
-                                    for (d in 0 until 7) {
-                                        val dateStr = sdf.format(cursor.time)
-                                        val progress = overallCalData.progressMap[dateStr] ?: (0 to 0)
-                                        val combinedStatus = overallCalData.statusMap[dateStr] ?: "INACTIVE"
-                                        val isToday = dateStr == today
-                                        val isFuture = dateStr > today
-                                        val isOutOfRange = dateStr < minDateStr
-                                        val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
-                                        
-                                        list.add(
-                                            CalendarGridCellData(
-                                                day = dayOfMonth,
-                                                dateStr = dateStr,
-                                                combinedStatus = combinedStatus,
-                                                isToday = isToday,
-                                                isFuture = isFuture,
-                                                total = progress.second,
-                                                completed = progress.first,
-                                                isOutOfRange = isOutOfRange
-                                            )
-                                        )
-                                        cursor.add(Calendar.DAY_OF_YEAR, 1)
-                                    }
-                                }
-                                val match = list.firstOrNull { it.dateStr == selectedHeatmapCell?.dateStr }
-                                if (match != null) {
-                                    match
-                                } else {
-                                    list.firstOrNull { it.isToday } ?: list.firstOrNull()
-                                }
+                                heatmapYearGridData.flatten()
                             }
+                            val match = activeGrid.firstOrNull { it.dateStr == selectedHeatmapCell?.dateStr }
+                            match ?: activeGrid.firstOrNull { it.isToday } ?: activeGrid.firstOrNull()
                         }
 
                         if (heatmapViewMode == "month") {
@@ -4140,29 +3887,23 @@ fun OverallStatsScreen(
                             ) {
                                 IconButton(
                                     onClick = {
-                                        if (canPrevMonth) {
-                                            val cal = monthViewCalendar.clone() as Calendar
-                                            cal.add(Calendar.MONTH, -1)
-                                            monthViewCalendar = cal
+                                        if (heatmapCanPrevMonth) {
+                                            viewModel.navigateHeatmapMonth(-1)
                                         }
                                     },
-                                    enabled = canPrevMonth,
+                                    enabled = heatmapCanPrevMonth,
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.ChevronLeft,
                                         contentDescription = "Previous Month",
-                                        tint = if (canPrevMonth) TextPrimary else TextPrimary.copy(alpha = 0.3f),
+                                        tint = if (heatmapCanPrevMonth) TextPrimary else TextPrimary.copy(alpha = 0.3f),
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
 
-                                val monthNameAndYear = remember(monthViewCalendar, language) {
-                                    val sdfHeader = SimpleDateFormat("MMMM yyyy", if (language == "de") Locale.GERMANY else Locale.US)
-                                    sdfHeader.format(monthViewCalendar.time)
-                                }
                                 Text(
-                                    text = monthNameAndYear,
+                                    text = heatmapMonthNameAndYear,
                                     style = MaterialTheme.typography.titleMedium,
                                     color = TextPrimary,
                                     fontWeight = FontWeight.Bold
@@ -4170,87 +3911,24 @@ fun OverallStatsScreen(
 
                                 IconButton(
                                     onClick = {
-                                        if (canNextMonth) {
-                                            val cal = monthViewCalendar.clone() as Calendar
-                                            cal.add(Calendar.MONTH, 1)
-                                            monthViewCalendar = cal
+                                        if (heatmapCanNextMonth) {
+                                            viewModel.navigateHeatmapMonth(1)
                                         }
                                     },
-                                    enabled = canNextMonth,
+                                    enabled = heatmapCanNextMonth,
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
                                         Icons.Default.ChevronRight,
                                         contentDescription = "Next Month",
-                                        tint = if (canNextMonth) TextPrimary else TextPrimary.copy(alpha = 0.3f),
+                                        tint = if (heatmapCanNextMonth) TextPrimary else TextPrimary.copy(alpha = 0.3f),
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
 
                             // Build monthly grid data
-                            val gridData = remember(monthViewCalendar, overallCalData, allHabits) {
-                                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                                val today = sdf.format(Date())
-                                val minDateStr = viewModel.getMinDateStr()
-                                
-                                val temp = monthViewCalendar.clone() as Calendar
-                                temp.set(Calendar.DAY_OF_MONTH, 1)
-                                val year = temp.get(Calendar.YEAR)
-                                val month = temp.get(Calendar.MONTH)
-                                
-                                temp.firstDayOfWeek = Calendar.MONDAY
-                                val dayOfWeek = temp.get(Calendar.DAY_OF_WEEK)
-                                val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
-                                temp.add(Calendar.DAY_OF_YEAR, -daysToSubtract)
-                                
-                                val weeksList = mutableListOf<List<CalendarGridCellData?>>()
-                                val cursor = temp.clone() as Calendar
-                                
-                                for (w in 0 until 6) {
-                                    if (w >= 4 && cursor.get(Calendar.MONTH) != month) {
-                                        break
-                                    }
-                                    
-                                    val weekDays = mutableListOf<CalendarGridCellData?>()
-                                    var hasDaysInMonth = false
-                                    for (d in 0 until 7) {
-                                        val cellYear = cursor.get(Calendar.YEAR)
-                                        val cellMonth = cursor.get(Calendar.MONTH)
-                                        val dateStr = sdf.format(cursor.time)
-                                        
-                                        if (cellYear == year && cellMonth == month) {
-                                            hasDaysInMonth = true
-                                            val progress = overallCalData.progressMap[dateStr] ?: (0 to 0)
-                                            val combinedStatus = overallCalData.statusMap[dateStr] ?: "INACTIVE"
-                                            val isToday = dateStr == today
-                                            val isFuture = dateStr > today
-                                            val isOutOfRange = dateStr < minDateStr
-                                            val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
-                                            
-                                            weekDays.add(
-                                                CalendarGridCellData(
-                                                    day = dayOfMonth,
-                                                    dateStr = dateStr,
-                                                    combinedStatus = combinedStatus,
-                                                    isToday = isToday,
-                                                    isFuture = isFuture,
-                                                    total = progress.second,
-                                                    completed = progress.first,
-                                                    isOutOfRange = isOutOfRange
-                                                )
-                                            )
-                                        } else {
-                                            weekDays.add(null)
-                                        }
-                                        cursor.add(Calendar.DAY_OF_YEAR, 1)
-                                    }
-                                    if (hasDaysInMonth) {
-                                        weeksList.add(weekDays)
-                                    }
-                                }
-                                weeksList
-                            }
+                            val gridData = heatmapMonthGridData
 
                             val cellSize = 38.dp
                             val cellSpacing = 6.dp
@@ -4370,82 +4048,8 @@ fun OverallStatsScreen(
                             }
                         } else {
                             // --- YEAR VIEW (Horizontal Scrollable 24-Weeks GitHub board!) ---
-                            val yearGridData = remember(overallCalData, allHabits) {
-                                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                                val today = sdf.format(Date())
-                                val minDateStr = viewModel.getMinDateStr()
-                                
-                                val currentCal = Calendar.getInstance().apply {
-                                    firstDayOfWeek = Calendar.MONDAY
-                                    set(Calendar.HOUR_OF_DAY, 0)
-                                    set(Calendar.MINUTE, 0)
-                                    set(Calendar.SECOND, 0)
-                                    set(Calendar.MILLISECOND, 0)
-                                    
-                                    val dayOfWeek = get(Calendar.DAY_OF_WEEK)
-                                    val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
-                                    add(Calendar.DAY_OF_YEAR, -daysToSubtract)
-                                }
-                                
-                                val startCal = (currentCal.clone() as Calendar).apply {
-                                    add(Calendar.WEEK_OF_YEAR, -23)
-                                }
-                                
-                                val weeksList = mutableListOf<List<CalendarGridCellData>>()
-                                val cursor = startCal.clone() as Calendar
-                                for (w in 0 until 24) {
-                                    val weekDays = mutableListOf<CalendarGridCellData>()
-                                    for (d in 0 until 7) {
-                                        val dateStr = sdf.format(cursor.time)
-                                        val progress = overallCalData.progressMap[dateStr] ?: (0 to 0)
-                                        val combinedStatus = overallCalData.statusMap[dateStr] ?: "INACTIVE"
-                                        val isToday = dateStr == today
-                                        val isFuture = dateStr > today
-                                        val isOutOfRange = dateStr < minDateStr
-                                        val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
-                                        
-                                        weekDays.add(
-                                            CalendarGridCellData(
-                                                day = dayOfMonth,
-                                                dateStr = dateStr,
-                                                combinedStatus = combinedStatus,
-                                                isToday = isToday,
-                                                isFuture = isFuture,
-                                                total = progress.second,
-                                                completed = progress.first,
-                                                isOutOfRange = isOutOfRange
-                                            )
-                                        )
-                                        cursor.add(Calendar.DAY_OF_YEAR, 1)
-                                    }
-                                    weeksList.add(weekDays)
-                                }
-                                weeksList
-                            }
-
-                            val yearMonthLabels = remember(yearGridData, language) {
-                                val labels = mutableListOf<Pair<Int, String>>()
-                                val sdfMonth = SimpleDateFormat("MMM", if (language == "de") Locale.GERMANY else Locale.US)
-                                var lastAddedIndex = -10
-                                var lastMonthStr = ""
-                                
-                                yearGridData.forEachIndexed { index, weekDays ->
-                                    val mondayDate = weekDays.first().dateStr
-                                    val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(mondayDate)
-                                    if (date != null) {
-                                        val cal = Calendar.getInstance().apply { time = date }
-                                        val monthStr = sdfMonth.format(cal.time)
-                                        if (monthStr != lastMonthStr) {
-                                            if (index - lastAddedIndex >= 3) {
-                                                labels.add(index to monthStr)
-                                                lastAddedIndex = index
-                                            }
-                                            lastMonthStr = monthStr
-                                        }
-                                    }
-                                }
-                                labels
-                            }
+                            val yearGridData = heatmapYearGridData
+                            val yearMonthLabels = heatmapYearMonthLabels
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -4609,11 +4213,9 @@ fun OverallStatsScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                             val formattedDate = remember(activeCell, language) {
                                 try {
-                                    val dateObj = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(activeCell.dateStr)
-                                    if (dateObj != null) {
-                                        val sdfFriendly = SimpleDateFormat("EEEE, d. MMMM yyyy", if (language == "de") Locale.GERMANY else Locale.US)
-                                        sdfFriendly.format(dateObj)
-                                    } else activeCell.dateStr
+                                    val localDate = java.time.LocalDate.parse(activeCell.dateStr)
+                                    val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, d. MMMM yyyy", if (language == "de") java.util.Locale.GERMANY else java.util.Locale.US)
+                                    localDate.format(formatter)
                                 } catch (e: Exception) {
                                     activeCell.dateStr
                                 }
@@ -6224,24 +5826,25 @@ fun CreateHabitScreen(
     var reminderMinute by remember { mutableStateOf(editingHabit?.reminderMinute ?: 0) }
     
     // Default start date is today or habit's startDate (cleared to midnight for new habits so they start today!)
-    val cal = remember { 
-        Calendar.getInstance().apply { 
-            if (editingHabit != null) {
-                timeInMillis = editingHabit.startDate 
-            } else {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-        } 
+    val initialDateMillis = remember {
+        if (editingHabit != null) {
+            editingHabit.startDate
+        } else {
+            java.time.LocalDate.now()
+                .atStartOfDay(java.time.ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        }
     }
-    var startDateMillis by remember { mutableStateOf(cal.timeInMillis) }
+    var startDateMillis by remember { mutableStateOf(initialDateMillis) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     val formattedStartDate = remember(startDateMillis) {
-        val sdf = SimpleDateFormat("d. MMMM yyyy", Locale.GERMANY)
-        sdf.format(Date(startDateMillis))
+        val localDate = java.time.Instant.ofEpochMilli(startDateMillis)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("d. MMMM yyyy", java.util.Locale.GERMANY)
+        localDate.format(formatter)
     }
 
     Box(
@@ -6917,27 +6520,40 @@ fun CreateHabitScreen(
 // COMPACT CUSTOM DATE PICKER
 @Composable
 fun SimpleDatePickerView(initialTimeMs: Long, onDateSelected: (Long) -> Unit) {
-    val calendar = remember { Calendar.getInstance().apply { timeInMillis = initialTimeMs } }
-    var currentMonth by remember { mutableStateOf(calendar.get(Calendar.MONTH)) }
-    var currentYear by remember { mutableStateOf(calendar.get(Calendar.YEAR)) }
+    val initialDate = remember(initialTimeMs) {
+        java.time.Instant.ofEpochMilli(initialTimeMs)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+    }
+    var currentMonth by remember { mutableStateOf(initialDate.monthValue) } // 1..12
+    var currentYear by remember { mutableStateOf(initialDate.year) }
 
-    val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-    val tempCal = Calendar.getInstance().apply {
-        set(Calendar.MONTH, currentMonth)
-        set(Calendar.YEAR, currentYear)
-        set(Calendar.DAY_OF_MONTH, 1)
+    val monthNames = remember {
+        listOf("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
     }
 
-    val offset = (tempCal.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
-    val maxDays = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-
-    val gridItems = mutableListOf<Int?>()
-    for (i in 0 until offset) {
-        gridItems.add(null)
+    val yearMonth = remember(currentMonth, currentYear) {
+        java.time.YearMonth.of(currentYear, currentMonth)
     }
-    for (i in 1..maxDays) {
-        gridItems.add(i)
+    val firstDayOfMonth = remember(yearMonth) {
+        yearMonth.atDay(1)
+    }
+    val offset = remember(firstDayOfMonth) {
+        (firstDayOfMonth.dayOfWeek.value - 1) // 0 is Monday, ..., 6 is Sunday
+    }
+    val maxDays = remember(yearMonth) {
+        yearMonth.lengthOfMonth()
+    }
+
+    val gridItems = remember(offset, maxDays) {
+        val list = mutableListOf<Int?>()
+        for (i in 0 until offset) {
+            list.add(null)
+        }
+        for (i in 1..maxDays) {
+            list.add(i)
+        }
+        list
     }
 
     Column {
@@ -6948,8 +6564,8 @@ fun SimpleDatePickerView(initialTimeMs: Long, onDateSelected: (Long) -> Unit) {
         ) {
             IconButton(
                 onClick = {
-                    if (currentMonth == 0) {
-                        currentMonth = 11
+                    if (currentMonth == 1) {
+                        currentMonth = 12
                         currentYear--
                     } else {
                         currentMonth--
@@ -6968,8 +6584,8 @@ fun SimpleDatePickerView(initialTimeMs: Long, onDateSelected: (Long) -> Unit) {
 
             IconButton(
                 onClick = {
-                    if (currentMonth == 11) {
-                        currentMonth = 0
+                    if (currentMonth == 12) {
+                        currentMonth = 1
                         currentYear++
                     } else {
                         currentMonth++
@@ -7000,15 +6616,15 @@ fun SimpleDatePickerView(initialTimeMs: Long, onDateSelected: (Long) -> Unit) {
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        val rowItems = gridItems.chunked(7)
+        val rowItems = remember(gridItems) { gridItems.chunked(7) }
         rowItems.forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 for (c in 0 until 7) {
                     val day = if (c < week.size) week[c] else null
                     if (day != null) {
-                        val isSelected = calendar.get(Calendar.DAY_OF_MONTH) == day &&
-                                calendar.get(Calendar.MONTH) == currentMonth &&
-                                calendar.get(Calendar.YEAR) == currentYear
+                        val isSelected = initialDate.dayOfMonth == day &&
+                                initialDate.monthValue == currentMonth &&
+                                initialDate.year == currentYear
 
                         Box(
                             modifier = Modifier
@@ -7018,16 +6634,9 @@ fun SimpleDatePickerView(initialTimeMs: Long, onDateSelected: (Long) -> Unit) {
                                 .clip(CircleShape)
                                 .background(if (isSelected) PrimaryViolet else Color.Transparent)
                                 .clickable {
-                                    val finalCal = Calendar.getInstance().apply {
-                                        set(Calendar.YEAR, currentYear)
-                                        set(Calendar.MONTH, currentMonth)
-                                        set(Calendar.DAY_OF_MONTH, day)
-                                        set(Calendar.HOUR_OF_DAY, 0)
-                                        set(Calendar.MINUTE, 0)
-                                        set(Calendar.SECOND, 0)
-                                        set(Calendar.MILLISECOND, 0)
-                                    }
-                                    onDateSelected(finalCal.timeInMillis)
+                                    val localDate = java.time.LocalDate.of(currentYear, currentMonth, day)
+                                    val epochMs = localDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                    onDateSelected(epochMs)
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -7069,7 +6678,7 @@ fun getEncouragementText(completed: Int, total: Int, language: String): String {
             "A new chapter starts with a single decision.",
             "Your future is shaped by your habits today."
         )
-        val index = (completed + total + Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) % german.size
+        val index = (completed + total + (System.currentTimeMillis() / 86400000L).toInt()) % german.size
         return if (language == "de") german[index] else english[index]
     }
     
@@ -7096,7 +6705,7 @@ fun getEncouragementText(completed: Int, total: Int, language: String): String {
                 "The journey of a thousand miles begins with a single step.",
                 "You don't have to be perfect, you just have to start."
             )
-            val index = (completed + total + Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) % german.size
+            val index = (completed + total + (System.currentTimeMillis() / 86400000L).toInt()) % german.size
             if (language == "de") german[index] else english[index]
         }
         fraction < 0.5f -> {
@@ -7120,7 +6729,7 @@ fun getEncouragementText(completed: Int, total: Int, language: String): String {
                 "Better 1% progress than 0%. Keep pushing!",
                 "Your future self is already applauding."
             )
-            val index = (completed + total + Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) % german.size
+            val index = (completed + total + (System.currentTimeMillis() / 86400000L).toInt()) % german.size
             if (language == "de") german[index] else english[index]
         }
         fraction < 1.0f -> {
@@ -7144,7 +6753,7 @@ fun getEncouragementText(completed: Int, total: Int, language: String): String {
                 "You are almost there. Let's crown the day together!",
                 "Your routine is growing stronger. Almost complete!"
             )
-            val index = (completed + total + Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) % german.size
+            val index = (completed + total + (System.currentTimeMillis() / 86400000L).toInt()) % german.size
             if (language == "de") german[index] else english[index]
         }
         else -> {
@@ -7168,7 +6777,7 @@ fun getEncouragementText(completed: Int, total: Int, language: String): String {
                 "Everything checked! Enjoy your well-deserved evening.",
                 "Masterful! You prove to yourself every day what you are capable of."
             )
-            val index = (completed + total + Calendar.getInstance().get(Calendar.DAY_OF_YEAR)) % german.size
+            val index = (completed + total + (System.currentTimeMillis() / 86400000L).toInt()) % german.size
             if (language == "de") german[index] else english[index]
         }
     }
@@ -8299,13 +7908,13 @@ fun InfoIconButton(
 ) {
     IconButton(
         onClick = { onClick(title, explanation) },
-        modifier = modifier.size(18.dp)
+        modifier = modifier.size(44.dp)
     ) {
         Icon(
             imageVector = Icons.Default.Info,
             contentDescription = "Help Info",
-            tint = TextSecondary.copy(alpha = 0.6f),
-            modifier = Modifier.size(14.dp)
+            tint = PrimaryViolet,
+            modifier = Modifier.size(18.dp)
         )
     }
 }
@@ -8478,163 +8087,173 @@ fun AchievementBadge(
                 else -> Color(0xFFB59000)
             }
 
-            Canvas(modifier = modifier) {
-                val width = size.width
-                val height = size.height
-                val center = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f)
-                val outerRadius = width * 0.45f
+            Spacer(
+                modifier = modifier.drawWithCache {
+                    val width = size.width
+                    val height = size.height
+                    val center = androidx.compose.ui.geometry.Offset(width / 2f, height / 2f)
+                    val outerRadius = width * 0.45f
 
-                // Draw background base circle
-                drawCircle(
-                    color = if (isUnlocked) Color(0xFF1E1E2E) else Color(0xFF111116),
-                    radius = outerRadius,
-                    center = center
-                )
+                    val borderStroke = Stroke(width = 3f * density)
+                    val woodStroke1 = Stroke(width = 1.5f * density)
+                    val woodStroke2 = Stroke(width = 1f * density)
 
-                // Draw Tier Border
-                drawCircle(
-                    color = tierColor.copy(alpha = alpha),
-                    radius = outerRadius,
-                    center = center,
-                    style = Stroke(width = 3f * density)
-                )
+                    val flameWidth = width * 0.35f
+                    val flameHeight = height * 0.5f
 
-                // Grain/texture for streak tiers
-                when (tier) {
-                    "WOOD" -> {
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(center.x, center.y - flameHeight * 0.5f)
+                        cubicTo(
+                            center.x + flameWidth * 0.4f, center.y - flameHeight * 0.1f,
+                            center.x + flameWidth * 0.6f, center.y + flameHeight * 0.2f,
+                            center.x, center.y + flameHeight * 0.5f
+                        )
+                        cubicTo(
+                            center.x - flameWidth * 0.6f, center.y + flameHeight * 0.2f,
+                            center.x - flameWidth * 0.4f, center.y - flameHeight * 0.1f,
+                            center.x, center.y - flameHeight * 0.5f
+                        )
+                    }
+
+                    val innerPath = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(center.x, center.y - flameHeight * 0.2f)
+                        cubicTo(
+                            center.x + flameWidth * 0.2f, center.y + flameHeight * 0.05f,
+                            center.x + flameWidth * 0.3f, center.y + flameHeight * 0.2f,
+                            center.x, center.y + flameHeight * 0.4f
+                        )
+                        cubicTo(
+                            center.x - flameWidth * 0.3f, center.y + flameHeight * 0.2f,
+                            center.x - flameWidth * 0.2f, center.y + flameHeight * 0.05f,
+                            center.x, center.y - flameHeight * 0.2f
+                        )
+                    }
+
+                    val innerFlameColor = when (tier) {
+                        "WOOD" -> Color(0xFFFFA726)
+                        "BRONZE" -> Color(0xFFFFD180)
+                        "SILVER" -> Color(0xFFE0F7FA)
+                        "GOLD" -> Color(0xFFFFF9C4)
+                        "PLATINUM" -> Color(0xFFE0F2F1)
+                        "DIAMOND" -> Color(0xFFE0F7FA)
+                        "RUBY" -> Color(0xFFFFEBEE)
+                        "MASTER" -> Color(0xFFF3E5F5)
+                        "LEGEND" -> Color(0xFFFFF3E0)
+                        "UNREAL" -> Color(0xFFF1F8E9)
+                        else -> Color.White
+                    }
+
+                    onDrawBehind {
+                        // Draw background base circle
                         drawCircle(
-                            color = tierSecondary.copy(alpha = 0.25f * alpha),
-                            radius = outerRadius * 0.75f,
+                            color = if (isUnlocked) Color(0xFF1E1E2E) else Color(0xFF111116),
+                            radius = outerRadius,
+                            center = center
+                        )
+
+                        // Draw Tier Border
+                        drawCircle(
+                            color = tierColor.copy(alpha = alpha),
+                            radius = outerRadius,
                             center = center,
-                            style = Stroke(width = 1.5f * density)
+                            style = borderStroke
                         )
-                        drawCircle(
-                            color = tierSecondary.copy(alpha = 0.15f * alpha),
-                            radius = outerRadius * 0.5f,
-                            center = center,
-                            style = Stroke(width = 1f * density)
+
+                        // Grain/texture for streak tiers
+                        when (tier) {
+                            "WOOD" -> {
+                                drawCircle(
+                                    color = tierSecondary.copy(alpha = 0.25f * alpha),
+                                    radius = outerRadius * 0.75f,
+                                    center = center,
+                                    style = woodStroke1
+                                )
+                                drawCircle(
+                                    color = tierSecondary.copy(alpha = 0.15f * alpha),
+                                    radius = outerRadius * 0.5f,
+                                    center = center,
+                                    style = woodStroke2
+                                )
+                            }
+                            "BRONZE" -> {
+                                drawCircle(
+                                    color = tierColor.copy(alpha = 0.1f * alpha),
+                                    radius = outerRadius * 0.8f,
+                                    center = center
+                                )
+                            }
+                            "SILVER" -> {
+                                drawCircle(
+                                    color = Color.White.copy(alpha = 0.15f * alpha),
+                                    radius = outerRadius * 0.8f,
+                                    center = center
+                                )
+                            }
+                            "GOLD" -> {
+                                drawCircle(
+                                    color = Color(0xFFFFE082).copy(alpha = 0.2f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                            "PLATINUM" -> {
+                                drawCircle(
+                                    color = Color(0xFFE0F7FA).copy(alpha = 0.25f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                            "DIAMOND" -> {
+                                drawCircle(
+                                    color = Color(0xFFE0F7FA).copy(alpha = 0.35f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                            "RUBY" -> {
+                                drawCircle(
+                                    color = Color(0xFFFFCDD2).copy(alpha = 0.25f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                            "MASTER" -> {
+                                drawCircle(
+                                    color = Color(0xFFE1BEE7).copy(alpha = 0.25f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                            "LEGEND" -> {
+                                drawCircle(
+                                    color = Color(0xFFFFE0B2).copy(alpha = 0.3f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                            "UNREAL" -> {
+                                drawCircle(
+                                    color = Color(0xFFDCEDC8).copy(alpha = 0.35f * alpha),
+                                    radius = outerRadius * 0.85f,
+                                    center = center
+                                )
+                            }
+                        }
+
+                        // Draw Streak Flame
+                        drawPath(
+                            path = path,
+                            color = tierColor.copy(alpha = alpha)
                         )
-                    }
-                    "BRONZE" -> {
-                        drawCircle(
-                            color = tierColor.copy(alpha = 0.1f * alpha),
-                            radius = outerRadius * 0.8f,
-                            center = center
-                        )
-                    }
-                    "SILVER" -> {
-                        drawCircle(
-                            color = Color.White.copy(alpha = 0.15f * alpha),
-                            radius = outerRadius * 0.8f,
-                            center = center
-                        )
-                    }
-                    "GOLD" -> {
-                        drawCircle(
-                            color = Color(0xFFFFE082).copy(alpha = 0.2f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
-                        )
-                    }
-                    "PLATINUM" -> {
-                        drawCircle(
-                            color = Color(0xFFE0F7FA).copy(alpha = 0.25f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
-                        )
-                    }
-                    "DIAMOND" -> {
-                        drawCircle(
-                            color = Color(0xFFE0F7FA).copy(alpha = 0.35f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
-                        )
-                    }
-                    "RUBY" -> {
-                        drawCircle(
-                            color = Color(0xFFFFCDD2).copy(alpha = 0.25f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
-                        )
-                    }
-                    "MASTER" -> {
-                        drawCircle(
-                            color = Color(0xFFE1BEE7).copy(alpha = 0.25f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
-                        )
-                    }
-                    "LEGEND" -> {
-                        drawCircle(
-                            color = Color(0xFFFFE0B2).copy(alpha = 0.3f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
-                        )
-                    }
-                    "UNREAL" -> {
-                        drawCircle(
-                            color = Color(0xFFDCEDC8).copy(alpha = 0.35f * alpha),
-                            radius = outerRadius * 0.85f,
-                            center = center
+
+                        // Inner flame core
+                        drawPath(
+                            path = innerPath,
+                            color = innerFlameColor.copy(alpha = 0.8f * alpha)
                         )
                     }
                 }
-
-                // Draw Streak Flame
-                val flameWidth = width * 0.35f
-                val flameHeight = height * 0.5f
-                val path = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(center.x, center.y - flameHeight * 0.5f)
-                    cubicTo(
-                        center.x + flameWidth * 0.4f, center.y - flameHeight * 0.1f,
-                        center.x + flameWidth * 0.6f, center.y + flameHeight * 0.2f,
-                        center.x, center.y + flameHeight * 0.5f
-                    )
-                    cubicTo(
-                        center.x - flameWidth * 0.6f, center.y + flameHeight * 0.2f,
-                        center.x - flameWidth * 0.4f, center.y - flameHeight * 0.1f,
-                        center.x, center.y - flameHeight * 0.5f
-                    )
-                }
-                drawPath(
-                    path = path,
-                    color = tierColor.copy(alpha = alpha)
-                )
-
-                // Inner flame core
-                val innerPath = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(center.x, center.y - flameHeight * 0.2f)
-                    cubicTo(
-                        center.x + flameWidth * 0.2f, center.y + flameHeight * 0.05f,
-                        center.x + flameWidth * 0.3f, center.y + flameHeight * 0.2f,
-                        center.x, center.y + flameHeight * 0.4f
-                    )
-                    cubicTo(
-                        center.x - flameWidth * 0.3f, center.y + flameHeight * 0.2f,
-                        center.x - flameWidth * 0.2f, center.y + flameHeight * 0.05f,
-                        center.x, center.y - flameHeight * 0.2f
-                    )
-                }
-
-                val innerFlameColor = when (tier) {
-                    "WOOD" -> Color(0xFFFFA726)
-                    "BRONZE" -> Color(0xFFFFD180)
-                    "SILVER" -> Color(0xFFE0F7FA)
-                    "GOLD" -> Color(0xFFFFF9C4)
-                    "PLATINUM" -> Color(0xFFE0F2F1)
-                    "DIAMOND" -> Color(0xFFE0F7FA)
-                    "RUBY" -> Color(0xFFFFEBEE)
-                    "MASTER" -> Color(0xFFF3E5F5)
-                    "LEGEND" -> Color(0xFFFFF3E0)
-                    "UNREAL" -> Color(0xFFF1F8E9)
-                    else -> Color.White
-                }
-
-                drawPath(
-                    path = innerPath,
-                    color = innerFlameColor.copy(alpha = 0.8f * alpha)
-                )
-            }
+            )
         }
     }
 }

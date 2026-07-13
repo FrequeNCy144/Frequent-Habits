@@ -362,76 +362,60 @@ class HabitWidgetProvider : AppWidgetProvider() {
             }
 
             val progressPercent = if (nonPausedCount > 0) (completed.toFloat() / nonPausedCount * 100).toInt() else 0
+            val isCompleted = progressPercent >= 100 && nonPausedCount > 0
 
-            if (isFullUpdate) {
-                val views = RemoteViews(context.packageName, R.layout.habit_widget)
-                
-                val progressDrawableRes = if (progressPercent >= 100 && nonPausedCount > 0) {
-                    R.drawable.widget_progress_bar_completed
-                } else {
-                    R.drawable.widget_progress_bar_custom
-                }
-                views.setInt(R.id.widget_progress_bar, "setProgressDrawable", progressDrawableRes)
-                views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
-
-                val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
-                views.setTextViewText(R.id.widget_progress_text, progressTextVal)
-
-                val displayDate = getDisplayDate(selectedDate)
-                views.setTextViewText(R.id.widget_date_title, displayDate)
-
-                // Set up RemoteViewsService for the ListView
-                val serviceIntent = Intent(context, HabitWidgetService::class.java).apply {
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                    data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-                }
-                views.setRemoteAdapter(R.id.widget_habits_list, serviceIntent)
-
-                // Set up PendingIntent Template for ListView item clicks
-                val clickIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                    action = ACTION_WIDGET_ITEM_CLICK
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                }
-                val clickPIntent = PendingIntent.getBroadcast(
-                    context,
-                    widgetId * 1000 + 5,
-                    clickIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-                )
-                views.setPendingIntentTemplate(R.id.widget_habits_list, clickPIntent)
-
-                val openAppInt = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                }
-                val pendingInt = PendingIntent.getActivity(
-                    context,
-                    widgetId * 5000,
-                    openAppInt,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.widget_date_title, pendingInt)
-                views.setOnClickPendingIntent(R.id.widget_progress_container, pendingInt)
-                
-                appWidgetManager.updateAppWidget(widgetId, views)
+            val views = RemoteViews(context.packageName, R.layout.habit_widget)
+            
+            views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
+            views.setProgressBar(R.id.widget_progress_bar_completed, 100, progressPercent, false)
+            
+            if (isCompleted) {
+                views.setViewVisibility(R.id.widget_progress_bar_completed, android.view.View.VISIBLE)
+                views.setViewVisibility(R.id.widget_progress_bar, android.view.View.GONE)
             } else {
-                val partialViews = RemoteViews(context.packageName, R.layout.habit_widget)
-                
-                val progressDrawableRes = if (progressPercent >= 100 && nonPausedCount > 0) {
-                    R.drawable.widget_progress_bar_completed
-                } else {
-                    R.drawable.widget_progress_bar_custom
-                }
-                partialViews.setInt(R.id.widget_progress_bar, "setProgressDrawable", progressDrawableRes)
-                partialViews.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
-
-                val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
-                partialViews.setTextViewText(R.id.widget_progress_text, progressTextVal)
-
-                val displayDate = getDisplayDate(selectedDate)
-                partialViews.setTextViewText(R.id.widget_date_title, displayDate)
-
-                appWidgetManager.partiallyUpdateAppWidget(widgetId, partialViews)
+                views.setViewVisibility(R.id.widget_progress_bar, android.view.View.VISIBLE)
+                views.setViewVisibility(R.id.widget_progress_bar_completed, android.view.View.GONE)
             }
+
+            val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
+            views.setTextViewText(R.id.widget_progress_text, progressTextVal)
+
+            val displayDate = getDisplayDate(selectedDate)
+            views.setTextViewText(R.id.widget_date_title, displayDate)
+
+            // Set up RemoteViewsService for the ListView
+            val serviceIntent = Intent(context, HabitWidgetService::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+            }
+            views.setRemoteAdapter(R.id.widget_habits_list, serviceIntent)
+
+            // Set up PendingIntent Template for ListView item clicks
+            val clickIntent = Intent(context, HabitWidgetProvider::class.java).apply {
+                action = ACTION_WIDGET_ITEM_CLICK
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            }
+            val clickPIntent = PendingIntent.getBroadcast(
+                context,
+                widgetId * 1000 + 5,
+                clickIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+            views.setPendingIntentTemplate(R.id.widget_habits_list, clickPIntent)
+
+            val openAppInt = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingInt = PendingIntent.getActivity(
+                context,
+                widgetId * 5000,
+                openAppInt,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.widget_date_title, pendingInt)
+            views.setOnClickPendingIntent(R.id.widget_progress_container, pendingInt)
+            
+            appWidgetManager.updateAppWidget(widgetId, views)
             
             appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_habits_list)
         }

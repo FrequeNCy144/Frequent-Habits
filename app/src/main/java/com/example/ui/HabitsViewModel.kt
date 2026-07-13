@@ -45,27 +45,6 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         _pendingWidgetHabitId.value = null
     }
 
-    init {
-        viewModelScope.launch {
-            try {
-                val list = database.habitDao().getAllHabitsRaw()
-                list.forEach { habit ->
-                    if (habit.reminderEnabled) {
-                        com.example.NotificationHelper.scheduleHabitReminder(
-                            getApplication(),
-                            habit.id,
-                            habit.name,
-                            habit.reminderHour,
-                            habit.reminderMinute
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
     // Reactively loaded habits and logs
     val allHabits: StateFlow<List<Habit>> = repository.allHabits.map { habits ->
         habits.filter { !it.isArchived }
@@ -582,8 +561,9 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     val profileStats: StateFlow<ProfileStats> = combine(allHabits, allLogs, perfectDaysStats) { habits, logs, perfectDaysState ->
-        val totalGlobalCompletions = habits.sumOf { habit ->
-            getCompletedLogsCount(habit, logs, "ALL")
+        val totalGlobalCompletions = logs.count { log ->
+            val habit = habits.find { it.id == log.habitId }
+            habit != null && isLogCompleted(habit, log)
         }
 
         val unlockedCompletions = listOf(10, 50, 200, 500).count { totalGlobalCompletions >= it }
@@ -712,6 +692,243 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = OverallCalendarData()
     )
 
+    val todayDateString: StateFlow<String> = MutableStateFlow(getTodayDateString()).asStateFlow()
+
+    val canPrevWeek: StateFlow<Boolean> = combine(currentWeekStart, minWeekStartMillis) { weekStart, minMillis ->
+        weekStart.timeInMillis > minMillis
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val canNextWeek: StateFlow<Boolean> = currentWeekStart.map { weekStart ->
+        val maxWeekStart = Calendar.getInstance().apply {
+            firstDayOfWeek = Calendar.MONDAY
+            val dayOfWeek = get(Calendar.DAY_OF_WEEK)
+            val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+            add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        weekStart.timeInMillis < maxWeekStart.timeInMillis
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val statsDayNamesAndNumbers: StateFlow<Pair<List<String>, List<String>>> = language.map { lang ->
+        val sdfDayInitial = DateTimeFormatter.ofPattern("E", if (lang == "de") Locale.GERMANY else Locale.US)
+        val shortNames = mutableListOf<String>()
+        val dayNums = mutableListOf<String>()
+        val today = LocalDate.now()
+        for (i in 0 until 7) {
+            val d = today.minusDays(i.toLong())
+            shortNames.add(d.format(sdfDayInitial).take(2).uppercase(if (lang == "de") Locale.GERMANY else Locale.US))
+            dayNums.add(d.dayOfMonth.toString())
+        }
+        shortNames.reverse()
+        dayNums.reverse()
+        Pair(shortNames, dayNums)
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Pair(emptyList(), emptyList()))
+
+    private val _heatmapMonthOffset = MutableStateFlow(0)
+    val heatmapMonthOffset: StateFlow<Int> = _heatmapMonthOffset.asStateFlow()
+
+    fun navigateHeatmapMonth(delta: Int) {
+        _heatmapMonthOffset.update { it + delta }
+    }
+
+    val baseHeatmapCalendar: StateFlow<Calendar> = selectedDate.map { dateStr ->
+        val cal = Calendar.getInstance()
+        val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        try {
+            val d = sdfDb.parse(dateStr)
+            if (d != null) cal.time = d
+        } catch (e: Exception) {}
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) })
+
+    val heatmapMonthCalendar: StateFlow<Calendar> = combine(baseHeatmapCalendar, _heatmapMonthOffset) { baseCal, offset ->
+        val cal = baseCal.clone() as Calendar
+        cal.add(Calendar.MONTH, offset)
+        cal
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Calendar.getInstance().apply { set(Calendar.DAY_OF_MONTH, 1) })
+
+    val heatmapCanPrevMonth: StateFlow<Boolean> = combine(heatmapMonthCalendar, allHabits) { monthCal, habits ->
+        val oldestHabitDateMs = habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
+        val oldestCal = Calendar.getInstance().apply { timeInMillis = oldestHabitDateMs }
+        val currentCalMonth = monthCal.get(Calendar.MONTH) + monthCal.get(Calendar.YEAR) * 12
+        val oldestCalMonth = oldestCal.get(Calendar.MONTH) + oldestCal.get(Calendar.YEAR) * 12
+        currentCalMonth > oldestCalMonth
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val heatmapCanNextMonth: StateFlow<Boolean> = heatmapMonthCalendar.map { monthCal ->
+        val today = Calendar.getInstance()
+        val currentCalMonth = monthCal.get(Calendar.MONTH) + monthCal.get(Calendar.YEAR) * 12
+        val todayCalMonth = today.get(Calendar.MONTH) + today.get(Calendar.YEAR) * 12
+        currentCalMonth < todayCalMonth
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val heatmapMonthNameAndYear: StateFlow<String> = combine(heatmapMonthCalendar, language) { monthCal, lang ->
+        val sdfHeader = SimpleDateFormat("MMMM yyyy", if (lang == "de") Locale.GERMANY else Locale.US)
+        sdfHeader.format(monthCal.time)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val heatmapMonthGridData: StateFlow<List<List<CalendarGridCellData?>>> = combine(
+        heatmapMonthCalendar,
+        overallCalendarData,
+        allHabits,
+        minDateStr
+    ) { monthCal, overallCal, habits, minDate ->
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val today = sdf.format(Date())
+        
+        val temp = monthCal.clone() as Calendar
+        temp.set(Calendar.DAY_OF_MONTH, 1)
+        val year = temp.get(Calendar.YEAR)
+        val month = temp.get(Calendar.MONTH)
+        
+        temp.firstDayOfWeek = Calendar.MONDAY
+        val dayOfWeek = temp.get(Calendar.DAY_OF_WEEK)
+        val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+        temp.add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+        
+        val weeksList = mutableListOf<List<CalendarGridCellData?>>()
+        val cursor = temp.clone() as Calendar
+        
+        for (w in 0 until 6) {
+            if (w >= 4 && cursor.get(Calendar.MONTH) != month) {
+                break
+            }
+            
+            val weekDays = mutableListOf<CalendarGridCellData?>()
+            var hasDaysInMonth = false
+            for (d in 0 until 7) {
+                val cellYear = cursor.get(Calendar.YEAR)
+                val cellMonth = cursor.get(Calendar.MONTH)
+                val dateStr = sdf.format(cursor.time)
+                
+                if (cellYear == year && cellMonth == month) {
+                    hasDaysInMonth = true
+                    val progress = overallCal.progressMap[dateStr] ?: (0 to 0)
+                    val combinedStatus = overallCal.statusMap[dateStr] ?: "INACTIVE"
+                    val isToday = dateStr == today
+                    val isFuture = dateStr > today
+                    val isOutOfRange = dateStr < minDate
+                    val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
+                    
+                    weekDays.add(
+                        CalendarGridCellData(
+                            day = dayOfMonth,
+                            dateStr = dateStr,
+                            combinedStatus = combinedStatus,
+                            isToday = isToday,
+                            isFuture = isFuture,
+                            total = progress.second,
+                            completed = progress.first,
+                            isOutOfRange = isOutOfRange
+                        )
+                    )
+                } else {
+                    weekDays.add(null)
+                }
+                cursor.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            if (hasDaysInMonth) {
+                weeksList.add(weekDays)
+            }
+        }
+        weeksList
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val heatmapYearGridData: StateFlow<List<List<CalendarGridCellData>>> = combine(
+        overallCalendarData,
+        allHabits,
+        minDateStr
+    ) { overallCal, habits, minDate ->
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val today = sdf.format(Date())
+        
+        val currentCal = Calendar.getInstance().apply {
+            firstDayOfWeek = Calendar.MONDAY
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            
+            val dayOfWeek = get(Calendar.DAY_OF_WEEK)
+            val daysToSubtract = (dayOfWeek - Calendar.MONDAY + 7) % 7
+            add(Calendar.DAY_OF_YEAR, -daysToSubtract)
+        }
+        
+        val startCal = (currentCal.clone() as Calendar).apply {
+            add(Calendar.WEEK_OF_YEAR, -23)
+        }
+        
+        val weeksList = mutableListOf<List<CalendarGridCellData>>()
+        val cursor = startCal.clone() as Calendar
+        for (w in 0 until 24) {
+            val weekDays = mutableListOf<CalendarGridCellData>()
+            for (d in 0 until 7) {
+                val dateStr = sdf.format(cursor.time)
+                val progress = overallCal.progressMap[dateStr] ?: (0 to 0)
+                val combinedStatus = overallCal.statusMap[dateStr] ?: "INACTIVE"
+                val isToday = dateStr == today
+                val isFuture = dateStr > today
+                val isOutOfRange = dateStr < minDate
+                val dayOfMonth = cursor.get(Calendar.DAY_OF_MONTH)
+                
+                weekDays.add(
+                    CalendarGridCellData(
+                        day = dayOfMonth,
+                        dateStr = dateStr,
+                        combinedStatus = combinedStatus,
+                        isToday = isToday,
+                        isFuture = isFuture,
+                        total = progress.second,
+                        completed = progress.first,
+                        isOutOfRange = isOutOfRange
+                    )
+                )
+                cursor.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            weeksList.add(weekDays)
+        }
+        weeksList
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val heatmapYearMonthLabels: StateFlow<List<Pair<Int, String>>> = combine(
+        heatmapYearGridData,
+        language
+    ) { yearGrid, lang ->
+        val labels = mutableListOf<Pair<Int, String>>()
+        val sdfMonth = SimpleDateFormat("MMM", if (lang == "de") Locale.GERMANY else Locale.US)
+        var lastAddedIndex = -10
+        var lastMonthStr = ""
+        
+        yearGrid.forEachIndexed { index, weekDays ->
+            val mondayDate = weekDays.first().dateStr
+            val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(mondayDate)
+            if (date != null) {
+                val cal = Calendar.getInstance().apply { time = date }
+                val monthStr = sdfMonth.format(cal.time)
+                if (monthStr != lastMonthStr) {
+                    if (index - lastAddedIndex >= 3) {
+                        labels.add(index to monthStr)
+                        lastAddedIndex = index
+                    }
+                    lastMonthStr = monthStr
+                }
+            }
+        }
+        labels
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default)
+     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val oldestHabitDateMs: StateFlow<Long> = allHabits.map { habits ->
+        habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull() ?: System.currentTimeMillis()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), System.currentTimeMillis())
+
     val statsScreenData: StateFlow<List<HabitStatModel>> = combine(allHabits, allLogs, language) { habits, logs, lang ->
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val daysList = mutableListOf<String>()
@@ -812,6 +1029,79 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
         val targetStats = com.example.data.calculateTargetPeriodStats(habit, logs)
 
+        // 1. Calculate historical weekday frequency (0 = Mon, ..., 6 = Sun)
+        val completedDates = habitLogs.filter { log ->
+            isLogCompleted(habit, log)
+        }.map { it.date }.toSet()
+
+        val occurrences = IntArray(7)
+        val completions = IntArray(7)
+
+        var currentDay = startDate
+        if (!currentDay.isAfter(today)) {
+            while (!currentDay.isAfter(today)) {
+                val dayOfWeekIndex = currentDay.dayOfWeek.value - 1
+                if (dayOfWeekIndex in 0..6) {
+                    occurrences[dayOfWeekIndex]++
+                    if (completedDates.contains(currentDay.toString())) {
+                        completions[dayOfWeekIndex]++
+                    }
+                }
+                currentDay = currentDay.plusDays(1)
+            }
+        }
+
+        val weekdayStats = List(7) { index ->
+            val total = occurrences[index]
+            val completed = completions[index]
+            val pct = if (total > 0) (completed.toFloat() / total.toFloat() * 100).toInt() else 0
+            Triple(index, completed, pct)
+        }
+
+        // 2. Calculate last 15 weeks grid
+        val mondayOfCurrentWeek = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        val numWeeks = 15
+        val weekdayGridData = List(numWeeks) { weekOffset ->
+            val weekStart = mondayOfCurrentWeek.minusWeeks((numWeeks - 1 - weekOffset).toLong())
+            List(7) { dayOffset ->
+                val cellDate = weekStart.plusDays(dayOffset.toLong())
+                val dateStr = cellDate.toString()
+                val isCompleted = completedDates.contains(dateStr)
+                val isFuture = cellDate.isAfter(today)
+                val isBeforeStart = cellDate.isBefore(startDate)
+                
+                val status = when {
+                    isBeforeStart || isFuture -> "INACTIVE"
+                    isCompleted -> "SUCCESS"
+                    else -> "FAILED"
+                }
+                
+                cellDate to status
+            }
+        }
+
+        // 3. Month labels
+        val weeksWithMonthLabels = Array(weekdayGridData.size) { "" }
+        var lastMonth = -1
+        var lastAddedIndex = -10
+        weekdayGridData.forEachIndexed { index, weekDays ->
+            val monday = weekDays.first().first
+            val monthVal = monday.monthValue
+            if (monthVal != lastMonth) {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM", if (lang == "de") Locale.GERMANY else Locale.US)
+                val labelStr = monday.format(formatter)
+                if (index - lastAddedIndex >= 3) {
+                    weeksWithMonthLabels[index] = labelStr
+                    lastAddedIndex = index
+                } else if (lastAddedIndex == 0) {
+                    weeksWithMonthLabels[0] = ""
+                    weeksWithMonthLabels[index] = labelStr
+                    lastAddedIndex = index
+                }
+                lastMonth = monthVal
+            }
+        }
+
         HabitDetailUiState(
             habit = habit,
             currentStreak = currentStreak,
@@ -826,7 +1116,10 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             canPrevMonth = canPrevMonth,
             canNextMonth = canNextMonth,
             completionRate = completionRate,
-            targetStats = targetStats
+            targetStats = targetStats,
+            weekdayStats = weekdayStats,
+            weekdayGridData = weekdayGridData,
+            weeksWithMonthLabels = weeksWithMonthLabels.toList()
         )
     }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
         scope = viewModelScope,
@@ -1946,6 +2239,32 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                 } catch (ex: Exception) {
                     System.currentTimeMillis()
                 }
+            }
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            selectedDate.collect {
+                _heatmapMonthOffset.value = 0
+            }
+        }
+        viewModelScope.launch {
+            try {
+                val list = database.habitDao().getAllHabitsRaw()
+                list.forEach { habit ->
+                    if (habit.reminderEnabled) {
+                        com.example.NotificationHelper.scheduleHabitReminder(
+                            getApplication(),
+                            habit.id,
+                            habit.name,
+                            habit.reminderHour,
+                            habit.reminderMinute
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

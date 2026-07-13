@@ -239,7 +239,10 @@ data class HabitDetailUiState(
     val canPrevMonth: Boolean = true,
     val canNextMonth: Boolean = true,
     val completionRate: Int = 0,
-    val targetStats: HabitTargetStats? = null
+    val targetStats: HabitTargetStats? = null,
+    val weekdayStats: List<Triple<Int, Int, Int>> = emptyList(),
+    val weekdayGridData: List<List<Pair<java.time.LocalDate, String>>> = emptyList(),
+    val weeksWithMonthLabels: List<String> = emptyList()
 )
 
 @Immutable
