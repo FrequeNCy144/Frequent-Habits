@@ -2,11 +2,6 @@
 
 **Frequent Habits: Aesthetics meet deep analytics—100% local.**
 
-🌐 **Website:** [frequency-apps.com](https://frequency-apps.com)
-
-<script src="https://liberapay.com/FrequeNCy/widgets/button.js"></script>
-<noscript><a href="https://liberapay.com/FrequeNCy/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript>
-
 Often, you have to make a choice when it comes to habit trackers: either a gorgeous design hidden behind expensive subscriptions and data harvesting, or privacy-friendly open-source apps that feel visually and functionally very basic. **Frequent Habits** bridges exactly this gap.
 
 This app offers an incredibly beautiful, ultra-modern dark mode design and a depth of comprehensive statistics that you will hardly find anywhere else on the market—and it does all of this completely offline on your device.
@@ -61,6 +56,15 @@ Currently, you can install the app in two ways:
 
 1. **F-Droid (In preparation):** Coming soon to the F-Droid store!
 2. **Manually (APK):** Download the latest `app-release.apk` from our [Releases](../../releases) page and install it directly on your Android device.
+
+---
+
+## ☕ Support & Website
+
+If you enjoy the app, please consider supporting its development. Every bit helps!
+
+*   🌐 **Visit our website:** [frequency-apps.com](https://frequency-apps.com)
+*   💰 **Support via Liberapay:** [Donate here](https://liberapay.com/FrequeNCy/donate)
 
 ---
 
