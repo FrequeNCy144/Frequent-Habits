@@ -2,20 +2,68 @@
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# Frequent Habits 🌟
 
-This contains everything you need to run your app locally.
+Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Android, der dir hilft, gute Gewohnheiten aufzubauen und schlechte loszuwerden. Komplett Open Source, ohne Werbung und ohne Tracking.
 
-View your app in AI Studio: https://ai.studio/apps/111a2db5-bdfd-4eef-8c88-b91dc864d68d
+![Lizenz: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Plattform: Android](https://img.shields.io/badge/Platform-Android-green.svg)
+![Status: Aktiv](https://img.shields.io/badge/Status-Active-success.svg)
 
-## Run Locally
+*(Hier kannst du später ein schönes Banner-Bild oder dein App-Logo einfügen)*
+`<!-- ![Frequent Habits Banner](link_zum_bild.jpg) -->`
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+---
 
+## ✨ Features
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+**Frequent Habits** fokussiert sich auf das Wesentliche: Deine Ziele, deine Daten und deine Motivation.
+
+*   🔒 **100% Privacy & Offline-First:** Keine Server, keine Cloud-Zwänge, keine Analyse-Tools. Alle Daten bleiben lokal auf deinem Gerät.
+*   🎮 **Motivierende Gamification:** Sammle Erfahrung, baue "Streaks" (Erfolgsserien) auf und steige im Rang auf (von Holz bis Unreal).
+*   📊 **Detaillierte Statistiken:** Verfolge deinen Fortschritt mit einer interaktiven, von GitHub inspirierten Aktivitäts-Heatmap für das ganze Jahr.
+*   🎯 **Flexible Gewohnheitstypen:** Unterstützt einfache Ja/Nein-Gewohnheiten sowie zahlenbasierte Ziele (z.B. "2 Liter Wasser trinken" oder "30 Minuten lesen").
+*   💾 **Volle Datenkontrolle:** Integriertes lokales Backup & Restore (SAF), damit du deine Historie als JSON-Datei sichern kannst.
+*   🌍 **Zweisprachig:** Vollständig lokalisiert in Deutsch und Englisch.
+
+---
+
+## 📸 Screenshots
+
+*(Tipp: Füge hier 3-4 gute Screenshots deiner App ein)*
+
+| Heute-Ansicht | Statistik & Heatmap | Detail & Ränge |
+| :---: | :---: | :---: |
+| `<img src="link_zu_bild1.png" width="250"/>` | `<img src="link_zu_bild2.png" width="250"/>` | `<img src="link_zu_bild3.png" width="250"/>` |
+
+---
+
+## 🛠 Tech Stack
+
+Diese App ist nach modernen Android-Standards entwickelt:
+*   **UI:** Kotlin & Jetpack Compose
+*   **Architektur:** MVVM (Model-View-ViewModel), State Hoisting
+*   **Datenbank:** Room (SQLite)
+*   **Asynchronität:** Coroutines & StateFlows
+
+---
+
+## 🚀 Installation
+
+Aktuell kannst du die App auf zwei Wegen installieren:
+
+1. **F-Droid (In Vorbereitung):** Demnächst im F-Droid Store verfügbar!
+2. **Manuell (APK):** Lade dir die neueste `app-release.apk` unter [Releases](../../releases) herunter und installiere sie direkt auf deinem Android-Gerät.
+
+---
+
+## 🤝 Mitwirken (Contributing)
+
+Feedback, Bug-Reports und Pull Requests sind jederzeit willkommen! 
+Wenn du ein Feature vorschlagen oder einen Fehler melden möchtest, öffne einfach ein neues [Issue](../../issues).
+
+---
+
+## 📄 Lizenz
+
+Dieses Projekt ist unter der **GNU General Public License v3.0 (GPLv3)** lizenziert. Weitere Details findest du in der [LICENSE](LICENSE)-Datei.
