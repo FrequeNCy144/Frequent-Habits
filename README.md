@@ -8,8 +8,10 @@ Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Androi
 ![Plattform: Android](https://img.shields.io/badge/Platform-Android-green.svg)
 ![Status: Aktiv](https://img.shields.io/badge/Status-Active-success.svg)
 
-*(Hier kannst du später ein schönes Banner-Bild oder dein App-Logo einfügen)*
-`<!-- ![Frequent Habits Banner](link_zum_bild.jpg) -->`
+
+<img width="1080" height="2400" alt="Screenshot_20260713-151659" src="https://github.com/user-attachments/assets/35d6b65a-a995-4b17-8652-2f470da56c42" />
+
+
 
 ---
 
@@ -28,7 +30,7 @@ Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Androi
 
 ## 📸 Screenshots
 
-*(Tipp: Füge hier 3-4 gute Screenshots deiner App ein)*
+
 
 | Heute-Ansicht | Statistik & Heatmap | Detail & Ränge |
 | :---: | :---: | :---: |
