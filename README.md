@@ -34,10 +34,8 @@ Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Androi
 
 | Heute-Ansicht | Statistik & Heatmap | Detail & Ränge |
 | :---: | :---: | :---: |
-| <img width="1080" height="2400" alt="Screenshot_20260713-151659" src="https://github.com/user-attachments/assets/55b3066f-d261-4705-93b8-05e3f8a9d8b1" 
-|<img width="1080" height="2400" alt="Screenshot_20260713-151741" src="https://github.com/user-attachments/assets/ed50df26-7c56-4064-a686-4d45e97835f6" />
- |<img width="1080" height="2400" alt="Screenshot_20260713-151725" src="https://github.com/user-attachments/assets/5c778435-8669-4c53-b213-66df73e7ffd0" />
-|
+| <img src=<img width="1080" height="2400" alt="Screenshot_20260713-151659" src="https://github.com/user-attachments/assets/f7cd1e80-918f-4d6d-87b3-5d66aaae8b1c" />
+width="250"/> | <img src="DEIN_LINK_2" width="250"/> | <img src="DEIN_LINK_3" width="250"/> |
 
 ---
 
