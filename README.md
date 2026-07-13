@@ -1,73 +1,64 @@
-
-
 # Frequent Habits 🌟
 
-Ein datenschutzfreundlicher, lokaler und motivierender Habit-Tracker für Android, der dir hilft, gute Gewohnheiten aufzubauen und schlechte loszuwerden. Komplett Open Source, ohne Werbung und ohne Tracking.
+A privacy-friendly, local, and motivating habit tracker for Android that helps you build good habits and break bad ones. Completely Open Source, no ads, and no tracking.
 
-![Lizenz: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Plattform: Android](https://img.shields.io/badge/Platform-Android-green.svg)
-![Status: Aktiv](https://img.shields.io/badge/Status-Active-success.svg)
-
-
-
+![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Platform: Android](https://img.shields.io/badge/Platform-Android-green.svg)
+![Status: Active](https://img.shields.io/badge/Status-Active-success.svg)
 
 ---
 
 ## ✨ Features
 
-**Frequent Habits** fokussiert sich auf das Wesentliche: Deine Ziele, deine Daten und deine Motivation.
+**Frequent Habits** focuses on the essentials: your goals, your data, and your motivation.
 
-*   🔒 **100% Privacy & Offline-First:** Keine Server, keine Cloud-Zwänge, keine Analyse-Tools. Alle Daten bleiben lokal auf deinem Gerät.
-*   🎮 **Motivierende Gamification:** Sammle Erfahrung, baue "Streaks" (Erfolgsserien) auf und steige im Rang auf (von Holz bis Unreal).
-*   📊 **Detaillierte Statistiken:** Verfolge deinen Fortschritt mit einer interaktiven, von GitHub inspirierten Aktivitäts-Heatmap für das ganze Jahr.
-*   🎯 **Flexible Gewohnheitstypen:** Unterstützt einfache Ja/Nein-Gewohnheiten sowie zahlenbasierte Ziele (z.B. "2 Liter Wasser trinken" oder "30 Minuten lesen").
-*   💾 **Volle Datenkontrolle:** Integriertes lokales Backup & Restore (SAF), damit du deine Historie als JSON-Datei sichern kannst.
-*   🌍 **Zweisprachig:** Vollständig lokalisiert in Deutsch und Englisch.
+*   🔒 **100% Privacy & Offline-First:** No servers, no cloud requirements, no analytics tools. All data stays local on your device.
+*   🎮 **Motivating Gamification:** Earn experience, build streaks, and rank up (from Wood to Unreal).
+*   📊 **Detailed Statistics:** Track your progress with an interactive, GitHub-inspired activity heatmap for the entire year.
+*   🎯 **Flexible Habit Types:** Supports simple Yes/No habits as well as numerical goals (e.g., "drink 2 liters of water" or "read 30 minutes").
+*   💾 **Full Data Control:** Integrated local backup & restore (SAF), allowing you to save your history as a JSON file.
+*   🌍 **Bilingual:** Fully localized in German and English.
 
 ---
 
 ## 📸 Screenshots
 
-
-
-| Heute-Ansicht | Statistik & Heatmap | Detail & Ränge |
+| Today View | Create Habit | Stats Overview |
 | :---: | :---: | :---: |
-| <img width="200" alt="Heute" src="https://github.com/user-attachments/assets/c4022b1b-c260-4ffa-81e9-88c9c47ef80e" /> | <img width="200" alt="Stats" src="https://github.com/user-attachments/assets/c7f7f4a0-85a8-4d94-9250-79b642eb0dfc" /> | <img width="200" alt="Detail" src="https://github.com/user-attachments/assets/5bc7a3c3-45be-429f-99cd-7dfce499043e" /> |
+| <img width="200" alt="Today" src="https://github.com/user-attachments/assets/c4022b1b-c260-4ffa-81e9-88c9c47ef80e" /> | <img width="200" alt="Create" src="https://github.com/user-attachments/assets/7e5c7144-c71e-45e4-9fe7-bf5a01640ea4" /> | <img width="200" alt="Stats" src="https://github.com/user-attachments/assets/c7f7f4a0-85a8-4d94-9250-79b642eb0dfc" /> |
 
-| Gewohnheit erstellen | Zusätzliche Statistik | 
+| Stats Detail | Ranks & Achievements |
 | :---: | :---: |
-| <img width="200" alt="Erstellen" src="https://github.com/user-attachments/assets/7e5c7144-c71e-45e4-9fe7-bf5a01640ea4" /> | <img width="200" alt="Stats-Zusatz" src="https://github.com/user-attachments/assets/16658192-f47a-46ca-8fca-d16062885efe" /> |
-
-
+| <img width="200" alt="Stats-Detail" src="https://github.com/user-attachments/assets/16658192-f47a-46ca-8fca-d16062885efe" /> | <img width="200" alt="Ranks" src="https://github.com/user-attachments/assets/5bc7a3c3-45be-429f-99cd-7dfce499043e" /> |
 
 ---
 
 ## 🛠 Tech Stack
 
-Diese App ist nach modernen Android-Standards entwickelt:
+This app is developed using modern Android standards:
 *   **UI:** Kotlin & Jetpack Compose
-*   **Architektur:** MVVM (Model-View-ViewModel), State Hoisting
-*   **Datenbank:** Room (SQLite)
-*   **Asynchronität:** Coroutines & StateFlows
+*   **Architecture:** MVVM (Model-View-ViewModel), State Hoisting
+*   **Database:** Room (SQLite)
+*   **Asynchrony:** Coroutines & StateFlows
 
 ---
 
 ## 🚀 Installation
 
-Aktuell kannst du die App auf zwei Wegen installieren:
+Currently, you can install the app in two ways:
 
-1. **F-Droid (In Vorbereitung):** Demnächst im F-Droid Store verfügbar!
-2. **Manuell (APK):** Lade dir die neueste `app-release.apk` unter [Releases](../../releases) herunter und installiere sie direkt auf deinem Android-Gerät.
-
----
-
-## 🤝 Mitwirken (Contributing)
-
-Feedback, Bug-Reports und Pull Requests sind jederzeit willkommen! 
-Wenn du ein Feature vorschlagen oder einen Fehler melden möchtest, öffne einfach ein neues [Issue](../../issues).
+1. **F-Droid (In preparation):** Coming soon to the F-Droid store!
+2. **Manually (APK):** Download the latest `app-release.apk` from [Releases](../../releases) and install it directly on your Android device.
 
 ---
 
-## 📄 Lizenz
+## 🤝 Contributing
 
-Dieses Projekt ist unter der **GNU General Public License v3.0 (GPLv3)** lizenziert. Weitere Details findest du in der [LICENSE](LICENSE)-Datei.
+Feedback, bug reports, and pull requests are always welcome!
+If you would like to suggest a feature or report a bug, simply open a new [Issue](../../issues).
+
+---
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. For more details, please see the [LICENSE](LICENSE) file.
