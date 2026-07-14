@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.ui.theme.*
-import com.frequency.habits.R
+import com.frequent.habits.R
 
 object HabitIconMapping {
 

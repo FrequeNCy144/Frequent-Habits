@@ -9,7 +9,7 @@ import android.widget.RemoteViewsService
 import com.example.data.AppDatabase
 import com.example.data.Habit
 import com.example.data.HabitLog
-import com.frequency.habits.R
+import com.frequent.habits.R
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.runBlocking

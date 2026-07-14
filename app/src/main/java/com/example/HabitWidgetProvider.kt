@@ -14,7 +14,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.widget.RemoteViews
 import com.example.data.AppDatabase
-import com.frequency.habits.R
+import com.frequent.habits.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
