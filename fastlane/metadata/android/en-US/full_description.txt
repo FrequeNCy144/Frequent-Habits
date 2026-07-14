@@ -1,0 +1,12 @@
+Often, you have to make a choice when it comes to habit trackers: either a gorgeous design hidden behind expensive subscriptions and data harvesting, or privacy-friendly open-source apps that feel visually and functionally very basic. Frequent Habits bridges exactly this gap.
+
+This app offers an incredibly beautiful, ultra-modern dark mode design and a depth of comprehensive statistics that you will hardly find anywhere else on the market—and it does all of this completely offline on your device.
+
+Key Features:
+
+* Unique, Aesthetic Design: A stunning interface with vibrant accent colors, fluid animations, and a clean UI that makes checking off your daily tasks a true premium experience.
+* Unrivaled Statistics & Analytics: Go far beyond simple streak counting. Understand your behavior through detailed yearly heatmaps, precise weekday frequencies, top & bottom habit insights, and visually striking progress bars.
+* 100% Private & Offline: Your life is your business. No tracking, no ads, no mandatory cloud. Includes a secure, local backup feature (SAF).
+* Motivation through Gamification: Achieve "Gold Series", keep your streaks alive, and unlock exclusive trophies and milestones that keep you motivated every single day.
+* Built-in Timer: Complete number- and time-based habits (like 30 minutes of meditation or reading) with a dedicated timer—including background audio—directly within the app.
+* Integrated Mini-Notebook: Jot down your thoughts, successes, or reasons for a slip-up directly on specific days to understand your patterns even better.
