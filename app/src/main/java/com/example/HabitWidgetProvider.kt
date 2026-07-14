@@ -309,6 +309,8 @@ class HabitWidgetProvider : AppWidgetProvider() {
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // Wait 150ms to ensure DB write transactions from the main app thread are fully committed
+                kotlinx.coroutines.delay(150L)
                 updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds, isFullUpdate)
             } catch (e: Exception) {
                 e.printStackTrace()

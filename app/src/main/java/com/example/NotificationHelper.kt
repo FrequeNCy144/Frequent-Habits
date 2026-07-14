@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import com.example.data.Habit
 import java.util.Calendar
 
 object NotificationHelper {
@@ -102,5 +103,88 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
+    }
+
+    fun cancelAllHabitReminders(context: Context, habit: Habit) {
+        // 1. Cancel default main reminder
+        cancelHabitReminder(context, habit.id)
+
+        // 2. Cancel custom reminders
+        if (habit.customReminders.isNotEmpty()) {
+            habit.customReminders.split(",").forEach { timeStr ->
+                val parts = timeStr.split(":")
+                if (parts.size == 2) {
+                    val hour = parts[0].toIntOrNull() ?: return@forEach
+                    val minute = parts[1].toIntOrNull() ?: return@forEach
+                    val reqCode = (habit.id * 10000) + (hour * 100 + minute)
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return@forEach
+                    val intent = Intent(context, HabitReminderReceiver::class.java)
+                    val pendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        reqCode,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    alarmManager.cancel(pendingIntent)
+                }
+            }
+        }
+    }
+
+    fun scheduleAllHabitReminders(context: Context, habit: Habit) {
+        // 1. Schedule main/default reminder if enabled
+        if (habit.reminderEnabled) {
+            scheduleSingleReminder(context, habit.id, habit.id, habit.name, habit.reminderHour, habit.reminderMinute)
+        }
+
+        // 2. Schedule custom reminders
+        if (habit.customReminders.isNotEmpty()) {
+            habit.customReminders.split(",").forEach { timeStr ->
+                val parts = timeStr.split(":")
+                if (parts.size == 2) {
+                    val hour = parts[0].toIntOrNull() ?: return@forEach
+                    val minute = parts[1].toIntOrNull() ?: return@forEach
+                    val reqCode = (habit.id * 10000) + (hour * 100 + minute)
+                    scheduleSingleReminder(context, habit.id, reqCode, habit.name, hour, minute)
+                }
+            }
+        }
+    }
+
+    private fun scheduleSingleReminder(context: Context, habitId: Int, reqCode: Int, habitName: String, hour: Int, minute: Int) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val intent = Intent(context, HabitReminderReceiver::class.java).apply {
+            putExtra("habitId", habitId)
+            putExtra("habitName", habitName)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            reqCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        alarmManager.cancel(pendingIntent)
+
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) {
+                add(Calendar.DAY_OF_YEAR, 1)
+            }
+        }
+
+        try {
+            alarmManager.setRepeating(
+                AlarmManager.RTC_WAKEUP,
+                calendar.timeInMillis,
+                AlarmManager.INTERVAL_DAY,
+                pendingIntent
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

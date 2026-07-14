@@ -1545,7 +1545,8 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         specificDays: String = "",
         reminderEnabled: Boolean = false,
         reminderHour: Int = 18,
-        reminderMinute: Int = 0
+        reminderMinute: Int = 0,
+        customReminders: String = ""
     ) {
         viewModelScope.launch {
             val habit = Habit(
@@ -1562,18 +1563,15 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                 specificDays = specificDays,
                 reminderEnabled = reminderEnabled,
                 reminderHour = reminderHour,
-                reminderMinute = reminderMinute
+                reminderMinute = reminderMinute,
+                customReminders = customReminders
             )
             val insertedId = repository.insertHabit(habit).toInt()
-            if (reminderEnabled) {
-                com.example.NotificationHelper.scheduleHabitReminder(
-                    getApplication(),
-                    insertedId,
-                    name,
-                    reminderHour,
-                    reminderMinute
-                )
-            }
+            val finalHabit = habit.copy(id = insertedId)
+            com.example.NotificationHelper.scheduleAllHabitReminders(
+                getApplication(),
+                finalHabit
+            )
             // Trigger widget update
             HabitWidgetProvider.triggerUpdate(getApplication())
         }
@@ -1581,21 +1579,19 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
     fun updateHabit(habit: Habit) {
         viewModelScope.launch {
-            repository.updateHabit(habit)
-            if (habit.reminderEnabled) {
-                com.example.NotificationHelper.scheduleHabitReminder(
-                    getApplication(),
-                    habit.id,
-                    habit.name,
-                    habit.reminderHour,
-                    habit.reminderMinute
-                )
-            } else {
-                com.example.NotificationHelper.cancelHabitReminder(
-                    getApplication(),
-                    habit.id
-                )
+            try {
+                val oldHabit = repository.getHabitByIdSuspend(habit.id)
+                if (oldHabit != null) {
+                    com.example.NotificationHelper.cancelAllHabitReminders(getApplication(), oldHabit)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
+            repository.updateHabit(habit)
+            com.example.NotificationHelper.scheduleAllHabitReminders(
+                getApplication(),
+                habit
+            )
             // Trigger widget update
             HabitWidgetProvider.triggerUpdate(getApplication())
         }
@@ -1622,9 +1618,9 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             // Adjust current selected date and week start if they became out-of-bounds
             adjustDateAndWeekIfOutOfRange()
 
-            com.example.NotificationHelper.cancelHabitReminder(
+            com.example.NotificationHelper.cancelAllHabitReminders(
                 getApplication(),
-                habit.id
+                habit
             )
             if (_selectedHabitIdForDetail.value == habit.id) {
                 _selectedHabitIdForDetail.value = null
@@ -1638,9 +1634,9 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val updated = habit.copy(isArchived = true)
             repository.updateHabit(updated)
-            com.example.NotificationHelper.cancelHabitReminder(
+            com.example.NotificationHelper.cancelAllHabitReminders(
                 getApplication(),
-                habit.id
+                habit
             )
             // Trigger widget update
             HabitWidgetProvider.triggerUpdate(getApplication())
@@ -1651,15 +1647,10 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val updated = habit.copy(isArchived = false)
             repository.updateHabit(updated)
-            if (updated.reminderEnabled) {
-                com.example.NotificationHelper.scheduleHabitReminder(
-                    getApplication(),
-                    updated.id,
-                    updated.name,
-                    updated.reminderHour,
-                    updated.reminderMinute
-                )
-            }
+            com.example.NotificationHelper.scheduleAllHabitReminders(
+                getApplication(),
+                updated
+            )
             // Trigger widget update
             HabitWidgetProvider.triggerUpdate(getApplication())
         }
@@ -2467,15 +2458,10 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val list = database.habitDao().getAllHabitsRaw()
                 list.forEach { habit ->
-                    if (habit.reminderEnabled) {
-                        com.example.NotificationHelper.scheduleHabitReminder(
-                            getApplication(),
-                            habit.id,
-                            habit.name,
-                            habit.reminderHour,
-                            habit.reminderMinute
-                        )
-                    }
+                    com.example.NotificationHelper.scheduleAllHabitReminders(
+                        getApplication(),
+                        habit
+                    )
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

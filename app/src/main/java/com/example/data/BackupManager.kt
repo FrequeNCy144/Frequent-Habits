@@ -42,6 +42,7 @@ object BackupManager {
                 put("reminderEnabled", habit.reminderEnabled)
                 put("reminderHour", habit.reminderHour)
                 put("reminderMinute", habit.reminderMinute)
+                put("customReminders", habit.customReminders)
             }
             habitsArray.put(hJson)
         }
@@ -106,7 +107,8 @@ object BackupManager {
                     sortOrder = hJson.optInt("sortOrder", 0),
                     reminderEnabled = hJson.optBoolean("reminderEnabled", false),
                     reminderHour = hJson.optInt("reminderHour", 18),
-                    reminderMinute = hJson.optInt("reminderMinute", 0)
+                    reminderMinute = hJson.optInt("reminderMinute", 0),
+                    customReminders = hJson.optString("customReminders", "")
                 )
                 db.habitDao().insertHabit(habit)
             }

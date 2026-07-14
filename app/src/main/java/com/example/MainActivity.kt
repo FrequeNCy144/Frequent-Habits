@@ -26,6 +26,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -91,6 +94,7 @@ import android.media.MediaPlayer
 import android.media.RingtoneManager
 import java.io.File
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -246,7 +250,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
                                 }
                             }
                         },
-                        onSave = { name, isNeg, cat, icon, color, type, unit, target, freq, start, specDays, remEnabled, remHour, remMin ->
+                        onSave = { name, isNeg, cat, icon, color, type, unit, target, freq, start, specDays, remEnabled, remHour, remMin, customReminders ->
                             if (editingHabit != null) {
                                 val updated = editingHabit!!.copy(
                                     name = name,
@@ -262,7 +266,8 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
                                     specificDays = specDays,
                                     reminderEnabled = remEnabled,
                                     reminderHour = remHour,
-                                    reminderMinute = remMin
+                                    reminderMinute = remMin,
+                                    customReminders = customReminders
                                 )
                                 viewModel.updateHabit(updated)
                                 editingHabit = null
@@ -272,7 +277,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } else {
-                                viewModel.addHabit(name, cat, icon, color, isNeg, type, unit, target, freq, start, specDays, remEnabled, remHour, remMin)
+                                viewModel.addHabit(name, cat, icon, color, isNeg, type, unit, target, freq, start, specDays, remEnabled, remHour, remMin, customReminders)
                                 Toast.makeText(
                                     context,
                                     if (language == "de") "Gewohnheit hinzugefügt!" else "Habit added!",
@@ -412,6 +417,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun WidgetAddValueDialog(
     habitId: Int,
@@ -474,6 +480,8 @@ fun WidgetAddValueDialog(
             mutableStateOf((mins * 60).toInt()) 
         }
         var isTimerRunning by remember { mutableStateOf(false) }
+        var isEditingTimerDuration by remember { mutableStateOf(false) }
+        var tempTimerInput by remember(habitId) { mutableStateOf(defaultMins) }
 
         // Audio State variables
         var importedAudios by remember { mutableStateOf<List<File>>(emptyList()) }
@@ -612,11 +620,28 @@ fun WidgetAddValueDialog(
             onDismissRequest = onDismiss,
             containerColor = DarkCard,
             title = {
-                Text(
-                    text = if (language == "de") "Eintrag: ${habitToLog!!.name}" else "Log: ${habitToLog!!.name}",
-                    color = TextPrimary,
-                    style = MaterialTheme.typography.titleLarge
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (language == "de") "Eintrag: ${habitToLog!!.name}" else "Log: ${habitToLog!!.name}",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             },
             text = {
                 Column(
@@ -636,27 +661,12 @@ fun WidgetAddValueDialog(
                             1f
                         }
 
-                        var isEditingDuration by remember { mutableStateOf(false) }
-                        val focusRequester = remember { FocusRequester() }
-                        val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
-                        LaunchedEffect(isEditingDuration) {
-                            if (isEditingDuration) {
-                                timerDurationMinutes = ""
-                                try {
-                                    kotlinx.coroutines.delay(100)
-                                    focusRequester.requestFocus()
-                                    keyboardController?.show()
-                                } catch (e: Exception) {
-                                    // ignored
-                                }
-                            }
-                        }
 
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             // Circular Clock View
                             Box(
@@ -664,88 +674,105 @@ fun WidgetAddValueDialog(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(120.dp)
-                                        .padding(4.dp)
-                                        .drawWithCache {
-                                            val strokeWidth = 6.dp.toPx()
-                                            val trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-                                            val progressStroke = androidx.compose.ui.graphics.drawscope.Stroke(
-                                                width = strokeWidth,
-                                                cap = StrokeCap.Round
-                                            )
-                                            onDrawBehind {
-                                                drawCircle(
-                                                    color = ProgressTrack,
-                                                    radius = size.minDimension / 2f,
-                                                    style = trackStroke
-                                                )
-                                                drawArc(
-                                                    color = PrimaryViolet,
-                                                    startAngle = -90f,
-                                                    sweepAngle = 360f * progressFraction,
-                                                    useCenter = false,
-                                                    style = progressStroke
-                                                )
-                                            }
-                                        }
+                                    modifier = Modifier.size(180.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        if (isEditingDuration && !isTimerRunning) {
-                                            androidx.compose.foundation.text.BasicTextField(
-                                                value = timerDurationMinutes,
-                                                onValueChange = { newValue ->
-                                                    if (newValue.all { it.isDigit() }) {
-                                                        timerDurationMinutes = newValue
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(120.dp)
+                                            .padding(4.dp)
+                                            .drawWithCache {
+                                                val strokeWidth = 6.dp.toPx()
+                                                val trackStroke = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                                                val progressStroke = androidx.compose.ui.graphics.drawscope.Stroke(
+                                                    width = strokeWidth,
+                                                    cap = StrokeCap.Round
+                                                )
+                                                onDrawBehind {
+                                                    drawCircle(
+                                                        color = ProgressTrack,
+                                                        radius = size.minDimension / 2f,
+                                                        style = trackStroke
+                                                    )
+                                                    drawArc(
+                                                        color = PrimaryViolet,
+                                                        startAngle = -90f,
+                                                        sweepAngle = 360f * progressFraction,
+                                                        useCenter = false,
+                                                        style = progressStroke
+                                                    )
+                                                }
+                                            }
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center,
+                                            modifier = Modifier.padding(4.dp)
+                                        ) {
+                                            if (isEditingTimerDuration) {
+                                                val focusRequester = remember { FocusRequester() }
+                                                
+                                                BasicTextField(
+                                                    value = tempTimerInput,
+                                                    onValueChange = { input ->
+                                                        if (input.all { it.isDigit() } && input.length <= 4) {
+                                                            tempTimerInput = input
+                                                        }
+                                                    },
+                                                    keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Number,
+                                                        imeAction = ImeAction.Done
+                                                    ),
+                                                    keyboardActions = KeyboardActions(
+                                                        onDone = {
+                                                            val parsed = tempTimerInput.toIntOrNull() ?: timerDurationMinutes.toIntOrNull() ?: 25
+                                                            timerDurationMinutes = parsed.toString()
+                                                            isEditingTimerDuration = false
+                                                        }
+                                                    ),
+                                                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                                                        color = TextPrimary,
+                                                        textAlign = TextAlign.Center,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 22.sp
+                                                    ),
+                                                    cursorBrush = androidx.compose.ui.graphics.SolidColor(TextPrimary),
+                                                    modifier = Modifier
+                                                        .width(80.dp)
+                                                        .focusRequester(focusRequester),
+                                                    decorationBox = { innerTextField ->
+                                                        Box(
+                                                            contentAlignment = Alignment.Center,
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) {
+                                                            if (tempTimerInput.isEmpty()) {
+                                                                Text(
+                                                                    text = timerDurationMinutes,
+                                                                    color = TextSecondary.copy(alpha = 0.5f),
+                                                                    style = MaterialTheme.typography.titleLarge,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 22.sp,
+                                                                    textAlign = TextAlign.Center
+                                                                )
+                                                            }
+                                                            innerTextField()
+                                                        }
                                                     }
-                                                },
-                                                textStyle = MaterialTheme.typography.titleLarge.copy(
+                                                )
+                                                
+                                                LaunchedEffect(Unit) {
+                                                    focusRequester.requestFocus()
+                                                }
+                                            } else {
+                                                Text(
+                                                    text = timeText,
+                                                    style = MaterialTheme.typography.titleLarge,
                                                     color = TextPrimary,
                                                     fontWeight = FontWeight.Bold,
-                                                    fontSize = 22.sp,
-                                                    textAlign = TextAlign.Center
-                                                ),
-                                                cursorBrush = SolidColor(PrimaryViolet),
-                                                keyboardOptions = KeyboardOptions(
-                                                    keyboardType = KeyboardType.Number,
-                                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
-                                                ),
-                                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                                                    onDone = {
-                                                        if (timerDurationMinutes.isEmpty() || timerDurationMinutes.toIntOrNull() == null || timerDurationMinutes.toIntOrNull()!! <= 0) {
-                                                            timerDurationMinutes = defaultMins
-                                                        }
-                                                        isEditingDuration = false
-                                                        keyboardController?.hide()
-                                                    }
-                                                ),
-                                                modifier = Modifier.width(60.dp).focusRequester(focusRequester),
-                                                singleLine = true
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = if (language == "de") "Fertig" else "Done",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = PrimaryViolet,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.clickable {
-                                                    if (timerDurationMinutes.isEmpty() || timerDurationMinutes.toIntOrNull() == null || timerDurationMinutes.toIntOrNull()!! <= 0) {
-                                                        timerDurationMinutes = defaultMins
-                                                    }
-                                                    isEditingDuration = false
-                                                    keyboardController?.hide()
-                                                }
-                                            )
-                                        } else {
-                                            Text(
-                                                text = timeText,
-                                                style = MaterialTheme.typography.titleLarge,
-                                                color = TextPrimary,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 24.sp
-                                            )
+                                                    fontSize = 22.sp
+                                                )
+                                            }
                                             Spacer(modifier = Modifier.height(2.dp))
                                             Text(
                                                 text = if (isTimerRunning) {
@@ -759,28 +786,37 @@ fun WidgetAddValueDialog(
                                             )
                                         }
                                     }
-                                }
 
-                                // Large Edit button outside the circular timer
-                                if (!isTimerRunning && !isEditingDuration) {
-                                    IconButton(
-                                        onClick = { isEditingDuration = true },
-                                        modifier = Modifier
-                                            .align(Alignment.CenterEnd)
-                                            .padding(end = 24.dp)
-                                            .size(44.dp)
-                                            .background(ProgressTrack, CircleShape)
-                                            .border(1.dp, DarkBorder, CircleShape)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = "Edit Duration",
-                                            tint = PrimaryViolet,
-                                            modifier = Modifier.size(20.dp)
-                                        )
+                                    if (!isTimerRunning) {
+                                        IconButton(
+                                            onClick = {
+                                                if (isEditingTimerDuration) {
+                                                    val parsed = tempTimerInput.toIntOrNull() ?: timerDurationMinutes.toIntOrNull() ?: 25
+                                                    timerDurationMinutes = parsed.toString()
+                                                    isEditingTimerDuration = false
+                                                } else {
+                                                    tempTimerInput = ""
+                                                    isEditingTimerDuration = true
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .size(36.dp)
+                                                .background(ProgressTrack, CircleShape)
+                                                .border(1.dp, DarkBorder, CircleShape)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isEditingTimerDuration) Icons.Default.Check else Icons.Default.Edit,
+                                                contentDescription = "Edit timer length",
+                                                tint = PrimaryViolet,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
+
+
 
                             // Play/Pause, Reset, and Finish Buttons
                             Row(
@@ -870,11 +906,11 @@ fun WidgetAddValueDialog(
                             // Background Audio Selection
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
                                     text = if (language == "de") "Hintergrund-Audio" else "Background Audio",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = TextSecondary,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -882,10 +918,10 @@ fun WidgetAddValueDialog(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(ProgressTrack, RoundedCornerShape(8.dp))
-                                        .border(1.dp, DarkBorder, RoundedCornerShape(8.dp))
+                                        .background(ProgressTrack, RoundedCornerShape(12.dp))
+                                        .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
                                         .clickable { showAudioDropdown = true }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
@@ -897,13 +933,13 @@ fun WidgetAddValueDialog(
                                             imageVector = Icons.Default.MusicNote,
                                             contentDescription = null,
                                             tint = PrimaryViolet,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier.size(20.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = selectedAudioFile?.name ?: (if (language == "de") "Kein Sound" else "No Sound"),
                                             color = TextPrimary,
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.bodyMedium,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -918,21 +954,21 @@ fun WidgetAddValueDialog(
                                                     e.printStackTrace()
                                                 }
                                             },
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(36.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.AddCircle,
                                                 contentDescription = "Import",
                                                 tint = SuccessGreen,
-                                                modifier = Modifier.size(16.dp)
+                                                modifier = Modifier.size(22.dp)
                                             )
                                         }
-                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Icon(
                                             imageVector = Icons.Default.ArrowDropDown,
                                             contentDescription = null,
                                             tint = TextSecondary,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
 
@@ -1084,48 +1120,65 @@ fun WidgetAddValueDialog(
                                 Spacer(modifier = Modifier.width(1.dp))
                             }
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            TextButton(
+                                onClick = onDismiss,
+                                modifier = Modifier.testTag("dialog_cancel_button")
                             ) {
-                                TextButton(
-                                    onClick = onDismiss,
-                                    modifier = Modifier.testTag("dialog_cancel_button")
-                                ) {
-                                    Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
-                                }
-
-                                TextButton(
-                                    onClick = {
-                                        viewModel.logNumericalHabit(habitToLog!!.id, selectedDate, -1f)
-                                        onDismiss()
-                                    },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = FailedRed),
-                                    modifier = Modifier.testTag("dialog_fail_button")
-                                ) {
-                                    Text(if (language == "de") "Fehlgeschlagen" else "Failed")
-                                }
+                                Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
                             }
                         }
 
-                        Button(
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
-                            onClick = {
-                                val fValue = inputVal.toFloatOrNull() ?: 0f
-                                if (fValue <= 0f) {
-                                    viewModel.logNumericalHabit(habitToLog!!.id, selectedDate, -1f)
-                                } else {
-                                    viewModel.logNumericalHabit(habitToLog!!.id, selectedDate, fValue)
-                                }
-                                onDismiss()
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .testTag("dialog_save_button")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(if (language == "de") "Speichern" else "Save", color = TextPrimary, fontWeight = FontWeight.Bold)
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.logNumericalHabit(habitToLog!!.id, selectedDate, -1f)
+                                    onDismiss()
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = FailedRed),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, FailedRed.copy(alpha = 0.5f)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(1.5f)
+                                    .height(46.dp)
+                                    .testTag("dialog_fail_button")
+                            ) {
+                                Text(
+                                    text = if (language == "de") "Fehlgeschlagen" else "Failed",
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Button(
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                                onClick = {
+                                    val fValue = inputVal.toFloatOrNull() ?: 0f
+                                    if (fValue <= 0f) {
+                                        viewModel.logNumericalHabit(habitToLog!!.id, selectedDate, -1f)
+                                    } else {
+                                        viewModel.logNumericalHabit(habitToLog!!.id, selectedDate, fValue)
+                                    }
+                                    onDismiss()
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .weight(2f)
+                                    .height(46.dp)
+                                    .testTag("dialog_save_button")
+                            ) {
+                                Text(
+                                    text = if (language == "de") "Speichern" else "Save",
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -2182,12 +2235,13 @@ fun HabitItemRow(
                                 "$formattedVal / $formattedTarget ${habit.unit}"
                             }
                         },
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = if (habit.type == "NUMBER" && !isPaused) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (habit.type == "NUMBER" && !isPaused) FontWeight.Bold else FontWeight.Normal,
                         color = when {
                             isPaused -> HabitOrange
                             isCompleted -> SuccessGreen
                             isFailed -> FailedRed
-                            else -> TextSecondary
+                            else -> if (habit.type == "NUMBER") habitColor else TextSecondary
                         }
                     )
                 }
@@ -5678,22 +5732,47 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Liberapay Link Button
+                    // frequency-apps.com Website Button
                     Button(
-                        onClick = { uriHandler.openUri("https://liberapay.com/FrequeNCy/donate") },
+                        onClick = { uriHandler.openUri("https://frequency-apps.com") },
                         colors = ButtonDefaults.buttonColors(containerColor = ProgressTrack),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = "Website",
+                            tint = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (language == "de") "Website (frequency-apps.com)" else "Website (frequency-apps.com)",
+                            color = TextPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Authentic Liberapay Styled Donate Button (Liberapay Official Brand Colors)
+                    Button(
+                        onClick = { uriHandler.openUri("https://liberapay.com/FrequeNCy/donate") },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = androidx.compose.ui.graphics.Color(0xFFF6C915) // Official Liberapay Brand Yellow
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Icon(
                             imageVector = Icons.Default.Favorite,
                             contentDescription = "Donate",
-                            tint = ErrorRed
+                            tint = androidx.compose.ui.graphics.Color(0xFF1A1A1A) // Dark charcoal
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (language == "de") "Spenden via Liberapay" else "Donate via Liberapay",
-                            color = TextPrimary
+                            color = androidx.compose.ui.graphics.Color(0xFF1A1A1A),
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -5759,18 +5838,21 @@ fun SettingsScreen(
 fun CreateHabitScreen(
     language: String,
     onDismiss: () -> Unit,
-    onSave: (name: String, isNegative: Boolean, category: String, icon: String, color: String, type: String, unit: String, target: Float, freq: String, startMs: Long, specificDays: String, reminderEnabled: Boolean, reminderHour: Int, reminderMinute: Int) -> Unit,
+    onSave: (name: String, isNegative: Boolean, category: String, icon: String, color: String, type: String, unit: String, target: Float, freq: String, startMs: Long, specificDays: String, reminderEnabled: Boolean, reminderHour: Int, reminderMinute: Int, customReminders: String) -> Unit,
     editingHabit: Habit? = null
 ) {
-    var isNegative by remember { mutableStateOf(editingHabit?.isNegative ?: false) } // Aufbauen = false, Abgewöhnen = true
-    var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var name by remember { mutableStateOf(editingHabit?.name ?: "") }
-    var category by remember { mutableStateOf(editingHabit?.category ?: (if (language == "de") "Allgemein" else "General")) }
-    var selectedIcon by remember { mutableStateOf(editingHabit?.icon ?: "sparkle") }
-    var selectedColor by remember { mutableStateOf(editingHabit?.color ?: "purple") }
-    var type by remember { mutableStateOf(editingHabit?.type ?: "BINARY") } // "BINARY" or "NUMBER"
-    var unit by remember { mutableStateOf(editingHabit?.unit ?: (if (language == "de") "Minuten" else "Minutes")) }
-    var selectedChip by remember {
+    var isNegative by remember(editingHabit?.id) { mutableStateOf(editingHabit?.isNegative ?: false) } // Aufbauen = false, Abgewöhnen = true
+    var activeExplanation by remember(editingHabit?.id) { mutableStateOf<Pair<String, String>?>(null) }
+    var name by remember(editingHabit?.id) { mutableStateOf(editingHabit?.name ?: "") }
+    var nameError by remember(editingHabit?.id) { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    var category by remember(editingHabit?.id) { mutableStateOf(editingHabit?.category ?: (if (language == "de") "Allgemein" else "General")) }
+    var selectedIcon by remember(editingHabit?.id) { mutableStateOf(editingHabit?.icon ?: "sparkle") }
+    var selectedColor by remember(editingHabit?.id) { mutableStateOf(editingHabit?.color ?: "purple") }
+    var type by remember(editingHabit?.id) { mutableStateOf(editingHabit?.type ?: "BINARY") } // "BINARY" or "NUMBER"
+    var unit by remember(editingHabit?.id) { mutableStateOf(editingHabit?.unit ?: (if (language == "de") "Minuten" else "Minutes")) }
+    var selectedChip by remember(editingHabit?.id, unit) {
         val standardUnitsDe = listOf("Minuten", "Liter", "ml", "km", "Stunden", "Mal")
         val standardUnitsEn = listOf("Minutes", "Liters", "ml", "km", "Hours", "Times")
         val initialChip = when {
@@ -5787,9 +5869,9 @@ fun CreateHabitScreen(
         }
         mutableStateOf(initialChip)
     }
-    var targetValueStr by remember { mutableStateOf(editingHabit?.targetValue?.toInt()?.toString() ?: "1") }
-    var frequency by remember { mutableStateOf(editingHabit?.frequency ?: "DAILY") }
-    var timesWeekly by remember {
+    var targetValueStr by remember(editingHabit?.id) { mutableStateOf(editingHabit?.targetValue?.toInt()?.toString() ?: "1") }
+    var frequency by remember(editingHabit?.id) { mutableStateOf(editingHabit?.frequency ?: "DAILY") }
+    var timesWeekly by remember(editingHabit?.id) {
         val initialTimes = if (editingHabit?.frequency == "TIMES_WEEKLY") {
             editingHabit.specificDays.toIntOrNull() ?: 3
         } else {
@@ -5797,19 +5879,32 @@ fun CreateHabitScreen(
         }
         mutableStateOf(initialTimes)
     }
-    var specificDaysSet by remember {
+    var specificDaysSet by remember(editingHabit?.id) {
         val initialSet = editingHabit?.specificDays
             ?.split(",")
             ?.mapNotNull { it.trim().toIntOrNull() }
             ?.toSet() ?: emptySet()
         mutableStateOf(initialSet)
     }
-    var reminderEnabled by remember { mutableStateOf(editingHabit?.reminderEnabled ?: false) }
-    var reminderHour by remember { mutableStateOf(editingHabit?.reminderHour ?: 18) }
-    var reminderMinute by remember { mutableStateOf(editingHabit?.reminderMinute ?: 0) }
+    var reminderEnabled by remember(editingHabit?.id) { mutableStateOf(editingHabit?.reminderEnabled ?: false) }
+    var remindersList by remember(editingHabit?.id) {
+        val list = mutableListOf<String>()
+        if (editingHabit != null && editingHabit.reminderEnabled) {
+            list.add(String.format(java.util.Locale.US, "%02d:%02d", editingHabit.reminderHour, editingHabit.reminderMinute))
+            val initialStr = editingHabit.customReminders ?: ""
+            if (initialStr.isNotEmpty()) {
+                list.addAll(initialStr.split(",").filter { it.isNotEmpty() })
+            }
+        } else {
+            list.add("18:00")
+        }
+        mutableStateOf(list.distinct().sorted())
+    }
+    var reminderToEditTime by remember(editingHabit?.id) { mutableStateOf<String?>(null) }
+    var showAddCustomDialog by remember(editingHabit?.id) { mutableStateOf(false) }
     
     // Default start date is today or habit's startDate (cleared to midnight for new habits so they start today!)
-    val initialDateMillis = remember {
+    val initialDateMillis = remember(editingHabit?.id) {
         if (editingHabit != null) {
             editingHabit.startDate
         } else {
@@ -5819,8 +5914,8 @@ fun CreateHabitScreen(
                 .toEpochMilli()
         }
     }
-    var startDateMillis by remember { mutableStateOf(initialDateMillis) }
-    var showDatePicker by remember { mutableStateOf(false) }
+    var startDateMillis by remember(initialDateMillis) { mutableStateOf(initialDateMillis) }
+    var showDatePicker by remember(editingHabit?.id) { mutableStateOf(false) }
 
     val formattedStartDate = remember(startDateMillis) {
         val localDate = java.time.Instant.ofEpochMilli(startDateMillis)
@@ -5878,174 +5973,214 @@ fun CreateHabitScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 // Name field
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    placeholder = { Text(if (language == "de") "z.B. Meditieren" else "e.g., Meditate") },
+                    onValueChange = { 
+                        name = it
+                        if (it.isNotBlank()) {
+                            nameError = false
+                        }
+                    },
+                    label = { Text(if (language == "de") "Name der Gewohnheit" else "Habit Name") },
+                    placeholder = { Text(if (language == "de") "z.B. Meditieren, Laufen..." else "e.g., Meditate, Running...") },
+                    isError = nameError,
+                    supportingText = {
+                        if (nameError) {
+                            Text(
+                                text = if (language == "de") "Bitte gib einen Namen ein" else "Please enter a name",
+                                color = FailedRed,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("habit_name_input"),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PrimaryViolet,
                         unfocusedBorderColor = DarkBorder,
-                        focusedLabelColor = PrimaryViolet
+                        focusedLabelColor = PrimaryViolet,
+                        errorBorderColor = FailedRed,
+                        errorLabelColor = FailedRed,
+                        errorCursorColor = FailedRed,
+                        errorSupportingTextColor = FailedRed,
+                        focusedContainerColor = if (nameError) FailedRed.copy(alpha = 0.08f) else Color.Transparent,
+                        unfocusedContainerColor = if (nameError) FailedRed.copy(alpha = 0.05f) else Color.Transparent,
+                        errorContainerColor = FailedRed.copy(alpha = 0.08f)
                     ),
                     singleLine = true
                 )
 
-                // Goal Segment (Aufbauen / Abgewöhnen) - highly compact Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                // Goal Segment (Aufbauen / Abgewöhnen)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = if (language == "de") "Ziel" else "Goal",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    InfoIconButton(
-                        title = if (language == "de") "Gewohnheitstyp" else "Habit Type",
-                        explanation = if (language == "de") {
-                            "Aufbauende Gewohnheit: Perfekt für neue Routinen (z.B. Sport, Meditation). Jeder Log erhöht deinen Fortschritt bis zum Tagesziel.\n\nAbgewöhnende Gewohnheit: Perfekt um schlechte Angewohnheiten loszuwerden (z.B. Rauchen). Standardmäßig als 'Erfolgreich' markiert, solange du dein Limit nicht überschreitest."
-                        } else {
-                            "Building Habit: Ideal for establishing new routines (e.g., exercise, meditation). Each log increases progress toward your daily goal.\n\nQuitting Habit: Ideal for breaking bad habits (e.g., smoking). Marked as 'Successful' by default as long as you stay within limits."
-                        },
-                        onClick = { t, e -> activeExplanation = t to e }
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = { isNegative = false },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (!isNegative) PrimaryViolet else ProgressTrack
-                        ),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.ArrowUpward, contentDescription = "Build Up", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (language == "de") "Aufbauen" else "Build", style = MaterialTheme.typography.titleSmall)
-                        }
+                        Text(
+                            text = if (language == "de") "Ziel" else "Goal",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        InfoIconButton(
+                            title = if (language == "de") "Gewohnheitstyp" else "Habit Type",
+                            explanation = if (language == "de") {
+                                "Aufbauende Gewohnheit: Perfekt für neue Routinen (z.B. Sport, Meditation). Jeder Log erhöht deinen Fortschritt bis zum Tagesziel.\n\nAbgewöhnende Gewohnheit: Perfekt um schlechte Angewohnheiten loszuwerden (z.B. Rauchen). Standardmäßig als 'Erfolgreich' markiert, solange du dein Limit nicht überschreitest."
+                            } else {
+                                "Building Habit: Ideal for establishing new routines (e.g., exercise, meditation). Each log increases progress toward your daily goal.\n\nQuitting Habit: Ideal for breaking bad habits (e.g., smoking). Marked as 'Successful' by default as long as you stay within limits."
+                            },
+                            onClick = { t, e -> activeExplanation = t to e }
+                        )
                     }
 
-                    Button(
-                        onClick = { isNegative = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isNegative) PrimaryViolet else ProgressTrack
-                        ),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.ArrowDownward, contentDescription = "Quit Down", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (language == "de") "Abgewöhnen" else "Quit", style = MaterialTheme.typography.titleSmall)
+                        Button(
+                            onClick = { isNegative = false },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (!isNegative) PrimaryViolet else ProgressTrack
+                            ),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.ArrowUpward, contentDescription = "Build Up", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (language == "de") "Aufbauen" else "Build", style = MaterialTheme.typography.titleSmall)
+                            }
+                        }
+
+                        Button(
+                            onClick = { isNegative = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isNegative) PrimaryViolet else ProgressTrack
+                            ),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.ArrowDownward, contentDescription = "Quit Down", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(if (language == "de") "Abgewöhnen" else "Quit", style = MaterialTheme.typography.titleSmall)
+                            }
                         }
                     }
                 }
 
-                // Icons selector
-                Text(
-                    text = if (language == "de") "Icon auswählen" else "Select Icon",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Bold
-                )
-
-                val icons = HabitIconMapping.iconList
-                val activeColor = HabitIconMapping.getColor(selectedColor)
-
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                // Customize Visuals (Icons & Colors)
+                Column(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    icons.forEach { (key, _) ->
-                        val isSelected = selectedIcon == key
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .background(
-                                    if (isSelected) activeColor.copy(alpha = 0.2f) else ProgressTrack,
-                                    RoundedCornerShape(12.dp)
-                                )
-                                .border(
-                                    width = if (isSelected) 2.dp else 1.dp,
-                                    color = if (isSelected) activeColor else DarkBorder,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable { selectedIcon = key },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = HabitIconMapping.getIconDrawableId(key)),
-                                contentDescription = key,
-                                tint = if (isSelected) activeColor else TextSecondary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                }
+                    Text(
+                        text = if (language == "de") "Aussehen anpassen" else "Customize Visuals",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                // Color selector dots
-                Text(
-                    text = if (language == "de") "Farbe auswählen" else "Select Color",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Bold
-                )
+                    // Icon selector
+                    Text(
+                        text = if (language == "de") "Icon auswählen" else "Select Icon",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    HabitIconMapping.colorList.forEach { (key, colorObj) ->
-                        val isSelected = selectedColor == key
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(colorObj.copy(alpha = 0.15f), CircleShape)
-                                .border(
-                                    width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) colorObj else colorObj.copy(alpha = 0.4f),
-                                    shape = CircleShape
-                                )
-                                .clickable { selectedColor = key },
-                            contentAlignment = Alignment.Center
-                        ) {
+                    val icons = HabitIconMapping.iconList
+                    val activeColor = HabitIconMapping.getColor(selectedColor)
+
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        icons.forEach { (key, _) ->
+                            val isSelected = selectedIcon == key
                             Box(
                                 modifier = Modifier
-                                    .size(if (isSelected) 24.dp else 28.dp)
-                                    .background(colorObj, CircleShape)
-                            ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = TextPrimary,
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .align(Alignment.Center)
+                                    .size(48.dp)
+                                    .background(
+                                        if (isSelected) activeColor.copy(alpha = 0.2f) else ProgressTrack,
+                                        RoundedCornerShape(12.dp)
                                     )
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) activeColor else DarkBorder,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { selectedIcon = key },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = HabitIconMapping.getIconDrawableId(key)),
+                                    contentDescription = key,
+                                    tint = if (isSelected) activeColor else TextSecondary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Color selector dots
+                    Text(
+                        text = if (language == "de") "Farbe auswählen" else "Select Color",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HabitIconMapping.colorList.forEach { (key, colorObj) ->
+                            val isSelected = selectedColor == key
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(colorObj.copy(alpha = 0.15f), CircleShape)
+                                    .border(
+                                        width = if (isSelected) 3.dp else 1.dp,
+                                        color = if (isSelected) colorObj else colorObj.copy(alpha = 0.4f),
+                                        shape = CircleShape
+                                    )
+                                    .clickable { selectedColor = key },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (isSelected) 24.dp else 28.dp)
+                                        .background(colorObj, CircleShape)
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = TextPrimary,
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .align(Alignment.Center)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -6053,32 +6188,43 @@ fun CreateHabitScreen(
                 }
 
                 // Type Toggle (Ja/Nein vs Zahlenbasiert)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
-                        onClick = { type = "BINARY" },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (type == "BINARY") PrimaryViolet else ProgressTrack
-                        ),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        Text(if (language == "de") "Ja / Nein" else "Yes / No", style = MaterialTheme.typography.titleSmall)
-                    }
+                    Text(
+                        text = if (language == "de") "Art der Messung" else "Measurement Type",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
 
-                    Button(
-                        onClick = { type = "NUMBER" },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (type == "NUMBER") PrimaryViolet else ProgressTrack
-                        ),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(if (language == "de") "Zahlenbasiert" else "Numeric", style = MaterialTheme.typography.titleSmall)
+                        Button(
+                            onClick = { type = "BINARY" },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (type == "BINARY") PrimaryViolet else ProgressTrack
+                            ),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(if (language == "de") "Ja / Nein" else "Yes / No", style = MaterialTheme.typography.titleSmall)
+                        }
+
+                        Button(
+                            onClick = { type = "NUMBER" },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (type == "NUMBER") PrimaryViolet else ProgressTrack
+                            ),
+                            modifier = Modifier.weight(1f).height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text(if (language == "de") "Zahlenbasiert" else "Numeric", style = MaterialTheme.typography.titleSmall)
+                        }
                     }
                 }
 
@@ -6100,56 +6246,109 @@ fun CreateHabitScreen(
                             listOf("Minutes", "Liters", "ml", "km", "Hours", "Times", "Custom...")
                         }
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        val row1 = standardUnits.take(4)
+                        val row2 = standardUnits.drop(4)
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            standardUnits.forEach { standardUnit ->
-                                val isSelected = selectedChip == standardUnit
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { 
-                                        selectedChip = standardUnit
-                                        if (standardUnit != "Anderes..." && standardUnit != "Custom...") {
-                                            unit = standardUnit
-                                        } else {
-                                            unit = ""
-                                        }
-                                    },
-                                    label = { 
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            if (standardUnit.lowercase() in listOf("minuten", "minutes")) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Timer,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp).padding(end = 4.dp)
-                                                )
-                                            }
-                                            Text(standardUnit)
-                                        }
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = PrimaryViolet,
-                                        selectedLabelColor = TextPrimary,
-                                        selectedLeadingIconColor = TextPrimary,
-                                        containerColor = ProgressTrack,
-                                        labelColor = TextSecondary
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                row1.forEach { standardUnit ->
+                                    val isSelected = selectedChip == standardUnit
+                                    FilterChip(
                                         selected = isSelected,
-                                        borderColor = DarkBorder,
-                                        selectedBorderColor = PrimaryViolet
+                                        onClick = { 
+                                            selectedChip = standardUnit
+                                            if (standardUnit != "Anderes..." && standardUnit != "Custom...") {
+                                                unit = standardUnit
+                                            } else {
+                                                unit = ""
+                                            }
+                                        },
+                                        label = { 
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (standardUnit.lowercase() in listOf("minuten", "minutes")) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Timer,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                                                    )
+                                                }
+                                                Text(standardUnit)
+                                            }
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = PrimaryViolet,
+                                            selectedLabelColor = TextPrimary,
+                                            selectedLeadingIconColor = TextPrimary,
+                                            containerColor = ProgressTrack,
+                                            labelColor = TextSecondary
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSelected,
+                                            borderColor = DarkBorder,
+                                            selectedBorderColor = PrimaryViolet
+                                        )
                                     )
-                                )
+                                }
+                            }
+
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                row2.forEach { standardUnit ->
+                                    val isSelected = selectedChip == standardUnit
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { 
+                                            selectedChip = standardUnit
+                                            if (standardUnit != "Anderes..." && standardUnit != "Custom...") {
+                                                unit = standardUnit
+                                            } else {
+                                                unit = ""
+                                            }
+                                        },
+                                        label = { 
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (standardUnit.lowercase() in listOf("minuten", "minutes")) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Timer,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                                                    )
+                                                }
+                                                Text(standardUnit)
+                                            }
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = PrimaryViolet,
+                                            selectedLabelColor = TextPrimary,
+                                            selectedLeadingIconColor = TextPrimary,
+                                            containerColor = ProgressTrack,
+                                            labelColor = TextSecondary
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = isSelected,
+                                            borderColor = DarkBorder,
+                                            selectedBorderColor = PrimaryViolet
+                                        )
+                                    )
+                                }
                             }
                         }
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (selectedChip == "Anderes..." || selectedChip == "Custom...") {
                                 OutlinedTextField(
@@ -6188,115 +6387,128 @@ fun CreateHabitScreen(
                     }
                 }
 
-                // Frequenz selector section
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Frequency Selector
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val freqOptions = listOf(
-                        "DAILY" to (if (language == "de") "Täglich" else "Daily"),
-                        "TIMES_WEEKLY" to (if (language == "de") "X mal/Wo" else "X times/Wk"),
-                        "SPECIFIC" to (if (language == "de") "Tage" else "Days")
+                    Text(
+                        text = if (language == "de") "Häufigkeit" else "Frequency",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
                     )
-                    freqOptions.forEach { (key, label) ->
-                        val isSelected = frequency == key
-                        Button(
-                            onClick = { 
-                                frequency = key 
-                                if (key == "SPECIFIC" && specificDaysSet.isEmpty()) {
-                                    specificDaysSet = setOf(1, 2, 3, 4, 5, 6, 7)
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSelected) PrimaryViolet else ProgressTrack,
-                                contentColor = if (isSelected) TextPrimary else TextSecondary
-                            ),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val freqOptions = listOf(
+                            "DAILY" to (if (language == "de") "Täglich" else "Daily"),
+                            "TIMES_WEEKLY" to (if (language == "de") "X mal/Wo" else "X times/Wk"),
+                            "SPECIFIC" to (if (language == "de") "Tage" else "Days")
+                        )
+                        freqOptions.forEach { (key, label) ->
+                            val isSelected = frequency == key
+                            Button(
+                                onClick = { 
+                                    frequency = key 
+                                    if (key == "SPECIFIC" && specificDaysSet.isEmpty()) {
+                                        specificDaysSet = setOf(1, 2, 3, 4, 5, 6, 7)
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) PrimaryViolet else ProgressTrack,
+                                    contentColor = if (isSelected) TextPrimary else TextSecondary
+                                ),
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                            }
+                        }
+                    }
+
+                    if (frequency == "TIMES_WEEKLY") {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(label, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                            (1..7).forEach { num ->
+                                val isSelected = timesWeekly == num
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(
+                                            color = if (isSelected) SuccessGreen else ProgressTrack,
+                                            shape = CircleShape
+                                        )
+                                        .clickable {
+                                            timesWeekly = num
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = num.toString(),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) DarkBg else TextPrimary
+                                    )
+                                }
+                            }
                         }
                     }
-                }
 
-                if (frequency == "TIMES_WEEKLY") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        (1..7).forEach { num ->
-                            val isSelected = timesWeekly == num
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(
-                                        color = if (isSelected) SuccessGreen else ProgressTrack,
-                                        shape = CircleShape
+                    if (frequency == "SPECIFIC") {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val weekdays = if (language == "de") {
+                                listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+                            } else {
+                                listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                            }
+                            weekdays.forEachIndexed { index, dayName ->
+                                val dayNum = index + 1
+                                val isSelected = specificDaysSet.contains(dayNum)
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(
+                                            color = if (isSelected) SuccessGreen else ProgressTrack,
+                                            shape = CircleShape
+                                        )
+                                        .clickable {
+                                            specificDaysSet = if (isSelected) {
+                                                specificDaysSet - dayNum
+                                            } else {
+                                                specificDaysSet + dayNum
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = dayName.take(2),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) DarkBg else TextPrimary
                                     )
-                                    .clickable {
-                                        timesWeekly = num
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = num.toString(),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) DarkBg else TextPrimary
-                                )
+                                }
                             }
                         }
                     }
                 }
 
-                if (frequency == "SPECIFIC") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        val weekdays = if (language == "de") {
-                            listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
-                        } else {
-                            listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                        }
-                        weekdays.forEachIndexed { index, dayName ->
-                            val dayNum = index + 1
-                            val isSelected = specificDaysSet.contains(dayNum)
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(
-                                        color = if (isSelected) SuccessGreen else ProgressTrack,
-                                        shape = CircleShape
-                                    )
-                                    .clickable {
-                                        specificDaysSet = if (isSelected) {
-                                            specificDaysSet - dayNum
-                                        } else {
-                                            specificDaysSet + dayNum
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = dayName.take(2),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) DarkBg else TextPrimary
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Compact Daily Reminder Section
+                // Daily Reminder Section
                 Card(
                     colors = CardDefaults.cardColors(containerColor = ProgressTrack),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -6307,20 +6519,25 @@ fun CreateHabitScreen(
                                     imageVector = Icons.Default.Notifications,
                                     contentDescription = "Notification",
                                     tint = PrimaryViolet,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = if (language == "de") "Erinnerung" else "Reminder",
-                                    style = MaterialTheme.typography.titleSmall,
+                                    style = MaterialTheme.typography.titleMedium,
                                     color = TextPrimary,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                             Switch(
                                 checked = reminderEnabled,
-                                onCheckedChange = { reminderEnabled = it },
-                                modifier = Modifier.scale(0.8f),
+                                onCheckedChange = { checked ->
+                                    reminderEnabled = checked
+                                    if (checked && remindersList.isEmpty()) {
+                                        remindersList = listOf("18:00")
+                                    }
+                                },
+                                modifier = Modifier.scale(0.85f),
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.White,
                                     checkedTrackColor = PrimaryViolet,
@@ -6331,87 +6548,99 @@ fun CreateHabitScreen(
                         }
 
                         if (reminderEnabled) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceAround,
-                                verticalAlignment = Alignment.CenterVertically
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                // Hour Picker
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = { reminderHour = (reminderHour + 23) % 24 },
-                                        modifier = Modifier.size(28.dp)
+                                remindersList.forEach { reminderTime ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = DarkBg),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                reminderToEditTime = reminderTime
+                                                showAddCustomDialog = true
+                                            }
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Remove,
-                                            contentDescription = "Decrease Hour",
-                                            tint = TextPrimary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = reminderHour.toString().padStart(2, '0'),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = TextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp)
-                                    )
-                                    IconButton(
-                                        onClick = { reminderHour = (reminderHour + 1) % 24 },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "Increase Hour",
-                                            tint = TextPrimary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Notifications,
+                                                    contentDescription = "Time Icon",
+                                                    tint = PrimaryViolet,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = reminderTime,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = TextPrimary
+                                                )
+                                            }
+                                            
+                                            IconButton(
+                                                onClick = {
+                                                    remindersList = remindersList.filter { it != reminderTime }
+                                                    if (remindersList.isEmpty()) {
+                                                        reminderEnabled = false
+                                                    }
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete Reminder",
+                                                    tint = FailedRed,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
-
-                                Text(":", color = TextPrimary, fontWeight = FontWeight.Bold)
-
-                                // Minute Picker
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = { reminderMinute = (reminderMinute + 55) % 60 },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Remove,
-                                            contentDescription = "Decrease Minute",
-                                            tint = TextPrimary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = reminderMinute.toString().padStart(2, '0'),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = TextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp)
+                                
+                                // Elegant Add Button
+                                OutlinedButton(
+                                    onClick = {
+                                        reminderToEditTime = null
+                                        showAddCustomDialog = true
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(44.dp),
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, PrimaryViolet.copy(alpha = 0.5f)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryViolet)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Add Reminder Icon",
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    IconButton(
-                                        onClick = { reminderMinute = (reminderMinute + 5) % 60 },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Add,
-                                            contentDescription = "Increase Minute",
-                                            tint = TextPrimary,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (language == "de") "Erinnerung hinzufügen" else "Add Reminder",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
                                 }
                             }
                         }
                     }
                 }
 
-                // Compact Start Date Trigger Row
+                // Start Date Trigger Card
                 Card(
                     colors = CardDefaults.cardColors(containerColor = ProgressTrack),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { showDatePicker = !showDatePicker }
@@ -6419,16 +6648,16 @@ fun CreateHabitScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(10.dp),
+                            .padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DateRange, contentDescription = "Calendar", tint = PrimaryViolet, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = formattedStartDate, style = MaterialTheme.typography.titleSmall, color = TextPrimary, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.DateRange, contentDescription = "Calendar", tint = PrimaryViolet, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(text = formattedStartDate, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
                         }
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Open Date Picker", tint = TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Open Date Picker", tint = TextSecondary, modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -6436,9 +6665,9 @@ fun CreateHabitScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(DarkBg, RoundedCornerShape(10.dp))
-                            .border(1.dp, DarkBorder, RoundedCornerShape(10.dp))
-                            .padding(8.dp)
+                            .background(DarkBg, RoundedCornerShape(12.dp))
+                            .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
+                            .padding(12.dp)
                     ) {
                         SimpleDatePickerView(
                             initialTimeMs = startDateMillis,
@@ -6450,19 +6679,31 @@ fun CreateHabitScreen(
                     }
                 }
 
-                // Action buttons (Speichern, Abbrechen)
+                // Action buttons (Erstellen/Speichern, Abbrechen)
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(containerColor = ProgressTrack),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(vertical = 10.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (language == "de") "Abbrechen" else "Cancel", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (language == "de") "Abbrechen" else "Cancel",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextSecondary
+                        )
+                    }
+
+                    val buttonText = if (editingHabit != null) {
+                        if (language == "de") "Speichern" else "Save"
+                    } else {
+                        if (language == "de") "Erstellen" else "Create"
                     }
 
                     Button(
@@ -6474,17 +6715,40 @@ fun CreateHabitScreen(
                                     "TIMES_WEEKLY" -> timesWeekly.toString()
                                     else -> ""
                                 }
-                                onSave(name, isNegative, category, selectedIcon, selectedColor, type, unit, targetVal, frequency, startDateMillis, specDays, reminderEnabled, reminderHour, reminderMinute)
+                                
+                                // Map Unified remindersList back to database variables
+                                val firstReminder = remindersList.firstOrNull() ?: "18:00"
+                                val firstParts = firstReminder.split(":")
+                                val firstHour = firstParts.getOrNull(0)?.toIntOrNull() ?: 18
+                                val firstMin = firstParts.getOrNull(1)?.toIntOrNull() ?: 0
+                                
+                                val restReminders = if (remindersList.size > 1) remindersList.drop(1) else emptyList()
+                                val customRemindersStr = restReminders.joinToString(",")
+                                
+                                onSave(
+                                    name, isNegative, category, selectedIcon, selectedColor, type, unit, targetVal, 
+                                    frequency, startDateMillis, specDays, reminderEnabled, firstHour, firstMin, customRemindersStr
+                                )
+                            } else {
+                                nameError = true
+                                coroutineScope.launch {
+                                    scrollState.animateScrollTo(0)
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(1.2f)
+                            .height(50.dp)
                             .testTag("save_habit_button"),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(vertical = 10.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(if (language == "de") "Speichern" else "Save", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = buttonText,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary
+                        )
                     }
                 }
             }
@@ -6497,7 +6761,175 @@ fun CreateHabitScreen(
                 onDismiss = { activeExplanation = null }
             )
         }
+
+        if (showAddCustomDialog) {
+            AddCustomReminderDialog(
+                language = language,
+                initialTime = reminderToEditTime,
+                onDismiss = { showAddCustomDialog = false },
+                onConfirm = { hour, min ->
+                    val formatted = String.format(java.util.Locale.US, "%02d:%02d", hour, min)
+                    if (reminderToEditTime != null) {
+                        remindersList = (remindersList.filter { it != reminderToEditTime } + formatted).distinct().sorted()
+                    } else {
+                        if (formatted !in remindersList) {
+                            remindersList = (remindersList + formatted).sorted()
+                        }
+                    }
+                    reminderToEditTime = null
+                    showAddCustomDialog = false
+                }
+            )
+        }
     }
+}
+
+@Composable
+fun AddCustomReminderDialog(
+    language: String,
+    initialTime: String? = null,
+    onDismiss: () -> Unit,
+    onConfirm: (hour: Int, minute: Int) -> Unit
+) {
+    var hour by remember {
+        val parsedHour = initialTime?.split(":")?.getOrNull(0)?.toIntOrNull()
+        mutableStateOf(parsedHour ?: 12)
+    }
+    var minute by remember {
+        val parsedMin = initialTime?.split(":")?.getOrNull(1)?.toIntOrNull()
+        mutableStateOf(parsedMin ?: 0)
+    }
+    
+    var hourStr by remember(hour) { mutableStateOf(hour.toString()) }
+    var minuteStr by remember(minute) { mutableStateOf(minute.toString().padStart(2, '0')) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkCard,
+        title = {
+            Text(
+                text = if (language == "de") "Erinnerung hinzufügen" else "Add Reminder",
+                color = TextPrimary,
+                style = MaterialTheme.typography.titleMedium
+            )
+        },
+        text = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Hour TextField
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (language == "de") "Stunde (0-23)" else "Hour (0-23)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    OutlinedTextField(
+                        value = hourStr,
+                        onValueChange = { input ->
+                            val filtered = input.filter { it.isDigit() }
+                            if (filtered.isEmpty()) {
+                                hourStr = ""
+                                hour = 0
+                            } else {
+                                val parsed = filtered.toIntOrNull()
+                                if (parsed != null && parsed in 0..23) {
+                                    hourStr = filtered
+                                    hour = parsed
+                                }
+                            }
+                        },
+                        placeholder = { Text("12", color = TextSecondary.copy(alpha = 0.5f)) },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next
+                        ),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryViolet,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Text(
+                    text = ":",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(top = 20.dp)
+                )
+
+                // Minute TextField
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = if (language == "de") "Minute (0-59)" else "Minute (0-59)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    OutlinedTextField(
+                        value = minuteStr,
+                        onValueChange = { input ->
+                            val filtered = input.filter { it.isDigit() }
+                            if (filtered.isEmpty()) {
+                                minuteStr = ""
+                                minute = 0
+                            } else {
+                                val parsed = filtered.toIntOrNull()
+                                if (parsed != null && parsed in 0..59) {
+                                    minuteStr = filtered
+                                    minute = parsed
+                                }
+                            }
+                        },
+                        placeholder = { Text("00", color = TextSecondary.copy(alpha = 0.5f)) },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done
+                        ),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextPrimary),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PrimaryViolet,
+                            unfocusedBorderColor = DarkBorder,
+                            focusedContainerColor = DarkBg,
+                            unfocusedContainerColor = DarkBg
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                onClick = { onConfirm(hour, minute) }
+            ) {
+                Text(if (language == "de") "Hinzufügen" else "Add", color = TextPrimary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (language == "de") "Abbrechen" else "Cancel", color = TextSecondary)
+            }
+        }
+    )
 }
 
 // COMPACT CUSTOM DATE PICKER

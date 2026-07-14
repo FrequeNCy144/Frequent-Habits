@@ -31,6 +31,7 @@ data class Habit(
     val reminderEnabled: Boolean = false,
     val reminderHour: Int = 18,
     val reminderMinute: Int = 0,
+    val customReminders: String = "",
     val isArchived: Boolean = false
 )
 
