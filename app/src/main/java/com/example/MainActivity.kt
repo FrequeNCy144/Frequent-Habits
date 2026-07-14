@@ -5787,7 +5787,7 @@ fun SettingsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "„Für Saskia. Du bist mein Liebling-Feature im Leben.“",
+                    text = "„An Saskia – danke, dass du an meiner Seite bist, heute und an jedem weiteren Tag.“",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                         fontWeight = FontWeight.Light
