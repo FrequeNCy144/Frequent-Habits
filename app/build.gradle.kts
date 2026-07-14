@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "com.frequency.habits"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.habits.pzkfxv"
+    applicationId = "com.frequency.habits"
     minSdk = 24
     targetSdk = 36
     versionCode = 10
