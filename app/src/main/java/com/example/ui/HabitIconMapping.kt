@@ -18,7 +18,7 @@ object HabitIconMapping {
         "dumbbell" to Icons.Default.FitnessCenter,
         "book" to Icons.Default.MenuBook,
         "coffee" to Icons.Default.Coffee,
-        "run" to Icons.Default.DirectionsRun,
+        "run" to Icons.Default.DirectionsWalk,
         "code" to Icons.Default.Code,
         "music" to Icons.Default.MusicNote,
         "phone" to Icons.Default.Phone,
@@ -52,7 +52,7 @@ object HabitIconMapping {
             "dumbbell" -> Icons.Default.FitnessCenter
             "book" -> Icons.Default.MenuBook
             "coffee" -> Icons.Default.Coffee
-            "run" -> Icons.Default.DirectionsRun
+            "run" -> Icons.Default.DirectionsWalk
             "code" -> Icons.Default.Code
             "music" -> Icons.Default.MusicNote
             "phone" -> Icons.Default.Phone

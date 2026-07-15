@@ -164,6 +164,16 @@ class HabitWidgetProvider : AppWidgetProvider() {
             val delta = intent.getFloatExtra(EXTRA_DELTA, 0f)
             val targetWidgetId = if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) widgetId else -1
 
+            if (itemAction == "TOGGLE" || itemAction == "DELTA") {
+                val now = System.currentTimeMillis()
+                if (habitId == lastClickedHabitId && (now - lastClickTime) < 500L) {
+                    // Debounce rapid double-clicks or bubbling nested view events
+                    return
+                }
+                lastClickedHabitId = habitId
+                lastClickTime = now
+            }
+
             if (itemAction == "TOGGLE" && habitId != -1) {
                 val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
@@ -737,6 +747,11 @@ class HabitWidgetProvider : AppWidgetProvider() {
         const val ACTION_WIDGET_ITEM_CLICK = "com.example.widget.ACTION_WIDGET_ITEM_CLICK"
         const val EXTRA_HABIT_ID = "com.example.widget.EXTRA_HABIT_ID"
         const val EXTRA_DELTA = "com.example.widget.EXTRA_DELTA"
+
+        @Volatile
+        private var lastClickTime = 0L
+        @Volatile
+        private var lastClickedHabitId = -1
 
         fun triggerUpdate(context: Context) {
             val intent = Intent(context, HabitWidgetProvider::class.java).apply {
