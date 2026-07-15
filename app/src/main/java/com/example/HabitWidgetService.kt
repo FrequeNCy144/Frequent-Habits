@@ -56,46 +56,6 @@ class HabitWidgetFactory(private val context: Context, intent: Intent) : RemoteV
                     .filter { !it.isArchived && com.example.data.isHabitActiveOnDate(it, selectedDate) }
                     .sortedWith(compareBy<Habit> { it.sortOrder }.thenByDescending { it.id })
                 activeHabits = active
-
-                // Also update the progress bar here to ensure it's in sync!
-                var completed = 0
-                var nonPausedCount = 0
-
-                active.forEach { habit ->
-                    val log = logsMap[habit.id]
-                    val isPaused = log != null && log.isPaused
-                    if (!isPaused) {
-                        nonPausedCount++
-                        if (com.example.data.isLogCompleted(habit, log)) {
-                            completed++
-                        }
-                    }
-                }
-
-                val progressPercent = if (nonPausedCount > 0) (completed.toFloat() / nonPausedCount * 100).toInt() else 0
-                val isCompleted = progressPercent >= 100 && nonPausedCount > 0
-
-                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    val views = RemoteViews(context.packageName, R.layout.habit_widget)
-
-                    views.setProgressBar(R.id.widget_progress_bar, 100, progressPercent, false)
-                    views.setProgressBar(R.id.widget_progress_bar_completed, 100, progressPercent, false)
-
-                    if (isCompleted) {
-                        views.setViewVisibility(R.id.widget_progress_bar_completed, android.view.View.VISIBLE)
-                        views.setViewVisibility(R.id.widget_progress_bar, android.view.View.GONE)
-                    } else {
-                        views.setViewVisibility(R.id.widget_progress_bar, android.view.View.VISIBLE)
-                        views.setViewVisibility(R.id.widget_progress_bar_completed, android.view.View.GONE)
-                    }
-
-                    val progressTextVal = "${progressPercent}%"
-                    views.setTextViewText(R.id.widget_progress_text, progressTextVal)
-
-                    // Partially update the widget with just the progress views
-                    appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
-                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
