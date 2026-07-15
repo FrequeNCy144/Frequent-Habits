@@ -173,13 +173,14 @@ class HabitWidgetFactory(private val context: Context, intent: Intent) : RemoteV
                 views.setViewVisibility(R.id.widget_habit_minus, android.view.View.GONE)
                 views.setViewVisibility(R.id.widget_habit_plus, android.view.View.GONE)
 
-                // When clicking layout or name, open the app
+                // For numerical habits, click on the icon or name opens the app.
+                // Do NOT set click on widget_habit_layout to prevent double-firing when clicking the check icon.
                 val openAppIntent = Intent().apply {
                     putExtra(HabitWidgetProvider.EXTRA_HABIT_ID, habit.id)
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                     putExtra("WIDGET_ACTION", "OPEN_APP")
                 }
-                views.setOnClickFillInIntent(R.id.widget_habit_layout, openAppIntent)
+                views.setOnClickFillInIntent(R.id.widget_habit_icon, openAppIntent)
                 views.setOnClickFillInIntent(R.id.widget_habit_name, openAppIntent)
 
                 // Direct delta increment when clicking the check circle on numerical habits
@@ -194,9 +195,9 @@ class HabitWidgetFactory(private val context: Context, intent: Intent) : RemoteV
                 views.setViewVisibility(R.id.widget_habit_minus, android.view.View.GONE)
                 views.setViewVisibility(R.id.widget_habit_plus, android.view.View.GONE)
                 
-                // For binary habits, clicking the layout or check circle toggles the habit
+                // For binary habits, click on the layout itself to toggle the habit.
+                // Do NOT set click on widget_habit_check, so clicking it bubbles to the layout and doesn't trigger twice!
                 views.setOnClickFillInIntent(R.id.widget_habit_layout, toggleIntent)
-                views.setOnClickFillInIntent(R.id.widget_habit_check, toggleIntent)
             }
 
             return views

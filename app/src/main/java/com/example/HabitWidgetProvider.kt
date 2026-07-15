@@ -100,7 +100,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                         val appWidgetManager = AppWidgetManager.getInstance(context)
                         val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                         val ids = appWidgetManager.getAppWidgetIds(componentName)
-                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
@@ -150,7 +150,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                         val appWidgetManager = AppWidgetManager.getInstance(context)
                         val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                         val ids = appWidgetManager.getAppWidgetIds(componentName)
-                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
@@ -232,7 +232,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                         val appWidgetManager = AppWidgetManager.getInstance(context)
                         val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                         val ids = appWidgetManager.getAppWidgetIds(componentName)
-                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
@@ -276,7 +276,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                         val appWidgetManager = AppWidgetManager.getInstance(context)
                         val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                         val ids = appWidgetManager.getAppWidgetIds(componentName)
-                        updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
+                        updateAllWidgetsSuspend(context, appWidgetManager, ids)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     } finally {
@@ -315,14 +315,13 @@ class HabitWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
-        pendingResult: BroadcastReceiver.PendingResult? = null,
-        isFullUpdate: Boolean = true
+        pendingResult: BroadcastReceiver.PendingResult? = null
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Wait 150ms to ensure DB write transactions from the main app thread are fully committed
                 kotlinx.coroutines.delay(150L)
-                updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds, isFullUpdate)
+                updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -334,9 +333,9 @@ class HabitWidgetProvider : AppWidgetProvider() {
     private suspend fun updateAllWidgetsSuspend(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-        isFullUpdate: Boolean = true
+        appWidgetIds: IntArray
     ) {
+
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val todayStr = sdf.format(Date())
         val db = AppDatabase.getDatabase(context)
