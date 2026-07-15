@@ -106,7 +106,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                             val appWidgetManager = AppWidgetManager.getInstance(context)
                             val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                             val ids = appWidgetManager.getAppWidgetIds(componentName)
-                            updateAllWidgetsSuspend(context, appWidgetManager, ids)
+                            updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
@@ -161,7 +161,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                             val appWidgetManager = AppWidgetManager.getInstance(context)
                             val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                             val ids = appWidgetManager.getAppWidgetIds(componentName)
-                            updateAllWidgetsSuspend(context, appWidgetManager, ids)
+                            updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
@@ -248,7 +248,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                             val appWidgetManager = AppWidgetManager.getInstance(context)
                             val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                             val ids = appWidgetManager.getAppWidgetIds(componentName)
-                            updateAllWidgetsSuspend(context, appWidgetManager, ids)
+                            updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
@@ -297,7 +297,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                             val appWidgetManager = AppWidgetManager.getInstance(context)
                             val componentName = ComponentName(context, HabitWidgetProvider::class.java)
                             val ids = appWidgetManager.getAppWidgetIds(componentName)
-                            updateAllWidgetsSuspend(context, appWidgetManager, ids)
+                            updateAllWidgetsSuspend(context, appWidgetManager, ids, isFullUpdate = false)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         } finally {
@@ -355,7 +355,8 @@ class HabitWidgetProvider : AppWidgetProvider() {
     private suspend fun updateAllWidgetsSuspend(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
+        appWidgetIds: IntArray,
+        isFullUpdate: Boolean = true
     ) {
 
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -417,39 +418,43 @@ class HabitWidgetProvider : AppWidgetProvider() {
             val displayDate = getDisplayDate(selectedDate)
             views.setTextViewText(R.id.widget_date_title, displayDate)
 
-            // Set up RemoteViewsService for the ListView
-            val serviceIntent = Intent(context, HabitWidgetService::class.java).apply {
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
-            }
-            views.setRemoteAdapter(R.id.widget_habits_list, serviceIntent)
+            if (isFullUpdate) {
+                // Set up RemoteViewsService for the ListView
+                val serviceIntent = Intent(context, HabitWidgetService::class.java).apply {
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                    data = android.net.Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
+                }
+                views.setRemoteAdapter(R.id.widget_habits_list, serviceIntent)
 
-            // Set up PendingIntent Template for ListView item clicks
-            val clickIntent = Intent(context, HabitWidgetProvider::class.java).apply {
-                action = ACTION_WIDGET_ITEM_CLICK
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-            }
-            val clickPIntent = PendingIntent.getBroadcast(
-                context,
-                widgetId * 1000 + 5,
-                clickIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-            views.setPendingIntentTemplate(R.id.widget_habits_list, clickPIntent)
+                // Set up PendingIntent Template for ListView item clicks
+                val clickIntent = Intent(context, HabitWidgetProvider::class.java).apply {
+                    action = ACTION_WIDGET_ITEM_CLICK
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                }
+                val clickPIntent = PendingIntent.getBroadcast(
+                    context,
+                    widgetId * 1000 + 5,
+                    clickIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                )
+                views.setPendingIntentTemplate(R.id.widget_habits_list, clickPIntent)
 
-            val openAppInt = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                val openAppInt = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val pendingInt = PendingIntent.getActivity(
+                    context,
+                    widgetId * 5000,
+                    openAppInt,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_date_title, pendingInt)
+                views.setOnClickPendingIntent(R.id.widget_progress_container, pendingInt)
+                
+                appWidgetManager.updateAppWidget(widgetId, views)
+            } else {
+                appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
             }
-            val pendingInt = PendingIntent.getActivity(
-                context,
-                widgetId * 5000,
-                openAppInt,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_date_title, pendingInt)
-            views.setOnClickPendingIntent(R.id.widget_progress_container, pendingInt)
-            
-            appWidgetManager.updateAppWidget(widgetId, views)
             
             appWidgetManager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_habits_list)
         }
