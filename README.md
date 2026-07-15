@@ -1,21 +1,76 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Frequent Habits 🌟
 
-# Run and deploy your AI Studio app
+**Frequent Habits: Aesthetics meet deep analytics—100% local.**
 
-This contains everything you need to run your app locally.
+🌐 [**Visit our website**](https://frequency-apps.com) | ☕ [**Support via Liberapay**](https://liberapay.com/FrequeNCy/donate)
 
-View your app in AI Studio: https://ai.studio/apps/111a2db5-bdfd-4eef-8c88-b91dc864d68d
+[![Donate using Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/FrequeNCy/donate)
 
-## Run Locally
+---
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+Often, you have to make a choice when it comes to habit trackers: either a gorgeous design hidden behind expensive subscriptions and data harvesting, or privacy-friendly open-source apps that feel visually and functionally very basic. **Frequent Habits** bridges exactly this gap.
 
+This app offers an incredibly beautiful, ultra-modern dark mode design and a depth of comprehensive statistics that you will hardly find anywhere else on the market—and it does all of this completely offline on your device.
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Platform: Android](https://img.shields.io/badge/Platform-Android-green.svg)
+![Status: Active](https://img.shields.io/badge/Status-Active-success.svg)
+
+---
+
+## ✨ Key Features
+
+*   🎨 **Unique, Aesthetic Design:** A stunning interface with vibrant accent colors, fluid animations, and a clean UI that makes checking off your daily tasks a true premium experience.
+  
+*   📊 **Unrivaled Statistics & Analytics:** Go far beyond simple streak counting. Understand your behavior through detailed yearly heatmaps, precise weekday frequencies, top & bottom habit insights, and visually striking progress bars.
+  
+*   🛡️ **100% Private & Offline:** Your life is your business. No tracking, no ads, no mandatory cloud. Includes a secure, local backup feature (SAF).
+  
+*   🎮 **Motivation through Gamification:** Achieve "Gold Series", keep your streaks alive, and unlock exclusive trophies and milestones that keep you motivated every single day.
+  
+*   ⏱️ **Built-in Timer:** Complete number- and time-based habits (like 30 minutes of meditation or reading) with a dedicated timer—including background audio—directly within the app.
+  
+*   📝 **Integrated Mini-Notebook:** Jot down your thoughts, successes, or reasons for a slip-up directly on specific days to understand your patterns even better.
+
+---
+
+## 📸 Screenshots
+
+| Today View | Create Habit | Stats Overview |
+| :---: | :---: | :---: |
+| <img width="200" alt="Today" src="https://github.com/user-attachments/assets/c4022b1b-c260-4ffa-81e9-88c9c47ef80e" /> | <img width="200" alt="Create" src="https://github.com/user-attachments/assets/7e5c7144-c71e-45e4-9fe7-bf5a01640ea4" /> | <img width="200" alt="Stats-Detail" src="https://github.com/user-attachments/assets/16658192-f47a-46ca-8fca-d16062885efe" /> |
+
+| Stats Detail | Ranks & Achievements |
+| :---: | :---: |
+| <img width="200" alt="Stats" src="https://github.com/user-attachments/assets/c7f7f4a0-85a8-4d94-9250-79b642eb0dfc" /> | <img width="200" alt="Ranks" src="https://github.com/user-attachments/assets/5bc7a3c3-45be-429f-99cd-7dfce499043e" /> |
+
+---
+
+## 🛠 Tech Stack
+
+This app is developed using modern Android standards:
+*   **UI:** Kotlin & Jetpack Compose
+*   **Architecture:** MVVM (Model-View-ViewModel), State Hoisting
+*   **Database:** Room (SQLite)
+*   **Asynchrony:** Coroutines & StateFlows
+
+---
+
+## 🚀 Installation
+
+Currently, you can install the app in two ways:
+
+1. **F-Droid (In preparation):** Coming soon to the F-Droid store!
+2. **Manually (APK):** Download the latest `app-release.apk` from our [Releases](../../releases) page and install it directly on your Android device.
+
+---
+
+## 🤝 Contributing
+
+Feedback, bug reports, and pull requests are always welcome! If you would like to suggest a feature or report a bug, simply open a new [Issue](../../issues).
+
+---
+
+## 📄 License
+
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. For more details, please see the [LICENSE](LICENSE) file.
