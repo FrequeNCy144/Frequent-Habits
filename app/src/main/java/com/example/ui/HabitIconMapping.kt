@@ -39,7 +39,10 @@ object HabitIconMapping {
         "orange" to HabitOrange,
         "red" to HabitRed,
         "pink" to HabitPink,
-        "slate" to HabitSlate
+        "slate" to HabitSlate,
+        "teal" to HabitTeal,
+        "rose" to HabitRose,
+        "indigo" to HabitIndigo
     )
 
     fun getIcon(name: String): ImageVector {
@@ -77,6 +80,9 @@ object HabitIconMapping {
             "red" -> HabitRed
             "pink" -> HabitPink
             "slate", "grey", "gray" -> HabitSlate
+            "teal" -> HabitTeal
+            "rose" -> HabitRose
+            "indigo" -> HabitIndigo
             else -> PrimaryViolet
         }
     }

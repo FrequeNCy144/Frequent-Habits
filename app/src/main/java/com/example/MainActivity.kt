@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -326,6 +327,15 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
                         language = language,
                         onBack = {
                             navController.popBackStack()
+                        },
+                        onNavigateToToday = {
+                            navController.navigate("TODAY") {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     )
                 }
@@ -1475,7 +1485,7 @@ fun TodayScreen(
             ) {
                 Text(
                     text = formattedDisplayDate,
-                    style = MaterialTheme.typography.displayMedium,
+                    style = MaterialTheme.typography.displayLarge,
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Start,
@@ -1494,11 +1504,9 @@ fun TodayScreen(
                             .testTag("btn_daily_note"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Book,
-                            contentDescription = "Daily Note",
-                            tint = TextPrimary,
-                            modifier = Modifier.size(20.dp)
+                        ZettelMitStiftIcon(
+                            modifier = Modifier.size(22.dp),
+                            color = TextPrimary
                         )
                         if (currentNote.isNotEmpty()) {
                             Box(
@@ -1638,63 +1646,72 @@ fun TodayScreen(
                 getEncouragementText(completed, total, language)
             }
 
-            Column(
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DarkCard),
+                shape = RoundedCornerShape(20.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 4.dp)
+                    .padding(vertical = 8.dp)
+                    .border(width = 1.dp, color = DarkBorder, shape = RoundedCornerShape(20.dp))
             ) {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(32.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(ProgressTrack)
+                        .padding(16.dp)
                 ) {
-                    if (fraction > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(fraction)
-                                .background(if (fraction >= 1.0f) SuccessGreen else PrimaryViolet)
-                        )
-                    }
-
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
+                            .height(32.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(ProgressTrack)
                     ) {
-                        Text(
-                            text = if (language == "de") "Tagesfortschritt" else "Daily Progress",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                        Text(
-                            text = "${(fraction * 100).toInt()}% ($progressText)",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        if (fraction > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(fraction)
+                                    .background(if (fraction >= 1.0f) SuccessGreen else PrimaryViolet)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (language == "de") "Tagesfortschritt" else "Daily Progress",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                            Text(
+                                text = "${(fraction * 100).toInt()}% ($progressText)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = if (isPastDay) " " else encouragementText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        ),
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = if (isPastDay) " " else encouragementText,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    ),
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
 
@@ -1726,14 +1743,36 @@ fun TodayScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = if (language == "de") {
-                                "Tippe oben rechts auf +, um deine erste Gewohnheit zu erstellen."
+                                "Erstelle jetzt deine erste Gewohnheit, um dein Tracking zu starten!"
                             } else {
-                                "Tap + in the top right to create your first habit."
+                                "Create your first habit now to start tracking!"
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
                             textAlign = TextAlign.Center
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { onAddClick() },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.testTag("btn_empty_state_create"),
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (language == "de") "Erste Gewohnheit erstellen" else "Create First Habit",
+                                style = MaterialTheme.typography.labelLarge.copy(fontSize = 14.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             }
@@ -2382,154 +2421,13 @@ fun StatsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = formattedDisplayDate,
-                        style = MaterialTheme.typography.displayMedium,
+                        text = if (language == "de") "Statistiken" else "Statistics",
+                        style = MaterialTheme.typography.displayLarge,
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Start,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
-                                .background(DarkCard, RoundedCornerShape(12.dp))
-                                .clickable { showDailyNoteDialog = true }
-                                .testTag("btn_daily_note_stats"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Book,
-                                contentDescription = "Daily Note",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            if (currentNote.isNotEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding(top = 6.dp, end = 6.dp)
-                                        .size(6.dp)
-                                        .background(PrimaryViolet, CircleShape)
-                                )
-                            }
-                        }
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
-                                .background(DarkCard, RoundedCornerShape(12.dp))
-                                .clickable { onAddClick() }
-                                .testTag("btn_add_habit_stats"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Habit",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            item(key = "stats_calendar_strip") {
-                var offsetX by remember { mutableStateOf(0f) }
-                val swipeThreshold = 120f
-
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { if (canPrevWeek) viewModel.prevWeek() },
-                            enabled = canPrevWeek,
-                            modifier = Modifier.size(36.dp).testTag("stats_prev_week_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ChevronLeft,
-                                contentDescription = "Previous Week",
-                                tint = if (canPrevWeek) TextPrimary else TextPrimary.copy(alpha = 0.3f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(bottom = 8.dp)
-                                .graphicsLayer {
-                                    translationX = offsetX
-                                }
-                                .pointerInput(canPrevWeek, canNextWeek) {
-                                    detectHorizontalDragGestures(
-                                        onDragEnd = {
-                                            if (offsetX > swipeThreshold && canPrevWeek) {
-                                                viewModel.prevWeek()
-                                            } else if (offsetX < -swipeThreshold && canNextWeek) {
-                                                viewModel.nextWeek()
-                                            }
-                                            offsetX = 0f
-                                        },
-                                        onDragCancel = {
-                                            offsetX = 0f
-                                        },
-                                        onHorizontalDrag = { change, dragAmount ->
-                                            change.consume()
-                                            val newOffset = offsetX + dragAmount
-                                            if (newOffset > 0 && !canPrevWeek) {
-                                                offsetX = (offsetX + dragAmount * 0.2f).coerceAtMost(20f)
-                                            } else if (newOffset < 0 && !canNextWeek) {
-                                                offsetX = (offsetX + dragAmount * 0.2f).coerceAtLeast(-20f)
-                                            } else {
-                                                offsetX += dragAmount
-                                            }
-                                        }
-                                    )
-                                },
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            currentWeekDaysData.forEach { (dayStr, dayNum, dayName) ->
-                                val isSelected = dayStr == selectedDate
-                                val isDayEnabled = dayStr >= minDateStr
-                                key(dayStr) {
-                                    CalendarDayItem(
-                                        dayStr = dayStr,
-                                        dayNum = dayNum,
-                                        dayName = dayName,
-                                        isSelected = isSelected,
-                                        onSelect = onSelectDayRemembered,
-                                        isToday = dayStr == todayDateString,
-                                        isFuture = dayStr > todayDateString,
-                                        modifier = Modifier.weight(1f),
-                                        isEnabled = isDayEnabled
-                                    )
-                                }
-                            }
-                        }
-
-                        IconButton(
-                            onClick = { if (canNextWeek) viewModel.nextWeek() },
-                            enabled = canNextWeek,
-                            modifier = Modifier.size(36.dp).testTag("stats_next_week_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = "Next Week",
-                                tint = if (canNextWeek) TextPrimary else TextPrimary.copy(alpha = 0.3f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
                 }
             }
 
@@ -2615,9 +2513,9 @@ fun StatsScreen(
                                         InfoIconButton(
                                             title = if (language == "de") "Gesamt-Stärke Score" else "Overall Strength Score",
                                             explanation = if (language == "de") {
-                                                "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen."
+                                                "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen über den gesamten Existenzzeitraum des Accounts."
                                             } else {
-                                                "The average weighted strength score of all of your active habits combined."
+                                                "The average weighted strength score of all of your active habits combined over the entire existence period of the account."
                                             },
                                             onClick = { t, e -> activeExplanation = t to e }
                                         )
@@ -2643,7 +2541,7 @@ fun StatsScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = if (isPastDay) " " else encouragementText,
+                            text = if (language == "de") "Gesamtfortschritt aller aktiven Gewohnheiten." else "Your overall progress across all active habits.",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                             ),
@@ -2660,7 +2558,7 @@ fun StatsScreen(
             item {
                 Text(
                     text = if (language == "de") "GEWOHNHEITEN IM DETAIL" else "HABITS IN DETAIL",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = TextPrimary,
                     textAlign = TextAlign.Start,
                     modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
@@ -2844,36 +2742,14 @@ fun HabitDetailScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(DarkBg)) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(DarkBg)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 40.dp, top = 16.dp)
+            contentPadding = PaddingValues(bottom = 40.dp, top = 84.dp)
         ) {
-        // Toolbar
-        item(key = "detail_toolbar") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = habit.name,
-                    style = MaterialTheme.typography.displayMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
 
         // Strength score card
         item(key = "detail_strength") {
@@ -3267,6 +3143,44 @@ fun HabitDetailScreen(
             explanation = activeExplanation!!.second,
             onDismiss = { activeExplanation = null }
         )
+    }
+
+    // Floating Header Overlay with vertical gradient fade-out
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(84.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        DarkBg,
+                        DarkBg,
+                        DarkBg.copy(alpha = 0.9f),
+                        DarkBg.copy(alpha = 0.5f),
+                        Color.Transparent
+                    )
+                )
+            )
+            .align(Alignment.TopCenter)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ModernBackButton(onClick = onBack)
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = habit.name,
+                style = MaterialTheme.typography.displayMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 }
@@ -3685,7 +3599,8 @@ fun TargetProgressRow(
 fun OverallStatsScreen(
     viewModel: HabitsViewModel,
     language: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToToday: () -> Unit
 ) {
     val strength by viewModel.totalStrength.collectAsStateWithLifecycle()
     val habitsWithStats by viewModel.statsScreenData.collectAsStateWithLifecycle()
@@ -3712,38 +3627,15 @@ fun OverallStatsScreen(
 
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(DarkBg)) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(DarkBg)
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 140.dp, top = 16.dp)
+            contentPadding = PaddingValues(bottom = 140.dp, top = 84.dp)
         ) {
-            // Toolbar
-            item(key = "overall_toolbar") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextPrimary)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (language == "de") "Gesamt-Statistiken" else "Overall Statistics",
-                        style = MaterialTheme.typography.displayMedium,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // Overall Strength Card
+                // Overall Strength Card
             item(key = "overall_strength") {
                 val sweepAngleVal = remember(strength) { (strength.toFloat() / 100f) * 360f }
                 val strengthText = remember(strength) { "$strength/100" }
@@ -3819,9 +3711,9 @@ fun OverallStatsScreen(
                                     InfoIconButton(
                                         title = if (language == "de") "Gesamt-Stärke Score" else "Overall Strength Score",
                                         explanation = if (language == "de") {
-                                            "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen."
+                                            "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen über den gesamten Existenzzeitraum des Accounts."
                                         } else {
-                                            "The average weighted strength score of all of your active habits combined."
+                                            "The average weighted strength score of all of your active habits combined over the entire existence period of the account."
                                         },
                                         onClick = { t, e -> activeExplanation = t to e }
                                     )
@@ -3853,13 +3745,13 @@ fun OverallStatsScreen(
                             .fillMaxWidth()
                             .padding(16.dp)
                     ) {
-                        // Header info row with Month / Year view switcher
+                        // Header info row
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.Start
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
@@ -3886,329 +3778,123 @@ fun OverallStatsScreen(
                                     onClick = { t, e -> activeExplanation = t to e }
                                 )
                             }
-                            
-                            // Beautiful Segmented Control for Month/Year View Mode
-                            Row(
-                                modifier = Modifier
-                                    .background(Color(0xFF13131F), RoundedCornerShape(8.dp))
-                                    .border(1.dp, DarkBorder, RoundedCornerShape(8.dp))
-                                    .padding(2.dp),
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        }
+
+                        // --- YEAR VIEW (Horizontal Scrollable 24-Weeks GitHub board, scaled up!) ---
+                        val yearGridData = heatmapYearGridData
+                        val yearMonthLabels = heatmapYearMonthLabels
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            // 1. Fixed Weekday Labels Column on the left
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(top = 22.dp, end = 8.dp)
                             ) {
-                                val optMonth = if (language == "de") "Monat" else "Month"
-                                val optYear = if (language == "de") "Jahr" else "Year"
-                                
-                                listOf("month" to optMonth, "year" to optYear).forEach { (mode, label) ->
-                                    val isSelected = heatmapViewMode == mode
+                                val weekdays = if (language == "de") {
+                                    listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+                                } else {
+                                    listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                                }
+                                weekdays.forEach { dayLabel ->
                                     Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(if (isSelected) PrimaryViolet else Color.Transparent)
-                                            .clickable { viewModel.setHeatmapViewMode(mode) }
-                                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                                        contentAlignment = Alignment.Center
+                                        modifier = Modifier.height(18.dp),
+                                        contentAlignment = Alignment.CenterEnd
                                     ) {
                                         Text(
-                                            text = label,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                            color = if (isSelected) TextPrimary else TextSecondary,
+                                            text = dayLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = TextSecondary,
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
                             }
-                        }
 
-                        if (heatmapViewMode == "month") {
-                            // --- MONTH VIEW (Beautifully Large, Fills Available Width, No Scroll!) ---
+                            // 2. Horizontally scrollable Content containing Month labels and Week columns
+                            val scrollState = rememberScrollState()
                             
-                            // Month Navigation Row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(
-                                    onClick = {
-                                        if (heatmapCanPrevMonth) {
-                                            viewModel.navigateHeatmapMonth(-1)
-                                        }
-                                    },
-                                    enabled = heatmapCanPrevMonth,
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ChevronLeft,
-                                        contentDescription = "Previous Month",
-                                        tint = if (heatmapCanPrevMonth) TextPrimary else TextPrimary.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-
-                                Text(
-                                    text = heatmapMonthNameAndYear,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                IconButton(
-                                    onClick = {
-                                        if (heatmapCanNextMonth) {
-                                            viewModel.navigateHeatmapMonth(1)
-                                        }
-                                    },
-                                    enabled = heatmapCanNextMonth,
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ChevronRight,
-                                        contentDescription = "Next Month",
-                                        tint = if (heatmapCanNextMonth) TextPrimary else TextPrimary.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
+                            LaunchedEffect(yearGridData) {
+                                scrollState.animateScrollTo(scrollState.maxValue)
                             }
 
-                            // Build monthly grid data
-                            val gridData = heatmapMonthGridData
-
-                            val cellSize = 38.dp
-                            val cellSpacing = 6.dp
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.Top
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .horizontalScroll(scrollState)
                             ) {
-                                // 1. Weekday labels column
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(cellSpacing),
-                                    modifier = Modifier.padding(top = 4.dp, end = 12.dp)
+                                // Month Labels Row
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.height(18.dp)
                                 ) {
-                                    val weekdays = if (language == "de") {
-                                        listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
-                                    } else {
-                                        listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                                    }
-                                    weekdays.forEach { dayLabel ->
+                                    for (index in 0 until 24) {
+                                        val label = yearMonthLabels.firstOrNull { it.first == index }
                                         Box(
-                                            modifier = Modifier.height(cellSize),
-                                            contentAlignment = Alignment.CenterEnd
+                                            modifier = Modifier.width(18.dp),
+                                            contentAlignment = Alignment.CenterStart
                                         ) {
-                                            Text(
-                                                text = dayLabel,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = TextSecondary,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
+                                            if (label != null) {
+                                                Text(
+                                                    text = label.second,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = TextSecondary,
+                                                    fontSize = 10.sp,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    modifier = Modifier.wrapContentWidth(unbounded = true, align = Alignment.Start)
+                                                )
+                                            }
                                         }
                                     }
                                 }
 
-                                // 2. Large Squares Grid filling remaining width
+                                // Weeks Columns Row
                                 Row(
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    gridData.forEach { weekDays ->
+                                    yearGridData.forEach { weekDays ->
                                         Column(
-                                            verticalArrangement = Arrangement.spacedBy(cellSpacing),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally
                                         ) {
                                             weekDays.forEach { cell ->
-                                                if (cell == null) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(cellSize)
-                                                            .background(Color.Transparent)
-                                                    )
-                                                } else {
-                                                    val ratio = if (cell.total > 0) cell.completed.toFloat() / cell.total.toFloat() else -1f
-                                                    val bgColor = when {
-                                                        cell.isOutOfRange -> Color.Transparent
-                                                        cell.isFuture -> Color(0xFF1A172E).copy(alpha = 0.3f)
-                                                        ratio < 0f -> ProgressTrack
-                                                        ratio == 0f -> ProgressTrack
-                                                        ratio <= 0.25f -> SuccessGreen.copy(alpha = 0.25f)
-                                                        ratio <= 0.5f -> SuccessGreen.copy(alpha = 0.5f)
-                                                        ratio <= 0.75f -> SuccessGreen.copy(alpha = 0.75f)
-                                                        else -> SuccessGreen
-                                                    }
-                                                    
-                                                    val isSelectedSquare = activeCell?.dateStr == cell.dateStr
-                                                    val isTodayBorder = cell.isToday
-                                                    
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(cellSize)
-                                                            .background(bgColor, RoundedCornerShape(8.dp))
-                                                            .then(
-                                                                if (isSelectedSquare) {
-                                                                    Modifier.border(2.5.dp, PrimaryViolet, RoundedCornerShape(8.dp))
-                                                                } else if (isTodayBorder) {
-                                                                    Modifier.border(1.5.dp, PrimaryViolet.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                                                                } else Modifier
-                                                            )
-                                                            .clickable(enabled = !cell.isOutOfRange) {
-                                                                viewModel.selectHeatmapCell(cell)
-                                                            },
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        val textColor = when {
-                                                            cell.isOutOfRange -> TextSecondary.copy(alpha = 0.3f)
-                                                            cell.isFuture || ratio < 0f -> TextSecondary.copy(alpha = 0.6f)
-                                                            ratio == 0f -> TextSecondary
-                                                            else -> DarkBg
-                                                        }
-                                                        Text(
-                                                            text = cell.day.toString(),
-                                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
-                                                            color = textColor,
-                                                            fontWeight = FontWeight.Bold
+                                                val ratio = if (cell.total > 0) cell.completed.toFloat() / cell.total.toFloat() else -1f
+                                                val bgColor = when {
+                                                    cell.isOutOfRange -> Color.Transparent
+                                                    cell.isFuture -> Color(0xFF13131F)
+                                                    ratio < 0f -> ProgressTrack
+                                                    ratio == 0f -> ProgressTrack
+                                                    ratio <= 0.25f -> SuccessGreen.copy(alpha = 0.25f)
+                                                    ratio <= 0.5f -> SuccessGreen.copy(alpha = 0.5f)
+                                                    ratio <= 0.75f -> SuccessGreen.copy(alpha = 0.75f)
+                                                    else -> SuccessGreen
+                                                }
+                                                
+                                                val isSelectedSquare = activeCell?.dateStr == cell.dateStr
+                                                val isTodayBorder = cell.isToday
+                                                
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(18.dp)
+                                                        .background(bgColor, RoundedCornerShape(4.dp))
+                                                        .then(
+                                                            if (isSelectedSquare) {
+                                                                Modifier.border(2.dp, PrimaryViolet, RoundedCornerShape(4.dp))
+                                                            } else if (isTodayBorder) {
+                                                                Modifier.border(1.dp, PrimaryViolet.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                            } else Modifier
                                                         )
-
-                                                        val hasNote = remember(allDailyNotes, cell.dateStr) {
-                                                            allDailyNotes.any { it.date == cell.dateStr && it.content.isNotEmpty() }
+                                                        .clickable(enabled = !cell.isOutOfRange) {
+                                                            viewModel.selectHeatmapCell(cell)
                                                         }
-                                                        if (hasNote) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .align(Alignment.TopEnd)
-                                                                    .padding(top = 4.dp, end = 4.dp)
-                                                                    .size(5.dp)
-                                                                    .background(PrimaryViolet, CircleShape)
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            // --- YEAR VIEW (Horizontal Scrollable 24-Weeks GitHub board!) ---
-                            val yearGridData = heatmapYearGridData
-                            val yearMonthLabels = heatmapYearMonthLabels
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                // 1. Fixed Weekday Labels Column on the left
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                                    modifier = Modifier.padding(top = 18.dp, end = 8.dp)
-                                ) {
-                                    val weekdays = if (language == "de") {
-                                        listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
-                                    } else {
-                                        listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-                                    }
-                                    weekdays.forEach { dayLabel ->
-                                        Box(
-                                            modifier = Modifier.height(13.dp),
-                                            contentAlignment = Alignment.CenterEnd
-                                        ) {
-                                            Text(
-                                                text = dayLabel,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = TextSecondary,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // 2. Horizontally scrollable Content containing Month labels and Week columns
-                                val scrollState = rememberScrollState()
-                                
-                                LaunchedEffect(yearGridData) {
-                                    scrollState.animateScrollTo(scrollState.maxValue)
-                                }
-
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .horizontalScroll(scrollState)
-                                ) {
-                                    // Month Labels Row
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.height(18.dp)
-                                    ) {
-                                        for (index in 0 until 24) {
-                                            val label = yearMonthLabels.firstOrNull { it.first == index }
-                                            Box(
-                                                modifier = Modifier.width(13.dp),
-                                                contentAlignment = Alignment.CenterStart
-                                            ) {
-                                                if (label != null) {
-                                                    Text(
-                                                        text = label.second,
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = TextSecondary,
-                                                        fontSize = 9.sp,
-                                                        maxLines = 1,
-                                                        softWrap = false,
-                                                        modifier = Modifier.wrapContentWidth(unbounded = true, align = Alignment.Start)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Weeks Columns Row
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        yearGridData.forEach { weekDays ->
-                                            Column(
-                                                verticalArrangement = Arrangement.spacedBy(3.dp),
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                weekDays.forEach { cell ->
-                                                    val ratio = if (cell.total > 0) cell.completed.toFloat() / cell.total.toFloat() else -1f
-                                                    val bgColor = when {
-                                                        cell.isOutOfRange -> Color.Transparent
-                                                        cell.isFuture -> Color(0xFF13131F)
-                                                        ratio < 0f -> ProgressTrack
-                                                        ratio == 0f -> ProgressTrack
-                                                        ratio <= 0.25f -> SuccessGreen.copy(alpha = 0.25f)
-                                                        ratio <= 0.5f -> SuccessGreen.copy(alpha = 0.5f)
-                                                        ratio <= 0.75f -> SuccessGreen.copy(alpha = 0.75f)
-                                                        else -> SuccessGreen
-                                                    }
-                                                    
-                                                    val isSelectedSquare = activeCell?.dateStr == cell.dateStr
-                                                    val isTodayBorder = cell.isToday
-                                                    
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(13.dp)
-                                                            .background(bgColor, RoundedCornerShape(3.dp))
-                                                            .then(
-                                                                if (isSelectedSquare) {
-                                                                    Modifier.border(1.5.dp, PrimaryViolet, RoundedCornerShape(3.dp))
-                                                                } else if (isTodayBorder) {
-                                                                    Modifier.border(1.dp, PrimaryViolet.copy(alpha = 0.5f), RoundedCornerShape(3.dp))
-                                                                } else Modifier
-                                                            )
-                                                            .clickable(enabled = !cell.isOutOfRange) {
-                                                                viewModel.selectHeatmapCell(cell)
-                                                            }
-                                                    )
-                                                }
+                                                )
                                             }
                                         }
                                     }
@@ -4303,7 +3989,7 @@ fun OverallStatsScreen(
                                     TextButton(
                                         onClick = {
                                             viewModel.selectDateAndSyncWeek(cell.dateStr)
-                                            onBack()
+                                            onNavigateToToday()
                                         },
                                         colors = ButtonDefaults.textButtonColors(contentColor = PrimaryViolet)
                                     ) {
@@ -4763,6 +4449,44 @@ fun OverallStatsScreen(
                 onDismiss = { activeExplanation = null }
             )
         }
+
+        // Floating Header Overlay with vertical gradient fade-out
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            DarkBg,
+                            DarkBg,
+                            DarkBg.copy(alpha = 0.9f),
+                            DarkBg.copy(alpha = 0.5f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .align(Alignment.TopCenter)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ModernBackButton(onClick = onBack)
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = if (language == "de") "Gesamt-Statistiken" else "Overall Statistics",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 
@@ -5206,65 +4930,55 @@ fun SettingsScreen(
         val archivedHabits by viewModel.archivedHabits.collectAsStateWithLifecycle()
         var showDeleteConfirmInArchive by remember { mutableStateOf<Habit?>(null) }
 
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(DarkBg)
-                .padding(horizontal = 16.dp)
-                .navigationBarsPadding()
         ) {
-            Row(
+            LazyColumn(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 32.dp)
             ) {
-                IconButton(onClick = { showArchivedList = false }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = TextPrimary
-                    )
+                // Spacer for floating header
+                item {
+                    Spacer(modifier = Modifier.height(84.dp))
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = if (language == "de") "Archiv" else "Archive",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
 
-            Text(
-                text = if (language == "de") {
-                    "Archivierte Gewohnheiten sind pausiert und werden nicht im Dashboard oder in Statistiken angezeigt. Du kannst sie jederzeit wieder aktivieren."
-                } else {
-                    "Archived habits are paused and do not appear in the dashboard or statistics. You can reactivate them at any time."
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 16.dp, start = 8.dp, end = 8.dp)
-            )
-
-            if (archivedHabits.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
+                // Description
+                item {
                     Text(
-                        text = if (language == "de") "Keine archivierten Gewohnheiten." else "No archived habits.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = if (language == "de") {
+                            "Archivierte Gewohnheiten sind pausiert und werden nicht im Dashboard oder in Statistiken angezeigt. Du kannst sie jederzeit wieder aktivieren."
+                        } else {
+                            "Archived habits are paused and do not appear in the dashboard or statistics. You can reactivate them at any time."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary,
-                        textAlign = TextAlign.Center
+                        modifier = Modifier.padding(bottom = 16.dp, start = 8.dp, end = 8.dp)
                     )
                 }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
+
+                if (archivedHabits.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(300.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (language == "de") "Keine archivierten Gewohnheiten." else "No archived habits.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
                     items(archivedHabits, key = { it.id }) { habit ->
                         val habitColor = remember(habit.color) { HabitIconMapping.getColor(habit.color) }
                         Card(
@@ -5360,6 +5074,44 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // Floating Header Overlay with vertical gradient fade-out
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                DarkBg,
+                                DarkBg,
+                                DarkBg.copy(alpha = 0.9f),
+                                DarkBg.copy(alpha = 0.5f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+                    .align(Alignment.TopCenter)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ModernBackButton(
+                        onClick = { showArchivedList = false },
+                        testTag = "archive_back_button"
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = if (language == "de") "Archiv" else "Archive",
+                        style = MaterialTheme.typography.displayMedium,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
 
         if (showDeleteConfirmInArchive != null) {
@@ -5422,41 +5174,17 @@ fun SettingsScreen(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBg)
-            .padding(horizontal = 16.dp)
-            .navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 32.dp, top = 16.dp)
-    ) {
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = TextPrimary
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = if (language == "de") "Einstellungen" else "Settings",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        // Language setup card
-        item {
+    Box(modifier = Modifier.fillMaxSize().background(DarkBg)) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 32.dp, top = 84.dp)
+        ) {
+            // Language setup card
+            item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = DarkCard),
                 shape = RoundedCornerShape(16.dp),
@@ -5862,6 +5590,45 @@ fun SettingsScreen(
             }
         )
     }
+
+        // Floating Header Overlay with vertical gradient fade-out
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            DarkBg,
+                            DarkBg,
+                            DarkBg.copy(alpha = 0.9f),
+                            DarkBg.copy(alpha = 0.5f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .align(Alignment.TopCenter)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ModernBackButton(
+                    onClick = onBack,
+                    testTag = "settings_back_button"
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = if (language == "de") "Einstellungen" else "Settings",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
     }
 }
 
@@ -5968,86 +5735,60 @@ fun CreateHabitScreen(
                 .fillMaxSize()
                 .navigationBarsPadding()
                 .imePadding()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
-            // Header top bar with Back Arrow and smaller header size matching displayMedium
-            Row(
+            Spacer(modifier = Modifier.height(84.dp))
+            
+            // Name field directly
+            OutlinedTextField(
+                value = name,
+                onValueChange = { 
+                    name = it
+                    if (it.isNotBlank()) {
+                        nameError = false
+                    }
+                },
+                label = { Text(if (language == "de") "Name der Gewohnheit" else "Habit Name") },
+                placeholder = { Text(if (language == "de") "z.B. Meditieren, Laufen, Lesen..." else "e.g., Meditate, Running, Reading...") },
+                isError = nameError,
+                supportingText = {
+                    if (nameError) {
+                        Text(
+                            text = if (language == "de") "Bitte gib einen Namen ein" else "Please enter a name",
+                            color = FailedRed,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, top = 8.dp, end = 24.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(48.dp).testTag("create_back_button")
-                ) {
+                    .testTag("habit_name_input"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryViolet,
+                    unfocusedBorderColor = DarkBorder,
+                    focusedLabelColor = PrimaryViolet,
+                    unfocusedLabelColor = TextSecondary,
+                    errorBorderColor = FailedRed,
+                    errorLabelColor = FailedRed,
+                    errorCursorColor = FailedRed,
+                    errorSupportingTextColor = FailedRed,
+                    focusedContainerColor = DarkCard,
+                    unfocusedContainerColor = DarkCard.copy(alpha = 0.6f),
+                    errorContainerColor = FailedRed.copy(alpha = 0.08f)
+                ),
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true,
+                leadingIcon = {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(24.dp)
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = if (name.isNotBlank()) PrimaryViolet else TextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (editingHabit != null) {
-                        if (language == "de") "Gewohnheit bearbeiten" else "Edit Habit"
-                    } else {
-                        if (language == "de") "Neue Gewohnheit" else "New Habit"
-                    },
-                    style = MaterialTheme.typography.displayMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                // Name field
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { 
-                        name = it
-                        if (it.isNotBlank()) {
-                            nameError = false
-                        }
-                    },
-                    label = { Text(if (language == "de") "Name der Gewohnheit" else "Habit Name") },
-                    placeholder = { Text(if (language == "de") "z.B. Meditieren, Laufen..." else "e.g., Meditate, Running...") },
-                    isError = nameError,
-                    supportingText = {
-                        if (nameError) {
-                            Text(
-                                text = if (language == "de") "Bitte gib einen Namen ein" else "Please enter a name",
-                                color = FailedRed,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("habit_name_input"),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryViolet,
-                        unfocusedBorderColor = DarkBorder,
-                        focusedLabelColor = PrimaryViolet,
-                        errorBorderColor = FailedRed,
-                        errorLabelColor = FailedRed,
-                        errorCursorColor = FailedRed,
-                        errorSupportingTextColor = FailedRed,
-                        focusedContainerColor = if (nameError) FailedRed.copy(alpha = 0.08f) else Color.Transparent,
-                        unfocusedContainerColor = if (nameError) FailedRed.copy(alpha = 0.05f) else Color.Transparent,
-                        errorContainerColor = FailedRed.copy(alpha = 0.08f)
-                    ),
-                    singleLine = true
-                )
+            )
 
                 // Goal Segment (Aufbauen / Abgewöhnen)
                 Column(
@@ -6055,15 +5796,15 @@ fun CreateHabitScreen(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = if (language == "de") "Ziel" else "Goal",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold
                         )
+                        Spacer(modifier = Modifier.width(6.dp))
                         InfoIconButton(
                             title = if (language == "de") "Gewohnheitstyp" else "Habit Type",
                             explanation = if (language == "de") {
@@ -6120,7 +5861,7 @@ fun CreateHabitScreen(
                 ) {
                     Text(
                         text = if (language == "de") "Aussehen anpassen" else "Customize Visuals",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold
                     )
@@ -6143,6 +5884,8 @@ fun CreateHabitScreen(
                     ) {
                         icons.forEach { (key, _) ->
                             val isSelected = selectedIcon == key
+                            var showTooltip by remember { mutableStateOf(false) }
+
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
@@ -6155,7 +5898,12 @@ fun CreateHabitScreen(
                                         color = if (isSelected) activeColor else DarkBorder,
                                         shape = RoundedCornerShape(12.dp)
                                     )
-                                    .clickable { selectedIcon = key },
+                                    .pointerInput(key) {
+                                        detectTapGestures(
+                                            onTap = { selectedIcon = key },
+                                            onLongPress = { showTooltip = true }
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -6164,6 +5912,33 @@ fun CreateHabitScreen(
                                     tint = if (isSelected) activeColor else TextSecondary,
                                     modifier = Modifier.size(24.dp)
                                 )
+
+                                if (showTooltip) {
+                                    val density = androidx.compose.ui.platform.LocalDensity.current
+                                    val offsetInPx = with(density) { -52.dp.roundToPx() }
+                                    androidx.compose.ui.window.Popup(
+                                        alignment = Alignment.TopCenter,
+                                        offset = androidx.compose.ui.unit.IntOffset(0, offsetInPx),
+                                        onDismissRequest = { showTooltip = false }
+                                    ) {
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF13131F)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier
+                                                .border(1.dp, DarkBorder, RoundedCornerShape(8.dp))
+                                                .widthIn(max = 200.dp)
+                                        ) {
+                                            Text(
+                                                text = getIconLabel(key, language),
+                                                color = TextPrimary,
+                                                style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp),
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -6178,12 +5953,10 @@ fun CreateHabitScreen(
                         fontWeight = FontWeight.Medium
                     )
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         HabitIconMapping.colorList.forEach { (key, colorObj) ->
                             val isSelected = selectedColor == key
@@ -6224,12 +5997,27 @@ fun CreateHabitScreen(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = if (language == "de") "Art der Messung" else "Measurement Type",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (language == "de") "Art der Messung" else "Measurement Type",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        InfoIconButton(
+                            title = if (language == "de") "Art der Messung" else "Measurement Type",
+                            explanation = if (language == "de") {
+                                "Ja / Nein: Ideal für einfache Gewohnheiten (z.B. Vitamine einnehmen, Bett machen).\n\nZahlenbasiert: Perfekt für Gewohnheiten, bei denen du eine Menge oder Dauer tracken willst (z.B. 2 Liter trinken, 30 Minuten lesen)."
+                            } else {
+                                "Yes / No: Perfect for simple habits that you either do or don't (e.g., take vitamins, make bed).\n\nNumeric: Perfect for habits where you want to track a quantity or duration (e.g., drink 2 liters, read for 30 minutes)."
+                            },
+                            onClick = { t, e -> activeExplanation = t to e }
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -6286,15 +6074,13 @@ fun CreateHabitScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            FlowRow(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 row1.forEach { standardUnit ->
                                     val isSelected = selectedChip == standardUnit
-                                    FilterChip(
-                                        selected = isSelected,
+                                    Button(
                                         onClick = { 
                                             selectedChip = standardUnit
                                             if (standardUnit != "Anderes..." && standardUnit != "Custom...") {
@@ -6303,44 +6089,45 @@ fun CreateHabitScreen(
                                                 unit = ""
                                             }
                                         },
-                                        label = { 
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (standardUnit.lowercase() in listOf("minuten", "minutes")) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Timer,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(16.dp).padding(end = 4.dp)
-                                                    )
-                                                }
-                                                Text(standardUnit)
-                                            }
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = PrimaryViolet,
-                                            selectedLabelColor = TextPrimary,
-                                            selectedLeadingIconColor = TextPrimary,
-                                            containerColor = ProgressTrack,
-                                            labelColor = TextSecondary
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isSelected) PrimaryViolet else ProgressTrack,
+                                            contentColor = if (isSelected) TextPrimary else TextSecondary
                                         ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = isSelected,
-                                            borderColor = DarkBorder,
-                                            selectedBorderColor = PrimaryViolet
-                                        )
-                                    )
+                                        modifier = Modifier.weight(1f).height(44.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            if (standardUnit.lowercase() in listOf("minuten", "minutes")) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Timer,
+                                                    contentDescription = null,
+                                                    tint = if (isSelected) TextPrimary else TextSecondary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                            }
+                                            Text(
+                                                text = standardUnit,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
-                            FlowRow(
+                            Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 row2.forEach { standardUnit ->
                                     val isSelected = selectedChip == standardUnit
-                                    FilterChip(
-                                        selected = isSelected,
+                                    Button(
                                         onClick = { 
                                             selectedChip = standardUnit
                                             if (standardUnit != "Anderes..." && standardUnit != "Custom...") {
@@ -6349,32 +6136,26 @@ fun CreateHabitScreen(
                                                 unit = ""
                                             }
                                         },
-                                        label = { 
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (standardUnit.lowercase() in listOf("minuten", "minutes")) {
-                                                    Icon(
-                                                        imageVector = Icons.Default.Timer,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(16.dp).padding(end = 4.dp)
-                                                    )
-                                                }
-                                                Text(standardUnit)
-                                            }
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = PrimaryViolet,
-                                            selectedLabelColor = TextPrimary,
-                                            selectedLeadingIconColor = TextPrimary,
-                                            containerColor = ProgressTrack,
-                                            labelColor = TextSecondary
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isSelected) PrimaryViolet else ProgressTrack,
+                                            contentColor = if (isSelected) TextPrimary else TextSecondary
                                         ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = isSelected,
-                                            borderColor = DarkBorder,
-                                            selectedBorderColor = PrimaryViolet
-                                        )
-                                    )
+                                        modifier = Modifier.weight(1f).height(44.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center
+                                        ) {
+                                            Text(
+                                                text = standardUnit,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontSize = 12.sp),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -6426,7 +6207,7 @@ fun CreateHabitScreen(
                 ) {
                     Text(
                         text = if (language == "de") "Häufigkeit" else "Frequency",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold
                     )
@@ -6785,7 +6566,6 @@ fun CreateHabitScreen(
                     }
                 }
             }
-        }
 
         if (activeExplanation != null) {
             ExplanationDialog(
@@ -6813,6 +6593,50 @@ fun CreateHabitScreen(
                     showAddCustomDialog = false
                 }
             )
+        }
+
+        // Floating Header Overlay with vertical gradient fade-out
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            DarkBg,
+                            DarkBg,
+                            DarkBg.copy(alpha = 0.9f),
+                            DarkBg.copy(alpha = 0.5f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .align(Alignment.TopCenter)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, top = 16.dp, end = 24.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ModernBackButton(
+                    onClick = onDismiss,
+                    testTag = "create_back_button"
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = if (editingHabit != null) {
+                        if (language == "de") "Gewohnheit bearbeiten" else "Edit Habit"
+                    } else {
+                        if (language == "de") "Neue Gewohnheit" else "New Habit"
+                    },
+                    style = MaterialTheme.typography.displayMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
         }
     }
 }
@@ -7752,9 +7576,17 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(
+                text = if (language == "de") "Profil" else "Profile",
+                style = MaterialTheme.typography.displayLarge,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.weight(1f)
+            )
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -8992,3 +8824,149 @@ private class DonutSweeps(
     val pending: Float,
     val paused: Float
 )
+
+@Composable
+fun ZettelMitStiftIcon(
+    modifier: Modifier = Modifier,
+    color: Color = TextPrimary
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        
+        // Balanced layout: center the document sheet slightly left to make space for the pen
+        val sheetWidth = w * 0.58f
+        val sheetHeight = h * 0.82f
+        val sheetLeft = w * 0.12f
+        val sheetTop = h * 0.09f
+        val cornerRadius = w * 0.12f // softer, more rounded corners
+        
+        // 1. Draw sheet outline
+        drawRoundRect(
+            color = color,
+            topLeft = androidx.compose.ui.geometry.Offset(sheetLeft, sheetTop),
+            size = androidx.compose.ui.geometry.Size(sheetWidth, sheetHeight),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius, cornerRadius),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.09f)
+        )
+        
+        // 2. Draw 3 rounded horizontal lines on the sheet
+        val lineStartX = sheetLeft + sheetWidth * 0.22f
+        val lineEndX = sheetLeft + sheetWidth * 0.78f
+        val lineSpacing = sheetHeight * 0.22f
+        val firstLineY = sheetTop + sheetHeight * 0.28f
+        
+        for (i in 0 until 3) {
+            val lineY = firstLineY + i * lineSpacing
+            val currentLineEndX = if (i == 2) sheetLeft + sheetWidth * 0.50f else lineEndX
+            drawLine(
+                color = color,
+                start = androidx.compose.ui.geometry.Offset(lineStartX, lineY),
+                end = androidx.compose.ui.geometry.Offset(currentLineEndX, lineY),
+                strokeWidth = w * 0.06f,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+        }
+        
+        // 3. Draw modern, rounded pen at a 45 degree angle on the right side
+        val penStartX = w * 0.84f
+        val penStartY = h * 0.20f
+        val penEndX = w * 0.54f
+        val penEndY = h * 0.80f
+        
+        drawLine(
+            color = color,
+            start = androidx.compose.ui.geometry.Offset(penStartX, penStartY),
+            end = androidx.compose.ui.geometry.Offset(penEndX, penEndY),
+            strokeWidth = w * 0.11f,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
+        
+        // 4. Draw pen tip
+        val tipStartX = penEndX
+        val tipStartY = penEndY
+        val tipEndX = penEndX - w * 0.07f
+        val tipEndY = penEndY + h * 0.07f
+        
+        drawLine(
+            color = color,
+            start = androidx.compose.ui.geometry.Offset(tipStartX, tipStartY),
+            end = androidx.compose.ui.geometry.Offset(tipEndX, tipEndY),
+            strokeWidth = w * 0.06f,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round
+        )
+    }
+}
+
+fun getIconLabel(key: String, language: String): String {
+    return if (language == "de") {
+        when (key.lowercase()) {
+            "sparkle" -> "Funkeln"
+            "moon" -> "Mond"
+            "sun" -> "Sonne"
+            "water" -> "Wassertropfen"
+            "heart" -> "Herz"
+            "dumbbell" -> "Hantel"
+            "book" -> "Buch"
+            "coffee" -> "Kaffeetasse"
+            "run" -> "Schuh"
+            "code" -> "Klammern"
+            "music" -> "Musiknote"
+            "phone" -> "Telefon"
+            "meditation" -> "Lotusblüte"
+            "clock" -> "Uhr"
+            "food" -> "Apfel"
+            "money" -> "Münze"
+            "work" -> "Koffer"
+            "clean" -> "Besen"
+            else -> key.replaceFirstChar { it.uppercase() }
+        }
+    } else {
+        when (key.lowercase()) {
+            "sparkle" -> "Sparkle"
+            "moon" -> "Moon"
+            "sun" -> "Sun"
+            "water" -> "Water Drop"
+            "heart" -> "Heart"
+            "dumbbell" -> "Dumbbell"
+            "book" -> "Book"
+            "coffee" -> "Coffee Cup"
+            "run" -> "Shoe"
+            "code" -> "Brackets"
+            "music" -> "Music Note"
+            "phone" -> "Phone"
+            "meditation" -> "Lotus Flower"
+            "clock" -> "Clock"
+            "food" -> "Apple"
+            "money" -> "Coin"
+            "work" -> "Briefcase"
+            "clean" -> "Broom"
+            else -> key.replaceFirstChar { it.uppercase() }
+        }
+    }
+}
+
+@Composable
+fun ModernBackButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    testTag: String = ""
+) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DarkCard)
+            .border(1.dp, DarkBorder, RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .testTag(testTag),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.ChevronLeft,
+            contentDescription = "Back",
+            tint = TextPrimary,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
