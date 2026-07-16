@@ -19,33 +19,6 @@
         android:textStyle="bold"
         android:layout_marginBottom="0dp" />
 
-    <!-- Progress Header with Text -->
-    <LinearLayout
-        android:id="@+id/widget_progress_text_container"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="6dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Tagesfortschritt"
-            android:textColor="#E4E3EC"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/widget_progress_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0%"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
     <!-- Rounded training progress bar matching the app's style -->
     <FrameLayout
         android:id="@+id/widget_progress_container"

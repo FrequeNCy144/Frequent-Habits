@@ -39,7 +39,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val componentName = ComponentName(context, HabitWidgetProvider::class.java)
             val ids = appWidgetManager.getAppWidgetIds(componentName)
-            updateAllWidgets(context, appWidgetManager, ids, pendingResult)
+            updateAllWidgets(context, appWidgetManager, ids, pendingResult, isFullUpdate = false)
         } else if (action == ACTION_TOGGLE_BINARY_HABIT) {
             val habitId = intent.getIntExtra(EXTRA_HABIT_ID, -1)
             val targetWidgetId = if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) widgetId else -1
@@ -337,13 +337,14 @@ class HabitWidgetProvider : AppWidgetProvider() {
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
-        pendingResult: BroadcastReceiver.PendingResult? = null
+        pendingResult: BroadcastReceiver.PendingResult? = null,
+        isFullUpdate: Boolean = true
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Wait 150ms to ensure DB write transactions from the main app thread are fully committed
                 kotlinx.coroutines.delay(150L)
-                updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds)
+                updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds, isFullUpdate)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -411,9 +412,6 @@ class HabitWidgetProvider : AppWidgetProvider() {
                 views.setViewVisibility(R.id.widget_progress_bar, android.view.View.VISIBLE)
                 views.setViewVisibility(R.id.widget_progress_bar_completed, android.view.View.GONE)
             }
-
-            val progressTextVal = "${progressPercent}% ($completed/$nonPausedCount)"
-            views.setTextViewText(R.id.widget_progress_text, progressTextVal)
 
             val displayDate = getDisplayDate(selectedDate)
             views.setTextViewText(R.id.widget_date_title, displayDate)
