@@ -1,1 +1,1 @@
-Aesthetics meet deep analytics in this 100% local habit tracker.
+Aesthetic habit tracker with deep analytics. 100% private and offline.
