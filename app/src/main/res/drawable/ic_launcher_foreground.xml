@@ -1,44 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer Violet Wave Glow -->
+    <!-- 1. Ambient backglow of the progress ring to create a premium neon glow on the black background -->
     <path
-        android:pathData="M 20,54 C 28,34 34,34 40,54 C 46,74 52,74 58,54 C 64,24 70,24 76,54 C 82,68 84,68 88,54"
-        android:strokeWidth="8"
+        android:pathData="M 73.8,34.2 A 28,28 0 1,1 61.2,27"
+        android:strokeWidth="16"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.25"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="26"
+                android:startY="54"
+                android:endX="82"
+                android:endY="54"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF007F"/>
+                <item android:offset="0.5" android:color="#7356FF"/>
+                <item android:offset="1" android:color="#00E5FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 2. The main glowing progress ring with our spectacular brand gradient -->
+    <path
+        android:pathData="M 73.8,34.2 A 28,28 0 1,1 61.2,27"
+        android:strokeWidth="8.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="26"
+                android:startY="76"
+                android:endX="82"
+                android:endY="26"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF007F"/>
+                <item android:offset="0.5" android:color="#7356FF"/>
+                <item android:offset="1" android:color="#00E5FF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 3. Dynamic inner gloss/highlight on the progress ring for depth -->
+    <path
+        android:pathData="M 32,42 A 28,28 0 0,0 42,78"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.15"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- 4. Soft glowing shadow for the checkmark to give it distinct separation and depth -->
+    <path
+        android:pathData="M 41,54 L 50,63 L 69,44"
+        android:strokeWidth="13"
+        android:strokeColor="#7356FF"
+        android:strokeAlpha="0.15"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:strokeColor="#257356FF" />
+        android:fillColor="#00000000" />
 
-    <!-- Inner Cyan Wave Glow -->
+    <!-- 5. Stark, bold white checkmark representing habit completion and daily success -->
     <path
-        android:pathData="M 20,54 C 28,42 34,42 40,54 C 46,66 52,66 58,54 C 64,34 70,34 76,54 C 82,62 84,62 88,54"
-        android:strokeWidth="6"
+        android:pathData="M 41,54 L 50,63 L 69,44"
+        android:strokeWidth="7.5"
+        android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:strokeColor="#2500E5FF" />
+        android:fillColor="#00000000" />
 
-    <!-- Main Outer Violet Wave -->
+    <!-- 6. Subtle glowing dot at the end of the progress arc to emphasize tracking and focus -->
     <path
-        android:pathData="M 20,54 C 28,34 34,34 40,54 C 46,74 52,74 58,54 C 64,24 70,24 76,54 C 82,68 84,68 88,54"
-        android:strokeWidth="3.2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeColor="#7356FF" />
-
-    <!-- Main Inner Cyan Wave -->
-    <path
-        android:pathData="M 20,54 C 28,42 34,42 40,54 C 46,66 52,66 58,54 C 64,34 70,34 76,54 C 82,62 84,62 88,54"
-        android:strokeWidth="1.8"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:strokeColor="#00E5FF" />
-
-    <!-- Center active indicator pulse -->
-    <path
-        android:pathData="M54,52 C55.1,52 56,52.9 56,54 C56,55.1 55.1,56 54,56 C52.9,56 52,55.1 52,54 C52,52.9 52.9,52 54,52 Z"
+        android:pathData="M 73.8,34.2 m -2,0 a 2,2 0 1,1 4,0 a 2,2 0 1,1 -4,0"
         android:fillColor="#00E5FF" />
+
 </vector>

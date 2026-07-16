@@ -5725,6 +5725,14 @@ fun CreateHabitScreen(
         localDate.format(formatter)
     }
 
+    val nameFocusRequester = remember { FocusRequester() }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(200)
+        nameFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -5764,6 +5772,7 @@ fun CreateHabitScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .focusRequester(nameFocusRequester)
                     .testTag("habit_name_input"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryViolet,
