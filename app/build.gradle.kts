@@ -10,6 +10,11 @@ android {
   namespace = "com.frequent.habits"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  dependenciesInfo {
+    includeInApk = false
+    includeInBundle = false
+  }
+
   defaultConfig {
     applicationId = "com.frequent.habits"
     minSdk = 24
