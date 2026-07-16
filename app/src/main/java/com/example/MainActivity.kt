@@ -5751,7 +5751,40 @@ fun SettingsScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = {
+                            val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = android.net.Uri.parse("mailto:support@frequncy-apps.com")
+                            }
+                            try {
+                                context.startActivity(emailIntent)
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    if (language == "de") "Keine E-Mail-App gefunden" else "No email app found",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ProgressTrack),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "Email",
+                            tint = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Feedback / Support",
+                            color = TextPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Authentic Liberapay Styled Donate Button (Liberapay Official Brand Colors)
                     Button(
