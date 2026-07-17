@@ -2425,16 +2425,21 @@ fun StatsScreen(
                         style = MaterialTheme.typography.displayLarge,
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            // Overall Strength Card
+            // Beautifully designed, premium Overall Strength Card
             item {
                 val sweepAngleVal = remember(strength) { (strength.toFloat() / 100f) * 360f }
-                val strengthText = remember(strength) { "$strength/100" }
+                val ringColor = remember(strength) {
+                    when {
+                        strength < 35 -> HabitRed
+                        strength < 70 -> HabitYellow
+                        else -> SuccessGreen
+                    }
+                }
                 val strengthLabel = remember(strength, language) { getStrengthLabel(strength, language) }
 
                 Card(
@@ -2445,110 +2450,89 @@ fun StatsScreen(
                         .border(width = 1.dp, color = DarkBorder, shape = RoundedCornerShape(20.dp))
                         .clickable { onOverallClick() }
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .drawWithCache {
-                                            val strokeWidth = 8.dp.toPx()
-                                            val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                                            onDrawBehind {
-                                                drawArc(
-                                                    color = ProgressTrack,
-                                                    startAngle = -90f,
-                                                    sweepAngle = 360f,
-                                                    useCenter = false,
-                                                    style = stroke
-                                                )
-                                                drawArc(
-                                                    color = SuccessGreen,
-                                                    startAngle = -90f,
-                                                    sweepAngle = sweepAngleVal,
-                                                    useCenter = false,
-                                                    style = stroke
-                                                )
-                                            }
-                                        }
-                                ) {
-                                    Text(
-                                        text = strengthText,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = TextPrimary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(20.dp))
-
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "Overall Strength",
-                                            tint = PrimaryViolet,
-                                            modifier = Modifier.size(16.dp)
+                        // Left: Custom Progress Ring showing Score
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(90.dp)
+                                .drawWithCache {
+                                    val strokeWidth = 8.dp.toPx()
+                                    val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                                    onDrawBehind {
+                                        drawArc(
+                                            color = ProgressTrack,
+                                            startAngle = -90f,
+                                            sweepAngle = 360f,
+                                            useCenter = false,
+                                            style = stroke
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = if (language == "de") "GESAMT-STÄRKE" else "OVERALL STRENGTH",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = TextSecondary,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        InfoIconButton(
-                                            title = if (language == "de") "Gesamt-Stärke Score" else "Overall Strength Score",
-                                            explanation = if (language == "de") {
-                                                "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen über den gesamten Existenzzeitraum des Accounts."
-                                            } else {
-                                                "The average weighted strength score of all of your active habits combined over the entire existence period of the account."
-                                            },
-                                            onClick = { t, e -> activeExplanation = t to e }
+                                        drawArc(
+                                            color = ringColor,
+                                            startAngle = -90f,
+                                            sweepAngle = sweepAngleVal,
+                                            useCenter = false,
+                                            style = stroke
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = strengthLabel,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = ProgressEndText,
-                                        fontWeight = FontWeight.Medium
-                                    )
                                 }
-                            }
-
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
-                                contentDescription = "View Details",
-                                tint = TextSecondary,
-                                modifier = Modifier.size(24.dp)
+                        ) {
+                            Text(
+                                text = "$strength/100",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                        Text(
-                            text = if (language == "de") "Gesamtfortschritt aller aktiven Gewohnheiten." else "Your overall progress across all active habits.",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                            ),
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                        // Center: Meta Data / Levels Block
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (language == "de") "GESAMT-STÄRKE" else "OVERALL STRENGTH",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextSecondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                InfoIconButton(
+                                    title = if (language == "de") "Gesamt-Stärke Score" else "Overall Strength Score",
+                                    explanation = if (language == "de") {
+                                        "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen."
+                                    } else {
+                                        "The average weighted strength score of all of your active habits combined."
+                                    },
+                                    onClick = { t, e -> activeExplanation = t to e }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = strengthLabel,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = ringColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Right: Interactive Chevron pointing right
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = "Details",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
@@ -3635,98 +3619,78 @@ fun OverallStatsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 140.dp, top = 84.dp)
         ) {
-                // Overall Strength Card
+                // Overall Strength / Progress centered view
             item(key = "overall_strength") {
                 val sweepAngleVal = remember(strength) { (strength.toFloat() / 100f) * 360f }
-                val strengthText = remember(strength) { "$strength/100" }
-                val strengthLabel = remember(strength, language) { getStrengthLabel(strength, language) }
+                val ringColor = remember(strength) {
+                    when {
+                        strength < 35 -> HabitRed
+                        strength < 70 -> HabitYellow
+                        else -> SuccessGreen
+                    }
+                }
 
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = DarkCard),
-                    shape = RoundedCornerShape(20.dp),
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(width = 1.dp, color = DarkBorder, shape = RoundedCornerShape(20.dp))
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .drawWithCache {
-                                        val strokeWidth = 8.dp.toPx()
-                                        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                                        onDrawBehind {
-                                            drawArc(
-                                                color = ProgressTrack,
-                                                startAngle = -90f,
-                                                sweepAngle = 360f,
-                                                useCenter = false,
-                                                style = stroke
-                                            )
-                                            drawArc(
-                                                color = SuccessGreen,
-                                                startAngle = -90f,
-                                                sweepAngle = sweepAngleVal,
-                                                useCenter = false,
-                                                style = stroke
-                                            )
-                                        }
-                                    }
-                            ) {
-                                Text(
-                                    text = strengthText,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                        Text(
+                            text = if (language == "de") "GESAMT-FORTSCHRITT" else "OVERALL PROGRESS",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        InfoIconButton(
+                            title = if (language == "de") "Gesamtfortschritt" else "Overall Progress",
+                            explanation = if (language == "de") {
+                                "Gesamtfortschritt aller aktiven Gewohnheiten. Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen."
+                            } else {
+                                "Your overall progress across all active habits. The average weighted strength score of all of your active habits combined."
+                            },
+                            onClick = { t, e -> activeExplanation = t to e }
+                        )
+                    }
 
-                            Spacer(modifier = Modifier.width(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Overall Strength",
-                                        tint = PrimaryViolet,
-                                        modifier = Modifier.size(16.dp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(130.dp)
+                            .drawWithCache {
+                                val strokeWidth = 10.dp.toPx()
+                                val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                                onDrawBehind {
+                                    drawArc(
+                                        color = ProgressTrack,
+                                        startAngle = -90f,
+                                        sweepAngle = 360f,
+                                        useCenter = false,
+                                        style = stroke
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = if (language == "de") "GESAMT-STÄRKE" else "OVERALL STRENGTH",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = TextSecondary,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    InfoIconButton(
-                                        title = if (language == "de") "Gesamt-Stärke Score" else "Overall Strength Score",
-                                        explanation = if (language == "de") {
-                                            "Die durchschnittliche gewichtete Stärke aller deiner Gewohnheiten zusammen über den gesamten Existenzzeitraum des Accounts."
-                                        } else {
-                                            "The average weighted strength score of all of your active habits combined over the entire existence period of the account."
-                                        },
-                                        onClick = { t, e -> activeExplanation = t to e }
+                                    drawArc(
+                                        color = ringColor,
+                                        startAngle = -90f,
+                                        sweepAngle = sweepAngleVal,
+                                        useCenter = false,
+                                        style = stroke
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = strengthLabel,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = ProgressEndText,
-                                    fontWeight = FontWeight.Medium
-                                )
                             }
-                        }
+                    ) {
+                        Text(
+                            text = "$strength%",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
                 }
             }
@@ -8253,6 +8217,15 @@ fun DailyNoteDialog(
     onSave: (String) -> Unit
 ) {
     var noteText by remember(currentNote) { mutableStateOf(currentNote) }
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(250)
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -8276,7 +8249,8 @@ fun DailyNoteDialog(
                 textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 120.dp, max = 240.dp),
+                    .heightIn(min = 120.dp, max = 240.dp)
+                    .focusRequester(focusRequester),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextPrimary,
@@ -8917,8 +8891,8 @@ fun getIconLabel(key: String, language: String): String {
             "heart" -> "Herz"
             "dumbbell" -> "Hantel"
             "book" -> "Buch"
-            "coffee" -> "Kaffeetasse"
-            "run" -> "Schuh"
+            "coffee" -> "Kaffee"
+            "run" -> "Laufen"
             "code" -> "Klammern"
             "music" -> "Musiknote"
             "phone" -> "Telefon"
@@ -8939,8 +8913,8 @@ fun getIconLabel(key: String, language: String): String {
             "heart" -> "Heart"
             "dumbbell" -> "Dumbbell"
             "book" -> "Book"
-            "coffee" -> "Coffee Cup"
-            "run" -> "Shoe"
+            "coffee" -> "Coffee"
+            "run" -> "Running"
             "code" -> "Brackets"
             "music" -> "Music Note"
             "phone" -> "Phone"

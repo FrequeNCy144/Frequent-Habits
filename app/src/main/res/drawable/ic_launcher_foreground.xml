@@ -6,46 +6,22 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 1. Ambient backglow of the progress ring to create a premium neon glow on the black background -->
+    <!-- 1. Ambient backglow of the progress ring in standard violet -->
     <path
         android:pathData="M 73.8,34.2 A 28,28 0 1,1 61.2,27"
         android:strokeWidth="16"
+        android:strokeColor="#7356FF"
         android:strokeLineCap="round"
         android:strokeAlpha="0.25"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:startX="26"
-                android:startY="54"
-                android:endX="82"
-                android:endY="54"
-                android:type="linear">
-                <item android:offset="0" android:color="#FF007F"/>
-                <item android:offset="0.5" android:color="#7356FF"/>
-                <item android:offset="1" android:color="#00E5FF"/>
-            </gradient>
-        </aapt:attr>
-    </path>
+        android:fillColor="#00000000" />
 
-    <!-- 2. The main glowing progress ring with our spectacular brand gradient -->
+    <!-- 2. The main progress ring with our standard violet color -->
     <path
         android:pathData="M 73.8,34.2 A 28,28 0 1,1 61.2,27"
         android:strokeWidth="8.5"
+        android:strokeColor="#7356FF"
         android:strokeLineCap="round"
-        android:fillColor="#00000000">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:startX="26"
-                android:startY="76"
-                android:endX="82"
-                android:endY="26"
-                android:type="linear">
-                <item android:offset="0" android:color="#FF007F"/>
-                <item android:offset="0.5" android:color="#7356FF"/>
-                <item android:offset="1" android:color="#00E5FF"/>
-            </gradient>
-        </aapt:attr>
-    </path>
+        android:fillColor="#00000000" />
 
     <!-- 3. Dynamic inner gloss/highlight on the progress ring for depth -->
     <path
@@ -78,6 +54,6 @@
     <!-- 6. Subtle glowing dot at the end of the progress arc to emphasize tracking and focus -->
     <path
         android:pathData="M 73.8,34.2 m -2,0 a 2,2 0 1,1 4,0 a 2,2 0 1,1 -4,0"
-        android:fillColor="#00E5FF" />
+        android:fillColor="#7356FF" />
 
 </vector>
