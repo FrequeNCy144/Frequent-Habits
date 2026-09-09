@@ -54,29 +54,32 @@
 
 ## ✨ Key Features
 
-* 🎧 **In-App Focus Timer** — Deep work timer with ambient soundscapes and custom audio import.
+🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
 
-* 📊 **Deep Analytics** — Yearly heatmaps, weekday frequency charts, and much more...
+📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and rich progress metrics.
 
-* 🏆 **Trophies & Gold Series** — Unlock achievements as your habits grow.
+🏆 Trophies & Milestones — Unlock achievements and celebrate your long-term dedication.
 
-* 🎉 **Custom Self-Rewards** — Define your own rewards for your dedication to your goals.
+🎉 Custom Self-Rewards — Define your own real-life rewards to reinforce positive behavior loops.
 
-* 💡 **Algorithmic Smart Insights** — Get interesting insights into your tracking patterns.
+💡 Algorithmic Smart Insights — Discover meaningful patterns and trends in your habit tracking data.
 
-* 📝 **Weekly & Annual Reviews** — Structured reflections built right into your routine.
+📝 Weekly & Annual Reviews — Structured reflections built right into your routine for continuous self-improvement.
 
-* ⏳ **Time Capsules** — Leave notes for your future self, tied to your habit history.
+⏳ Time Capsules — Leave inspiring notes for your future self tied to key habit milestones.
 
-* 🎨 **Make It Yours** — Choose light or dark mode with custom accent colors.
+🎨 Make It Yours — Fully customizable light & dark themes with dynamic accent color palettes.
 
-* 💾 **Local JSON Backup & Restore** — Full data ownership via Android's Storage Access Framework.
+💾 Flexible Local Backups — Complete data ownership with ZIP & JSON archive backups via Android's Storage Access Framework.
 
-* 📥 **1-Click Habit Import** — Switch from other habit trackers without losing your history.
+📥 1-Click Habit Import — Seamlessly switch over from other habit trackers without losing your history.
 
-* ⚡ **Homescreen Widget** — Check off habits right from your home screen.
+⚡ Homescreen Widget — Check off habits and view live daily progress directly from your home screen.
 
-* 🔒 **100% Offline, No Ads, No Tracking** — Everything stays strictly on your device.
+🧬 Science-Backed Habit Strategies — Built on proven behavioral science principles to help you form habits that actually stick:
+   - 🔗 Habit Stacking — Chain new habits onto existing routines for effortless consistency.
+   - 📉 Minimum Viable Mode (Two-Minute Rule) — Set fallback targets for tough days to protect your momentum and never break the chain.
+   - 🎯 "Your Why" Anchoring — Tie every habit to your deeper personal motivations for lasting commitment.
 
 ---
 
