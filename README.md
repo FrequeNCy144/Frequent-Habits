@@ -54,9 +54,9 @@
 
 ## ✨ Key Features
 
-🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
-
 🧠 Science-Based Habit Principles to build lasting habits — Habit Stacking, Minimum Viable Mode and more...
+
+🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
 
 📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and much more...
 
