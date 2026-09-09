@@ -56,30 +56,29 @@
 
 🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
 
-📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and rich progress metrics.
+🧠 Science-Based Habit Principles — Habit Stacking, Minimum Viable Mode and more...
 
-🏆 Trophies & Milestones — Unlock achievements and celebrate your long-term dedication.
+📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and much more...
 
-🎉 Custom Self-Rewards — Define your own real-life rewards to reinforce positive behavior loops.
+🏆 Trophies & Gold Series — Unlock achievements as your habits grow.
 
-💡 Algorithmic Smart Insights — Discover meaningful patterns and trends in your habit tracking data.
+🎉 Custom Self-Rewards — Define your own rewards for your dedication to your goals.
 
-📝 Weekly & Annual Reviews — Structured reflections built right into your routine for continuous self-improvement.
+💡 Algorithmic Smart Insights — Get interesting insights into your tracking patterns.
 
-⏳ Time Capsules — Leave inspiring notes for your future self tied to key habit milestones.
+📝 Weekly & Annual Reviews — Structured reflections built right into your routine.
 
-🎨 Make It Yours — Fully customizable light & dark themes with dynamic accent color palettes.
+⏳ Time Capsules — Leave notes for your future self, tied to your habit history.
 
-💾 Flexible Local Backups — Complete data ownership with ZIP & JSON archive backups via Android's Storage Access Framework.
+🎨 Make It Yours — Choose light or dark mode with custom accent colors.
 
-📥 1-Click Habit Import — Seamlessly switch over from other habit trackers without losing your history.
+💾 Local JSON Backup & Restore — Full data ownership via Android's Storage Access Framework.
 
-⚡ Homescreen Widget — Check off habits and view live daily progress directly from your home screen.
+📥 1-Click Habit Import — Switch from other habit trackers without losing your history.
 
-🧬 Science-Backed Habit Strategies — Built on proven behavioral science principles to help you form habits that actually stick:
-   - 🔗 Habit Stacking — Chain new habits onto existing routines for effortless consistency.
-   - 📉 Minimum Viable Mode (Two-Minute Rule) — Set fallback targets for tough days to protect your momentum and never break the chain.
-   - 🎯 "Your Why" Anchoring — Tie every habit to your deeper personal motivations for lasting commitment.
+⚡ Homescreen Widget — Check off habits right from your home screen.
+
+🔒 100% Offline, No Ads, No Tracking — Everything stays strictly on your device.
 
 ---
 
