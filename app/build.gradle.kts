@@ -43,6 +43,7 @@ android {
 
   buildTypes {
     release {
+      vcsInfo.include = false
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
