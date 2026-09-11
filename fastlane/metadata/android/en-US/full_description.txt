@@ -9,39 +9,28 @@ It combines an ultra-modern interface, rich audio-visual feedback, and deep beha
 
 ✨ Key Features & Highlights
 
-📊 Deep Analytics & Time Views
-* Interactive Donut Charts: Instantly see your exact breakdown of Completed vs. Failed vs. Pending vs. Paused habits.
-* Score & Volume Trends: Track your completion rate (100-point scoring system) and cumulative progress (kilometers, pages, liters) across Weekly, Monthly, and Yearly views.
-* Yearly Heatmaps & Weekday Frequency: Spot activity patterns and consistency triggers over long horizons.
+🧠 Science-Based Habit Principles to build lasting habits — Habit Stacking, Minimum Viable Mode and more...
 
-🏆 Gamification & Extended Milestones
-* Scale Up to 1,000: Milestone achievements for Perfect Days and Total Completions now stretch up to 1,000!
-* Diamond Streaks & Trophies: Unlock exclusive diamond series and celebrate milestones with full-screen confetti.
-* Custom Self-Rewards: Set personalized real-world rewards for reaching key goals.
+🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
 
-📅 Interactive Reviews & Time Capsules
-* Performance Reflection: Generate automatic Monthly and Yearly reviews highlighting top streaks and areas for improvement.
-* Time Capsule for Your Future Self: Attach notes and memories inside your reviews, locked until future milestone dates.
+📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and much more...
 
-💡 Algorithmic Smart Insights
-* Behavior Pattern Recognition: Get automated, data-driven facts about your routines to boost accountability and understand your habits better.
+🏆 Trophies & Gold Series — Unlock achievements as your habits grow.
 
-🎨 App-Wide Customization & Material 3
-* Themes & Accent Colors: Toggle effortlessly between Light and Dark mode, paired with custom accent colors.
-* Modern UI: Smooth slide-in bottom sheets, clean navigation, and cohesive design across all screens.
+🎉 Custom Self-Rewards — Define your own rewards for your dedication to your goals.
 
-🎧 In-App Focus & Audio Timer
-* Timed or session-based habits (meditation, reading, deep work) paired with relaxing ambient soundscapes and instant completion chimes.
+💡 Algorithmic Smart Insights — Get interesting insights into your tracking patterns.
 
-📱 Redesigned Homescreen Widget
-* Check off daily tasks directly from your homescreen with zero latency and an automatic midnight reset.
+📝 Weekly & Annual Reviews — Structured reflections built right into your routine.
 
-🔄 Data Ownership & Easy Migration
-* 1-Click Import Suite: Seamlessly import backups from other habit trackers (like Loop Habit Tracker) or custom CSV files.
-* Local JSON Backups: Export and restore your data anytime using Android's Storage Access Framework (SAF).
+⏳ Time Capsules — Leave notes for your future self, tied to your habit history.
 
-🌐 Multilingual Support
-* 100% localized out-of-the-box in English, German, Georgian, and Simplified Chinese.
+🎨 Make It Yours — Choose light or dark mode with custom accent colors.
 
-🔒 100% Offline & Private
-* No ads, no user tracking, no mandatory accounts, and zero cloud lock-in. Your personal data stays strictly on your device.
+💾 Local JSON Backup & Restore — Full data ownership via Android's Storage Access Framework.
+
+📥 1-Click Habit Import — Switch from other habit trackers without losing your history.
+
+⚡ Homescreen Widget — Check off habits right from your home screen.
+
+🔒 100% Offline, No Ads, No Tracking — Everything stays strictly on your device.
