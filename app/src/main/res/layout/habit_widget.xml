@@ -1,68 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:orientation="vertical"
-    android:padding="12dp">
+    android:layout_height="match_parent">
 
-    <!-- Header Row: Daily progress bar on the left, Streak counter on the right -->
+    <ImageView
+        android:id="@+id/widget_bg_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY" />
+
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="10dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="14dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="10dp">
-
-            <ImageView
-                android:id="@+id/widget_progress_bar"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="fitXY" />
-        </FrameLayout>
-
+        <!-- Header Row: Daily progress bar on the left, Streak counter on the right -->
         <LinearLayout
-            android:id="@+id/widget_streak_container"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/widget_streak_bg"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
+            android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
-            
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🔥"
-                android:textSize="12sp" />
-                
-            <TextView
-                android:id="@+id/widget_streak_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textColor="#FF9800"
-                android:textStyle="bold"
-                android:textSize="13sp"
-                android:layout_marginStart="4dp" />
-        </LinearLayout>
-    </LinearLayout>
+            android:layout_marginBottom="10dp">
 
-    <!-- Scrollable Habits List -->
-    <ListView
-        android:id="@+id/widget_habits_list"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:divider="@android:color/transparent"
-        android:dividerHeight="6dp"
-        android:scrollbars="none" />
-</LinearLayout>
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="14dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="10dp">
+
+                <ImageView
+                    android:id="@+id/widget_progress_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitXY" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/widget_streak_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/widget_streak_bg"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                
+                <ImageView
+                    android:id="@+id/widget_streak_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_fire"
+                    android:scaleType="fitCenter" />
+                    
+                <TextView
+                    android:id="@+id/widget_streak_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0d"
+                    android:textColor="#E4E3EC"
+                    android:textStyle="bold"
+                    android:textSize="13sp"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Scrollable Habits List -->
+        <ListView
+            android:id="@+id/widget_habits_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:divider="@android:color/transparent"
+            android:dividerHeight="6dp"
+            android:scrollbars="none" />
+    </LinearLayout>
+</FrameLayout>

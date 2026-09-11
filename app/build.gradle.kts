@@ -19,8 +19,8 @@ android {
     applicationId = "com.frequent.habits"
     minSdk = 24
     targetSdk = 36
-    versionCode = 19
-    versionName = "2.2"
+    versionCode = 33
+    versionName = "2.3.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

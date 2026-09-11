@@ -11,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.HabitWidgetProvider
+import com.example.tr
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -27,15 +28,40 @@ import java.time.format.DateTimeFormatter
 import androidx.compose.runtime.Immutable
 
 class HabitsViewModel(application: Application) : AndroidViewModel(application) {
+    private var knownUnlockedAchievementIds: MutableSet<String>? = null
+    private val achievementQueue = kotlinx.coroutines.flow.MutableStateFlow<List<com.example.data.UnlockedAchievementInfo>>(emptyList())
+    private val _newlyUnlockedAchievement = kotlinx.coroutines.flow.MutableStateFlow<com.example.data.UnlockedAchievementInfo?>(null)
+    val newlyUnlockedAchievement: kotlinx.coroutines.flow.StateFlow<com.example.data.UnlockedAchievementInfo?> = _newlyUnlockedAchievement.asStateFlow()
+
+    private fun getTodayDateString(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
 
     private val sharedPrefs: SharedPreferences =
         application.getSharedPreferences("habits_settings", Context.MODE_PRIVATE)
 
     private val database = AppDatabase.getDatabase(application)
-    private val repository = HabitRepository(database.habitDao())
+    internal val repository = HabitRepository(database.habitDao())
 
     private val _pendingWidgetHabitId = MutableStateFlow<Int?>(null)
     val pendingWidgetHabitId: StateFlow<Int?> = _pendingWidgetHabitId.asStateFlow()
+
+    private val initialDismissedGoals = sharedPrefs.getStringSet("dismissed_goal_dialog_ids", emptySet())
+        ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+    private val _dismissedGoalIds = MutableStateFlow<Set<Int>>(initialDismissedGoals)
+    val dismissedGoalIds: StateFlow<Set<Int>> = _dismissedGoalIds.asStateFlow()
+
+    fun dismissGoalDialog(habitId: Int) {
+        val newSet = _dismissedGoalIds.value + habitId
+        _dismissedGoalIds.value = newSet
+        sharedPrefs.edit().putStringSet("dismissed_goal_dialog_ids", newSet.map { it.toString() }.toSet()).apply()
+    }
+
+    fun unDismissGoalDialog(habitId: Int) {
+        val newSet = _dismissedGoalIds.value - habitId
+        _dismissedGoalIds.value = newSet
+        sharedPrefs.edit().putStringSet("dismissed_goal_dialog_ids", newSet.map { it.toString() }.toSet()).apply()
+    }
 
     private val initialUserName = sharedPrefs.getString("user_name", "") ?: ""
     private val _userName = MutableStateFlow(if (initialUserName == "Inlitx") "" else initialUserName)
@@ -199,8 +225,16 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     // UI States
-    private val _selectedDate = MutableStateFlow(getTodayDateString())
+    internal val _selectedDate = MutableStateFlow(getTodayDateString())
     val selectedDate: StateFlow<String> = _selectedDate.asStateFlow()
+
+    // Tracks habit ID and timestamp of a habit actively completed by the user during this session
+    private val _justCompletedHabitEvent = MutableStateFlow<Pair<Int, Long>?>(null)
+    val justCompletedHabitEvent: StateFlow<Pair<Int, Long>?> = _justCompletedHabitEvent.asStateFlow()
+
+    fun recordHabitCompleted(habitId: Int) {
+        _justCompletedHabitEvent.value = Pair(habitId, System.currentTimeMillis())
+    }
 
     private val _language = MutableStateFlow(sharedPrefs.getString("language", "en") ?: "en")
     val language: StateFlow<String> = _language.asStateFlow()
@@ -210,6 +244,9 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _darkModeEnabled = MutableStateFlow(sharedPrefs.getBoolean("dark_mode_enabled", true))
     val darkModeEnabled: StateFlow<Boolean> = _darkModeEnabled.asStateFlow()
+
+    private val _widgetOpacity = MutableStateFlow(sharedPrefs.getFloat("widget_opacity", 1.0f))
+    val widgetOpacity: StateFlow<Float> = _widgetOpacity.asStateFlow()
 
     private val _vibrationEnabled = MutableStateFlow(sharedPrefs.getBoolean("vibration_enabled", true))
     val vibrationEnabled: StateFlow<Boolean> = _vibrationEnabled.asStateFlow()
@@ -225,6 +262,9 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _insightNotificationsEnabled = MutableStateFlow(sharedPrefs.getBoolean("insight_notifications_enabled", true))
     val insightNotificationsEnabled: StateFlow<Boolean> = _insightNotificationsEnabled.asStateFlow()
+
+    private val _smartInsightsInAppEnabled = MutableStateFlow(sharedPrefs.getBoolean("smart_insights_in_app_enabled", true))
+    val smartInsightsInAppEnabled: StateFlow<Boolean> = _smartInsightsInAppEnabled.asStateFlow()
 
     private val _monthlyReviewEnabled = MutableStateFlow(sharedPrefs.getBoolean("monthly_review_enabled", true))
     val monthlyReviewEnabled: StateFlow<Boolean> = _monthlyReviewEnabled.asStateFlow()
@@ -265,6 +305,35 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     private val _isAnalyzingCsv = MutableStateFlow(false)
     val isAnalyzingCsv = _isAnalyzingCsv.asStateFlow()
 
+    // Game Mode State: "STORY" vs "FREE"
+    private val _gameMode = MutableStateFlow(sharedPrefs.getString("game_mode", "FREE") ?: "FREE")
+    val gameMode: StateFlow<String> = _gameMode.asStateFlow()
+
+    private val _unlockedStorySlots = MutableStateFlow(sharedPrefs.getInt("unlocked_story_slots", 1))
+    val unlockedStorySlots: StateFlow<Int> = _unlockedStorySlots.asStateFlow()
+
+    fun setGameMode(mode: String, activeHabitCount: Int = 0) {
+        _gameMode.value = mode
+        sharedPrefs.edit().putString("game_mode", mode).apply()
+        if (mode == "STORY") {
+            val currentUnlocked = _unlockedStorySlots.value
+            if (activeHabitCount > currentUnlocked) {
+                setUnlockedStorySlots(activeHabitCount)
+            }
+        }
+    }
+
+    fun setUnlockedStorySlots(slots: Int) {
+        val count = slots.coerceAtLeast(1)
+        _unlockedStorySlots.value = count
+        sharedPrefs.edit().putInt("unlocked_story_slots", count).apply()
+    }
+
+    fun canCreateNewHabit(currentCount: Int): Boolean {
+        if (_gameMode.value == "FREE") return true
+        return currentCount < _unlockedStorySlots.value
+    }
+
     // Notification Reminder State
     private val _notificationsEnabled = MutableStateFlow(sharedPrefs.getBoolean("reminder_enabled", false))
     val notificationsEnabled = _notificationsEnabled.asStateFlow()
@@ -303,7 +372,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Selected habit for detail screen view
-    private val _selectedHabitIdForDetail = MutableStateFlow<Int?>(null)
+    internal val _selectedHabitIdForDetail = MutableStateFlow<Int?>(null)
     val selectedHabitIdForDetail: StateFlow<Int?> = _selectedHabitIdForDetail.asStateFlow()
 
     // Calendar month navigation offset
@@ -335,6 +404,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                 "de" -> Locale.GERMANY
                 "ka" -> Locale.forLanguageTag("ka")
                 "zh" -> Locale.SIMPLIFIED_CHINESE
+                "fr" -> Locale.FRANCE
                 else -> Locale.US
             }
             val dayNameFormatter = DateTimeFormatter.ofPattern("E", loc)
@@ -357,6 +427,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                     "de" -> "Heute"
                     "ka" -> "დღეს"
                     "zh" -> "今天"
+                    "fr" -> "Aujourd'hui"
                     else -> "Today"
                 }
             } else {
@@ -365,12 +436,14 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                     "de" -> Locale.GERMANY
                     "ka" -> Locale.forLanguageTag("ka")
                     "zh" -> Locale.SIMPLIFIED_CHINESE
+                    "fr" -> Locale.FRANCE
                     else -> Locale.US
                 }
                 val pattern = when (lang) {
                     "de" -> "d. MMMM"
                     "ka" -> "d MMMM"
                     "zh" -> "M月d日"
+                    "fr" -> "d MMMM"
                     else -> "MMMM d"
                 }
                 val formatter = DateTimeFormatter.ofPattern(pattern, loc)
@@ -455,12 +528,12 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             "WEEK" -> {
                 val targetMonday = today.minusDays((today.dayOfWeek.value - 1).toLong()).plusWeeks(coercedOffset.toLong())
                 val targetSunday = targetMonday.plusDays(6)
-                val formatter = DateTimeFormatter.ofPattern("d. MMM", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; else -> Locale.US })
+                val formatter = DateTimeFormatter.ofPattern("d. MMM", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "fr" -> Locale.FRANCE; else -> Locale.US })
                 "${targetMonday.format(formatter)} - ${targetSunday.format(formatter)} ${targetSunday.year}"
             }
             "MONTH" -> {
                 val targetMonthDate = today.withDayOfMonth(1).plusMonths(coercedOffset.toLong())
-                val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; else -> Locale.US })
+                val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "fr" -> Locale.FRANCE; else -> Locale.US })
                 targetMonthDate.format(formatter)
             }
             else -> {
@@ -634,19 +707,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             val isPaused = log != null && log.isPaused
             if (!isPaused) {
                 nonPausedActiveCount++
-                var isCompleted = isLogCompleted(habit, log)
-                if (!isCompleted && habit.frequency == "TIMES_WEEKLY") {
-                    val weeklyTargetCount = habit.specificDays.toIntOrNull() ?: 3
-                    val curDate = try { java.time.LocalDate.parse(date) } catch (e: Exception) { java.time.LocalDate.now() }
-                    val startOf7Days = curDate.minusDays(6).toString()
-                    val endOf7Days = curDate.toString()
-                    val weeklyLoggedCount = logs.filter { l ->
-                        l.habitId == habit.id && l.date >= startOf7Days && l.date <= endOf7Days && isLogCompleted(habit, l)
-                    }.size
-                    if (weeklyLoggedCount >= weeklyTargetCount) {
-                        isCompleted = true
-                    }
-                }
+                val isCompleted = isLogCompleted(habit, log)
                 if (isCompleted) {
                     completedCount++
                 }
@@ -674,26 +735,42 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         selectedDate
     ) { habits, logs, date ->
         val logsForDateMap = logs.filter { it.date == date }.associateBy { it.habitId }
-        val activeHabits = habits.filter { isHabitActiveOnDate(it, date) || logsForDateMap.containsKey(it.id) }
-        activeHabits.map { habit ->
+        val activeHabits = habits.filter { habit ->
+            val isCompletedInFuture = if (habit.isFinishable && habit.isCompletedGoal && habit.completedAt != null) {
+                val compDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(habit.completedAt))
+                date > compDateStr
+            } else {
+                false
+            }
+            !isCompletedInFuture && (isHabitActiveOnDate(habit, date) || logsForDateMap.containsKey(habit.id))
+        }
+        val mappedItems = activeHabits.map { habit ->
             val log = logsForDateMap[habit.id]
             val currentValue = log?.value ?: 0f
             val hasLog = log != null
             val isPaused = log?.isPaused == true
+            val isMinimalViable = log?.isMinimalViable == true
+            
+            val effectiveTargetValue = if (isMinimalViable && habit.type == "NUMBER" && habit.minimalViableValue != null) {
+                habit.minimalViableValue
+            } else {
+                habit.targetValue
+            }
             
             val status = when {
                 isPaused -> "PAUSED"
                 log == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
                 log.value == -1f -> "FAILED"
                 log.value == -2f -> "SUCCESS"
+                log.value == 0f -> if (habit.isNegative) "SUCCESS" else "PENDING"
                 else -> {
                     if (habit.type == "BINARY") {
                         if (habit.isNegative) "FAILED" else "SUCCESS"
                     } else {
                         if (habit.isNegative) {
-                            if (log.value >= habit.targetValue) "FAILED" else "PENDING"
+                            if (log.value >= effectiveTargetValue) "FAILED" else "PENDING"
                         } else {
-                            if (log.value >= habit.targetValue) "SUCCESS" else "PENDING"
+                            if (log.value >= effectiveTargetValue) "SUCCESS" else "PENDING"
                         }
                     }
                 }
@@ -708,17 +785,51 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             if (habit.frequency == "TIMES_WEEKLY") {
                 weeklyTargetCount = habit.specificDays.toIntOrNull() ?: 3
                 val curDate = try { java.time.LocalDate.parse(date) } catch (e: Exception) { java.time.LocalDate.now() }
-                val startOf7Days = curDate.minusDays(6).toString()
-                val endOf7Days = curDate.toString()
-                
-                weeklyLoggedCount = logs.filter { l ->
-                    l.habitId == habit.id && l.date >= startOf7Days && l.date <= endOf7Days && isLogCompleted(habit, l)
-                }.size
+                val startOf7Days = curDate.minusDays(6)
+                val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
+                val habitStartDate = try {
+                    java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L)).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                } catch (e: Exception) { curDate }
 
-                isWeeklyTargetReached = weeklyLoggedCount >= weeklyTargetCount
+                if (habit.isNegative) {
+                    val habitLogsMap = logs.filter { it.habitId == habit.id }.associateBy { it.date }
+                    var cleanInWindow = 0
+                    var pausedInWindow = 0
+                    for (d in 0..6) {
+                        val checkDate = startOf7Days.plusDays(d.toLong())
+                        if (!checkDate.isBefore(habitStartDate) && !checkDate.isAfter(curDate)) {
+                            val log = habitLogsMap[checkDate.toString()]
+                            if (log?.isPaused == true) {
+                                pausedInWindow++
+                            } else if (log == null || isLogCompleted(habit, log)) {
+                                cleanInWindow++
+                            }
+                        }
+                    }
+                    weeklyLoggedCount = cleanInWindow
+                    val adjustedTarget = (weeklyTargetCount - pausedInWindow).coerceAtLeast(1)
+                    isWeeklyTargetReached = weeklyLoggedCount >= adjustedTarget
+                } else {
+                    val startOf7DaysStr = startOf7Days.toString()
+                    val endOf7DaysStr = curDate.toString()
+                    val habitLogsInWindow = logs.filter { l ->
+                        l.habitId == habit.id && l.date >= startOf7DaysStr && l.date <= endOf7DaysStr
+                    }
+                    val pausedInWindow = habitLogsInWindow.count { it.isPaused }
+                    weeklyLoggedCount = habitLogsInWindow.count { !it.isPaused && isLogCompleted(habit, it) }
+                    val adjustedTarget = (weeklyTargetCount - pausedInWindow).coerceAtLeast(1)
+                    isWeeklyTargetReached = weeklyLoggedCount >= adjustedTarget
+                }
             }
 
             val (streakVal, _) = calculateStreak(habit, logs, targetDateStr = date)
+
+            val totalAchievedValue = if (habit.isFinishable) {
+                calculateTotalAchievedValue(habit, logs)
+            } else 0f
+
+            val isGoalTargetReached = habit.isFinishable && !habit.isCompletedGoal &&
+                (habit.totalTargetValue != null && totalAchievedValue >= habit.totalTargetValue)
 
             HabitUiItem(
                 habit = habit,
@@ -730,9 +841,40 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                 isWeeklyTargetReached = isWeeklyTargetReached,
                 weeklyLoggedCount = weeklyLoggedCount,
                 weeklyTargetCount = weeklyTargetCount,
-                streak = streakVal
+                streak = streakVal,
+                isMinimalViable = isMinimalViable,
+                totalAchievedValue = totalAchievedValue,
+                isGoalTargetReached = isGoalTargetReached
             )
         }
+
+        val itemsById = mappedItems.associateBy { it.habit.id }
+        val rootItems = mappedItems.filter { it.habit.stackedOnHabitId == null || !itemsById.containsKey(it.habit.stackedOnHabitId) }
+        val childrenMap = mappedItems.filter { it.habit.stackedOnHabitId != null && itemsById.containsKey(it.habit.stackedOnHabitId) }
+            .groupBy { it.habit.stackedOnHabitId!! }
+
+        val orderedItems = mutableListOf<HabitUiItem>()
+        fun addWithChildren(item: HabitUiItem) {
+            orderedItems.add(item)
+            childrenMap[item.habit.id]?.forEach { child ->
+                addWithChildren(child)
+            }
+        }
+
+        rootItems.forEach { root ->
+            addWithChildren(root)
+        }
+        
+        orderedItems
+    }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val masteredGoals: StateFlow<List<Habit>> = allHabits.map { habits ->
+        habits.filter { it.isFinishable && it.isCompletedGoal }
+            .sortedByDescending { it.completedAt ?: it.createdAt }
     }.flowOn(kotlinx.coroutines.Dispatchers.Default).stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -773,7 +915,15 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
     val profileStats: StateFlow<ProfileStats> = combine(allHabits, allLogs, perfectDaysStats) { habits, logs, perfectDaysState ->
         val totalGlobalCompletions = habits.sumOf { habit ->
-            getCompletedLogsCount(habit, logs, "ALL")
+            val compDateStr = habit.completedAt?.let {
+                java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(it))
+            }
+            val effectiveLogs = if (habit.isFinishable && habit.isCompletedGoal && compDateStr != null) {
+                logs.filter { it.date <= compDateStr }
+            } else {
+                logs
+            }
+            getCompletedLogsCount(habit, effectiveLogs, "ALL", referenceTimeMs = if (habit.isFinishable && habit.isCompletedGoal) habit.completedAt else null)
         }
 
         val unlockedCompletions = listOf(10, 50, 200, 500).count { totalGlobalCompletions >= it }
@@ -781,8 +931,16 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         val unlockedPerfectDays = listOf(7, 30, 100).count { perfectDaysStreak >= it }
 
         val habitStreaks = habits.map { habit ->
-            val (_, longestStreak) = calculateStreak(habit, logs)
-            val completions = getCompletedLogsCount(habit, logs, "ALL")
+            val compDateStr = habit.completedAt?.let {
+                java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(it))
+            }
+            val effectiveLogs = if (habit.isFinishable && habit.isCompletedGoal && compDateStr != null) {
+                logs.filter { it.date <= compDateStr }
+            } else {
+                logs
+            }
+            val (_, longestStreak) = calculateStreak(habit, effectiveLogs, targetDateStr = compDateStr)
+            val completions = getCompletedLogsCount(habit, effectiveLogs, "ALL", referenceTimeMs = if (habit.isFinishable && habit.isCompletedGoal) habit.completedAt else null)
             ProfileHabitStreak(habit, longestStreak, completions)
         }
 
@@ -796,8 +954,10 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             count
         }
 
-        val totalUnlockedCount = unlockedCompletions + unlockedPerfectDays + unlockedHabitStreaks
-        val totalPossibleCount = 4 + 3 + (habits.size * 4)
+        val unlockedMasteredGoals = habits.count { it.isFinishable && it.isCompletedGoal }
+        val finishableHabitsCount = habits.count { it.isFinishable }
+        val totalUnlockedCount = unlockedCompletions + unlockedPerfectDays + unlockedHabitStreaks + unlockedMasteredGoals
+        val totalPossibleCount = 4 + 3 + (habits.filter { !it.isCompletedGoal }.size * 4) + finishableHabitsCount
 
         ProfileStats(
             totalGlobalCompletions = totalGlobalCompletions,
@@ -814,6 +974,10 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = ProfileStats()
     )
+
+    init {
+        initAchievementObserver()
+    }
 
     val overallCalendarData: StateFlow<OverallCalendarData> = combine(allHabits, allLogs) { habits, logs ->
         val statusMap = mutableMapOf<String, String>()
@@ -847,7 +1011,15 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             while (cal.timeInMillis <= maxCal.timeInMillis) {
                 val dateStr = sdfDb.format(cal.time)
                 
-                val activeHabits = habits.filter { isHabitActiveOnDate(it, dateStr) }
+                val activeHabits = habits.filter { habit ->
+                    val isCompletedInFuture = if (habit.isFinishable && habit.isCompletedGoal && habit.completedAt != null) {
+                        val compDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(habit.completedAt))
+                        dateStr > compDateStr
+                    } else {
+                        false
+                    }
+                    !isCompletedInFuture && isHabitActiveOnDate(habit, dateStr)
+                }
                 if (activeHabits.isNotEmpty()) {
                     val logsMap = logs.filter { it.date == dateStr }.associateBy { it.habitId }
                     var completedCount = 0
@@ -874,7 +1046,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
 
                         if (!isPaused) {
                             nonPausedActiveCount++
-                            val isCompleted = isLogCompleted(habit, log) || (habit.frequency == "TIMES_WEEKLY" && isWeeklyTargetReached)
+                            val isCompleted = isLogCompleted(habit, log)
                             if (isCompleted) {
                                 completedCount++
                             }
@@ -889,9 +1061,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                     
                     progressMap[dateStr] = completedCount to nonPausedActiveCount
                     
-                    val combinedStatus = if (dateStr > todayStr) {
-                        "INACTIVE"
-                    } else {
+                    val combinedStatus = if (dateStr > todayStr) "INACTIVE" else {
                         when {
                             anyPending -> "PENDING"
                             anyFailed -> "FAILED"
@@ -937,13 +1107,13 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val statsDayNamesAndNumbers: StateFlow<Pair<List<String>, List<String>>> = language.map { lang ->
-        val sdfDayInitial = DateTimeFormatter.ofPattern("E", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "ka" -> Locale.forLanguageTag("ka"); else -> Locale.US })
+        val sdfDayInitial = DateTimeFormatter.ofPattern("E", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "ka" -> Locale.forLanguageTag("ka"); "fr" -> Locale.FRANCE; else -> Locale.US })
         val shortNames = mutableListOf<String>()
         val dayNums = mutableListOf<String>()
         val today = LocalDate.now()
         for (i in 0 until 7) {
             val d = today.minusDays(i.toLong())
-            shortNames.add(d.format(sdfDayInitial).take(2).uppercase(when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; else -> Locale.US }))
+            shortNames.add(d.format(sdfDayInitial).take(2).uppercase(when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "fr" -> Locale.FRANCE; else -> Locale.US }))
             dayNums.add(d.dayOfMonth.toString())
         }
         shortNames.reverse()
@@ -952,7 +1122,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     }.flowOn(kotlinx.coroutines.Dispatchers.Default)
      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), run {
          val lang = _language.value
-         val loc = when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "ka" -> Locale.forLanguageTag("ka"); else -> Locale.US }
+         val loc = when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "ka" -> Locale.forLanguageTag("ka"); "fr" -> Locale.FRANCE; else -> Locale.US }
          val sdfDayInitial = DateTimeFormatter.ofPattern("E", loc)
          val shortNames = mutableListOf<String>()
          val dayNums = mutableListOf<String>()
@@ -1032,7 +1202,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val heatmapMonthNameAndYear: StateFlow<String> = combine(heatmapMonthCalendar, language) { monthCal, lang ->
-        val sdfHeader = SimpleDateFormat("MMMM yyyy", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; else -> Locale.US })
+        val sdfHeader = SimpleDateFormat("MMMM yyyy", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "fr" -> Locale.FRANCE; else -> Locale.US })
         sdfHeader.format(monthCal.time)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
@@ -1166,7 +1336,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         language
     ) { yearGrid, lang ->
         val labels = mutableListOf<Pair<Int, String>>()
-        val sdfMonth = SimpleDateFormat("MMM", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; else -> Locale.US })
+        val sdfMonth = SimpleDateFormat("MMM", when (lang) { "de" -> Locale.GERMANY; "zh" -> Locale.SIMPLIFIED_CHINESE; "fr" -> Locale.FRANCE; else -> Locale.US })
         var lastAddedIndex = -10
         var lastMonthStr = ""
         
@@ -1196,6 +1366,12 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     val heatmapViewMode = _heatmapViewMode.asStateFlow()
     
     fun selectHeatmapCell(cell: CalendarGridCellData?) {
+        if (cell != null) {
+            val firstDate = firstHabitDateStr.value
+            if (firstDate != null && cell.dateStr < firstDate) {
+                return // Prevent selection of cells before first habit creation
+            }
+        }
         _selectedHeatmapCell.value = cell
     }
     
@@ -1228,11 +1404,13 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                 "de" -> Locale.GERMANY
                 "ka" -> Locale.forLanguageTag("ka")
                 "zh" -> Locale.SIMPLIFIED_CHINESE
+                "fr" -> Locale.FRANCE
                 else -> Locale.US
             }
             val pattern = when (lang) {
                 "de" -> "EEEE, d. MMMM yyyy"
                 "ka" -> "EEEE, d MMMM, yyyy"
+                "fr" -> "EEEE d MMMM yyyy"
                 else -> "EEEE, MMMM d, yyyy"
             }
             val formatter = java.time.format.DateTimeFormatter.ofPattern(pattern, loc)
@@ -1271,6 +1449,23 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         oldestMs
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), System.currentTimeMillis())
 
+    val firstHabitDateStr: StateFlow<String?> = combine(
+        allHabits,
+        archivedHabits
+    ) { active, archived ->
+        val habits = active + archived
+        if (habits.isEmpty()) {
+            null
+        } else {
+            val oldestMs = habits.map { if (it.startDate > 946684800000L) it.startDate else it.createdAt }.minOrNull()
+            if (oldestMs != null) {
+                SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(oldestMs))
+            } else {
+                null
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     val statsScreenData: StateFlow<List<HabitStatModel>> = combine(
         allHabits,
         allLogs,
@@ -1286,7 +1481,8 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         }
         daysList.reverse()
 
-        habits.map { habit ->
+        val activeHabits = habits.filter { !(it.isFinishable && it.isCompletedGoal) }
+        activeHabits.map { habit ->
             val habitLogs = logs.filter { it.habitId == habit.id }
             val logsByDate = habitLogs.associateBy { it.date }
             
@@ -1490,7 +1686,23 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         val startDate = Instant.ofEpochMilli(validStartMillis).atZone(ZoneId.systemDefault()).toLocalDate()
         val startSdfStr = startDate.toString()
 
-        val today = LocalDate.now()
+        val completedDateStr = habit.completedAt?.let {
+            java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(it))
+        }
+        val completedLocalDate = completedDateStr?.let {
+            try { java.time.LocalDate.parse(it) } catch (e: Exception) { null }
+        }
+
+        val useCompletedTime = habit.isFinishable && habit.isCompletedGoal && completedLocalDate != null
+        val effectiveLogs = if (useCompletedTime) {
+            logs.filter { it.date <= completedDateStr!! }
+        } else {
+            logs
+        }
+
+        val referenceToday = if (useCompletedTime) completedLocalDate!! else LocalDate.now()
+        val today = referenceToday
+
         val diffMonths = ChronoUnit.MONTHS.between(
             startDate.withDayOfMonth(1),
             today.withDayOfMonth(1)
@@ -1501,16 +1713,16 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         val canPrevMonth = actualOffset > minMonthOffset
         val canNextMonth = actualOffset < 0
 
-        val (currentStreak, longestStreak) = calculateStreak(habit, logs)
-        val strength = calculateHabitStrength(habit, logs)
-        val completionRate = calculateCompletionRate(habit, logs)
+        val (currentStreak, longestStreak) = calculateStreak(habit, effectiveLogs, targetDateStr = if (useCompletedTime) completedDateStr else null)
+        val strength = calculateHabitStrength(habit, effectiveLogs, todayStr = if (useCompletedTime) completedDateStr else null)
+        val completionRate = calculateCompletionRate(habit, effectiveLogs, todayStr = if (useCompletedTime) completedDateStr else null)
 
-        val thisWeekCount = getCompletedLogsCount(habit, logs, "WEEK")
-        val thisMonthCount = getCompletedLogsCount(habit, logs, "MONTH")
-        val thisYearCount = getCompletedLogsCount(habit, logs, "YEAR")
-        val totalCount = getCompletedLogsCount(habit, logs, "ALL")
+        val thisWeekCount = getCompletedLogsCount(habit, effectiveLogs, "WEEK", referenceTimeMs = if (useCompletedTime) habit.completedAt else null)
+        val thisMonthCount = getCompletedLogsCount(habit, effectiveLogs, "MONTH", referenceTimeMs = if (useCompletedTime) habit.completedAt else null)
+        val thisYearCount = getCompletedLogsCount(habit, effectiveLogs, "YEAR", referenceTimeMs = if (useCompletedTime) habit.completedAt else null)
+        val totalCount = getCompletedLogsCount(habit, effectiveLogs, "ALL", referenceTimeMs = if (useCompletedTime) habit.completedAt else null)
 
-        val habitLogs = logs.filter { it.habitId == habitId }
+        val habitLogs = effectiveLogs.filter { it.habitId == habitId }
         val logsByDate = habitLogs.associateBy { it.date }
 
         val targetMonthDate = today.withDayOfMonth(1).plusMonths(actualOffset.toLong())
@@ -1531,26 +1743,12 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             val dateStr = dateVal.toString()
             val log = logsByDate[dateStr]
             val isCompleted = isLogCompleted(habit, log)
-            val status = if (habit.frequency == "TIMES_WEEKLY") {
-                if (dateStr < startSdfStr || dateStr > todayStr) {
-                    "INACTIVE"
-                } else if (log != null && log.isPaused) {
-                    "PAUSED"
-                } else if (log != null && log.value == -1f) {
-                    "FAILED"
-                } else if (isCompleted) {
-                    "SUCCESS"
-                } else {
-                    "INACTIVE"
-                }
-            } else {
-                getLogStatus(habit, log, dateStr, startSdfStr, todayStr)
-            }
+            val status = getLogStatus(habit, log, dateStr, startSdfStr, todayStr)
             
             daysList.add(CalendarCellState(id = dateStr, dayNum = i.toString(), isCompleted = isCompleted, status = status))
         }
 
-        val targetStats = com.example.data.calculateTargetPeriodStats(habit, logs)
+        val targetStats = com.example.data.calculateTargetPeriodStats(habit, effectiveLogs)
 
         // 1. Calculate historical weekday frequency (0 = Mon, ..., 6 = Sun)
         val occurrences = IntArray(7)
@@ -1747,7 +1945,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     fun adjustDateAndWeekIfOutOfRange() {
         val minDate = getMinDateStr()
         val currentSelected = _selectedDate.value
-        if (currentSelected < minDate) {
+        if (currentSelected.compareTo(minDate) < 0) {
             _selectedDate.value = minDate
             val sdfDb = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             try {
@@ -1897,6 +2095,13 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         HabitWidgetProvider.triggerUpdate(getApplication())
     }
 
+    fun setWidgetOpacity(opacity: Float) {
+        val clamped = opacity.coerceIn(0f, 1f)
+        _widgetOpacity.value = clamped
+        sharedPrefs.edit().putFloat("widget_opacity", clamped).commit()
+        HabitWidgetProvider.triggerUpdate(getApplication())
+    }
+
     fun setVibrationEnabled(enabled: Boolean) {
         _vibrationEnabled.value = enabled
         sharedPrefs.edit().putBoolean("vibration_enabled", enabled).apply()
@@ -1936,6 +2141,11 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun setSmartInsightsInAppEnabled(enabled: Boolean) {
+        _smartInsightsInAppEnabled.value = enabled
+        sharedPrefs.edit().putBoolean("smart_insights_in_app_enabled", enabled).apply()
+    }
+
 
     fun setYearlyReviewEnabled(enabled: Boolean) {
         _yearlyReviewEnabled.value = enabled
@@ -1953,315 +2163,6 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         setOnboarded(false)
     }
 
-    // CRUD Habits
-    fun addHabit(
-        name: String,
-        category: String,
-        icon: String,
-        color: String,
-        isNegative: Boolean,
-        type: String,
-        unit: String,
-        targetValue: Float,
-        frequency: String,
-        startDate: Long,
-        specificDays: String = "",
-        reminderEnabled: Boolean = false,
-        reminderHour: Int = 18,
-        reminderMinute: Int = 0,
-        customReminders: String = "",
-        description: String = "",
-        clickIncrement: Float = 1.0f,
-        milestoneRewards: List<com.example.data.MilestoneReward> = emptyList()
-    ) {
-        viewModelScope.launch {
-            try {
-                val habit = Habit(
-                    name = name,
-                    category = category,
-                    icon = icon,
-                    color = color,
-                    isNegative = isNegative,
-                    type = type,
-                    unit = unit,
-                    targetValue = targetValue,
-                    frequency = frequency,
-                    startDate = startDate,
-                    specificDays = specificDays,
-                    reminderEnabled = reminderEnabled,
-                    reminderHour = reminderHour,
-                    reminderMinute = reminderMinute,
-                    customReminders = customReminders,
-                    description = description,
-                    clickIncrement = clickIncrement
-                )
-                val insertedId = repository.insertHabit(habit).toInt()
-                val finalHabit = habit.copy(id = insertedId)
-                
-                milestoneRewards.forEach { reward ->
-                    repository.insertMilestoneReward(reward.copy(habitId = insertedId))
-                }
-                
-                try {
-                    com.example.NotificationHelper.scheduleAllHabitReminders(
-                        getApplication(),
-                        finalHabit
-                    )
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-                try {
-                    HabitWidgetProvider.triggerUpdate(getApplication())
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun updateHabit(
-        habit: Habit,
-        milestoneRewards: List<com.example.data.MilestoneReward>? = null
-    ) {
-        viewModelScope.launch {
-            try {
-                val oldHabit = repository.getHabitByIdSuspend(habit.id)
-                if (oldHabit != null) {
-                    com.example.NotificationHelper.cancelAllHabitReminders(getApplication(), oldHabit)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            try {
-                repository.updateHabit(habit)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            if (milestoneRewards != null) {
-                try {
-                    val existing = repository.getAllMilestoneRewardsRaw().filter { it.habitId == habit.id }
-                    repository.deleteMilestoneRewardsForHabit(habit.id)
-                    milestoneRewards.forEach { reward ->
-                        val matchingExisting = existing.find {
-                            it.rewardText == reward.rewardText &&
-                            it.conditionType == reward.conditionType &&
-                            it.conditionValue == reward.conditionValue &&
-                            it.trophyId == reward.trophyId
-                        }
-                        val finalReward = reward.copy(
-                            id = 0,
-                            habitId = habit.id,
-                            isRedeemed = matchingExisting?.isRedeemed ?: reward.isRedeemed,
-                            unlockedAt = matchingExisting?.unlockedAt ?: reward.unlockedAt
-                        )
-                        repository.insertMilestoneReward(finalReward)
-                    }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            try {
-                com.example.NotificationHelper.scheduleAllHabitReminders(
-                    getApplication(),
-                    habit
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            try {
-                HabitWidgetProvider.triggerUpdate(getApplication())
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    fun deleteHabit(habit: Habit) {
-        viewModelScope.launch {
-            repository.deleteHabit(habit)
-            
-            // Clean up notes with no active habits
-            try {
-                val remainingHabits = repository.allHabits.first()
-                val allNotes = repository.allDailyNotes.first()
-                allNotes.forEach { note ->
-                    val hasActiveHabit = remainingHabits.any { isHabitActiveOnDate(it, note.date) }
-                    if (!hasActiveHabit) {
-                        repository.saveDailyNote(note.date, "")
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-
-            // Adjust current selected date and week start if they became out-of-bounds
-            adjustDateAndWeekIfOutOfRange()
-
-            com.example.NotificationHelper.cancelAllHabitReminders(
-                getApplication(),
-                habit
-            )
-            if (_selectedHabitIdForDetail.value == habit.id) {
-                _selectedHabitIdForDetail.value = null
-            }
-            // Trigger widget update
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
-    fun archiveHabit(habit: Habit) {
-        viewModelScope.launch {
-            val updated = habit.copy(isArchived = true)
-            repository.updateHabit(updated)
-            com.example.NotificationHelper.cancelAllHabitReminders(
-                getApplication(),
-                habit
-            )
-            // Trigger widget update
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
-    fun unarchiveHabit(habit: Habit) {
-        viewModelScope.launch {
-            val updated = habit.copy(isArchived = false)
-            repository.updateHabit(updated)
-            com.example.NotificationHelper.scheduleAllHabitReminders(
-                getApplication(),
-                updated
-            )
-            // Trigger widget update
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
-    fun moveHabitUp(habitId: Int) {
-        viewModelScope.launch {
-            val list = allHabits.value
-            val index = list.indexOfFirst { it.id == habitId }
-            if (index > 0) {
-                val updatedHabits = list.mapIndexed { idx, h ->
-                    h.copy(sortOrder = idx)
-                }.toMutableList()
-                
-                val temp = updatedHabits[index]
-                updatedHabits[index] = updatedHabits[index - 1].copy(sortOrder = index)
-                updatedHabits[index - 1] = temp.copy(sortOrder = index - 1)
-                
-                updatedHabits.forEach { h ->
-                    repository.updateHabit(h)
-                }
-                HabitWidgetProvider.triggerUpdate(getApplication())
-            }
-        }
-    }
-
-    fun moveHabitDown(habitId: Int) {
-        viewModelScope.launch {
-            val list = allHabits.value
-            val index = list.indexOfFirst { it.id == habitId }
-            if (index != -1 && index < list.size - 1) {
-                val updatedHabits = list.mapIndexed { idx, h ->
-                    h.copy(sortOrder = idx)
-                }.toMutableList()
-                
-                val temp = updatedHabits[index]
-                updatedHabits[index] = updatedHabits[index + 1].copy(sortOrder = index)
-                updatedHabits[index + 1] = temp.copy(sortOrder = index + 1)
-                
-                updatedHabits.forEach { h ->
-                    repository.updateHabit(h)
-                }
-                HabitWidgetProvider.triggerUpdate(getApplication())
-            }
-        }
-    }
-
-    fun revertHabitOrders(savedOrders: Map<Int, Int>) {
-        viewModelScope.launch {
-            val list = allHabits.value
-            list.forEach { h ->
-                val oldOrder = savedOrders[h.id]
-                if (oldOrder != null && h.sortOrder != oldOrder) {
-                    repository.updateHabit(h.copy(sortOrder = oldOrder))
-                }
-            }
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
-    // Log tracking
-    fun toggleBinaryHabit(habitId: Int, date: String, isCurrentlyCompleted: Boolean) {
-        viewModelScope.launch {
-            val habit = allHabits.value.find { it.id == habitId } ?: return@launch
-            val existingLogs = repository.getLogsForHabitOnDate(habitId, date)
-            val log = existingLogs.firstOrNull()
-
-            val currentStatus = when {
-                log == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
-                log.value == -1f -> "FAILED"
-                log.value == -2f -> "SUCCESS"
-                else -> {
-                    if (habit.type == "BINARY") {
-                        if (habit.isNegative) "FAILED" else "SUCCESS"
-                    } else {
-                        if (habit.isNegative) {
-                            if (log.value >= habit.targetValue) "FAILED" else "PENDING"
-                        } else {
-                            if (log.value >= habit.targetValue) "SUCCESS" else "PENDING"
-                        }
-                    }
-                }
-            }
-
-            val nextStatus = if (habit.isNegative) {
-                if (currentStatus == "SUCCESS") "FAILED" else "SUCCESS"
-            } else {
-                when (currentStatus) {
-                    "PENDING" -> "SUCCESS"
-                    "SUCCESS" -> "FAILED"
-                    else -> "PENDING"
-                }
-            }
-
-            if (nextStatus == "PENDING") {
-                repository.unlogHabit(habitId, date)
-            } else {
-                val nextValue = if (nextStatus == "SUCCESS") {
-                    if (habit.type == "BINARY") -2f else habit.targetValue
-                } else {
-                    -1f
-                }
-                repository.logHabit(habitId, date, nextValue)
-            }
-            // Refresh widget state
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
-    fun logNumericalHabit(habitId: Int, date: String, value: Float) {
-        viewModelScope.launch {
-            if (value == 0f) {
-                repository.unlogHabit(habitId, date)
-            } else {
-                repository.logHabit(habitId, date, value)
-            }
-            // Refresh widget state
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
-    fun togglePauseHabit(habitId: Int) {
-        viewModelScope.launch {
-            val date = _selectedDate.value
-            repository.togglePauseHabit(habitId, date)
-            // Refresh widget state
-            HabitWidgetProvider.triggerUpdate(getApplication())
-        }
-    }
-
     // Settings / WebDAV Setup
     // Backup & Restore
     fun saveBackupFolderUri(uri: String) {
@@ -2271,37 +2172,123 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             .apply()
         // Schedule work
         DailyBackupWorker.scheduleDailyBackup(getApplication())
-        _syncStatus.value = if (language.value == "de") "Sicherungsordner gespeichert! Täglicher Export ist aktiv." else "Backup folder saved! Daily export is active."
+        val lang = language.value
+        _syncStatus.value = when (lang) {
+            "de" -> "Sicherungsordner gespeichert! Täglicher Export ist aktiv."
+            "ka" -> "სარეზერვო საქაღალდე შენახულია! ყოველდღიური ექსპორტი აქტიურია."
+            "zh" -> "备份文件夹已保存！每日自动导出已启用。"
+            "fr" -> "Dossier de sauvegarde enregistré ! L'export quotidien est actif."
+            else -> "Backup folder saved! Daily export is active."
+        }
     }
 
     fun triggerManualBackup() {
         viewModelScope.launch {
-            _syncStatus.value = if (language.value == "de") "Sicherung wird erstellt..." else "Creating backup..."
+            val lang = language.value
+            _syncStatus.value = when (lang) {
+                "de" -> "Sicherung wird erstellt..."
+                "ka" -> "სარეზერვო ასლი იქმნება..."
+                "zh" -> "正在创建备份..."
+                "fr" -> "Création de la sauvegarde en cours..."
+                else -> "Creating backup..."
+            }
             val uriStr = _backupFolderUri.value
             if (uriStr.isEmpty()) {
-                _syncStatus.value = if (language.value == "de") "Fehler: Kein Ordner ausgewählt!" else "Error: No folder selected!"
+                _syncStatus.value = when (lang) {
+                    "de" -> "Fehler: Kein Ordner ausgewählt!"
+                    "ka" -> "შეცდომა: საქაღალდე არ არის არჩეული!"
+                    "zh" -> "错误：未选择文件夹！"
+                    "fr" -> "Erreur : Aucun dossier sélectionné !"
+                    else -> "Error: No folder selected!"
+                }
                 return@launch
             }
             val success = BackupManager.performBackup(getApplication(), uriStr)
             _syncStatus.value = if (success) {
-                if (language.value == "de") "Sicherung erfolgreich erstellt! 🎉" else "Backup created successfully! 🎉"
+                when (lang) {
+                    "de" -> "Sicherung erfolgreich erstellt! 🎉"
+                    "ka" -> "სარეზერვო ასლი წარმატებით შეიქმნა! 🎉"
+                    "zh" -> "备份创建成功！🎉"
+                    "fr" -> "Sauvegarde créée avec succès ! 🎉"
+                    else -> "Backup created successfully! 🎉"
+                }
             } else {
-                if (language.value == "de") "Fehler beim Erstellen der Sicherung!" else "Error creating backup!"
+                when (lang) {
+                    "de" -> "Fehler beim Erstellen der Sicherung!"
+                    "ka" -> "შეცდომა სარეზერვო ასლის შექმნისას!"
+                    "zh" -> "创建备份时出错！"
+                    "fr" -> "Erreur lors de la création de la sauvegarde !"
+                    else -> "Error creating backup!"
+                }
             }
+        }
+    }
+
+    fun triggerManualRestoreFromStream(inputStream: java.io.InputStream) {
+        viewModelScope.launch {
+            val lang = language.value
+            _syncStatus.value = when (lang) {
+                "de" -> "Daten werden wiederhergestellt..."
+                "ka" -> "მონაცემები აღდგება..."
+                "zh" -> "正在恢复数据..."
+                "fr" -> "Restauration des données en cours..."
+                else -> "Restoring data..."
+            }
+            val success = BackupManager.restoreDatabaseFromInputStream(getApplication(), inputStream)
+            if (success) {
+                reloadSettingsFromPrefs()
+            }
+            _syncStatus.value = if (success) {
+                when (lang) {
+                    "de" -> "Sicherung erfolgreich wiederhergestellt! 🎉"
+                    "ka" -> "სარეზერვო ასლი წარმატებით აღდგა! 🎉"
+                    "zh" -> "备份已成功恢复！🎉"
+                    "fr" -> "Sauvegarde restaurée avec succès ! 🎉"
+                    else -> "Backup successfully restored! 🎉"
+                }
+            } else {
+                when (lang) {
+                    "de" -> "Fehler bei der Wiederherstellung! Ungültige Datei."
+                    "ka" -> "შეცდომა აღდგენისას! არასწორი ფაილი."
+                    "zh" -> "恢复失败！无效的文件。"
+                    "fr" -> "Échec de la restauration ! Fichier invalide."
+                    else -> "Restore failed! Invalid file."
+                }
+            }
+            HabitWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
     fun triggerManualRestore(jsonString: String) {
         viewModelScope.launch {
-            _syncStatus.value = if (language.value == "de") "Daten werden wiederhergestellt..." else "Restoring data..."
+            val lang = language.value
+            _syncStatus.value = when (lang) {
+                "de" -> "Daten werden wiederhergestellt..."
+                "ka" -> "მონაცემები აღდგება..."
+                "zh" -> "正在恢复数据..."
+                "fr" -> "Restauration des données en cours..."
+                else -> "Restoring data..."
+            }
             val success = BackupManager.restoreDatabaseFromJson(getApplication(), jsonString)
             if (success) {
                 reloadSettingsFromPrefs()
             }
             _syncStatus.value = if (success) {
-                if (language.value == "de") "Sicherung erfolgreich wiederhergestellt! 🎉" else "Backup successfully restored! 🎉"
+                when (lang) {
+                    "de" -> "Sicherung erfolgreich wiederhergestellt! 🎉"
+                    "ka" -> "სარეზერვო ასლი წარმატებით აღდგა! 🎉"
+                    "zh" -> "备份已成功恢复！🎉"
+                    "fr" -> "Sauvegarde restaurée avec succès ! 🎉"
+                    else -> "Backup successfully restored! 🎉"
+                }
             } else {
-                if (language.value == "de") "Fehler bei der Wiederherstellung! Ungültige Datei." else "Error during restore! Invalid file."
+                when (lang) {
+                    "de" -> "Fehler bei der Wiederherstellung! Ungültige Datei."
+                    "ka" -> "შეცდომა აღდგენისას! არასწორი ფაილი."
+                    "zh" -> "恢复失败！无效的文件。"
+                    "fr" -> "Erreur lors de la restauration ! Fichier non valide."
+                    else -> "Error during restore! Invalid file."
+                }
             }
         }
     }
@@ -2328,6 +2315,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         _reviewNotificationsEnabled.value = sharedPrefs.getBoolean("notifications_enabled", true)
         _dismissedReviews.value = sharedPrefs.getStringSet("dismissed_reviews", emptySet()) ?: emptySet()
         _insightNotificationsEnabled.value = sharedPrefs.getBoolean("insight_notifications_enabled", true)
+        _smartInsightsInAppEnabled.value = sharedPrefs.getBoolean("smart_insights_in_app_enabled", true)
         _monthlyReviewEnabled.value = sharedPrefs.getBoolean("monthly_review_enabled", true)
         _yearlyReviewEnabled.value = sharedPrefs.getBoolean("yearly_review_enabled", true)
         _hasOnboarded.value = sharedPrefs.getBoolean("has_onboarded", false)
@@ -2358,10 +2346,21 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
             val success = com.example.data.CsvImporter.importDataToDatabase(getApplication(), preview, replaceExisting)
             _isAnalyzingCsv.value = false
             _csvPreviewState.value = null
+            val lang = language.value
             _syncStatus.value = if (success) {
-                if (language.value == "de") "CSV-Import erfolgreich! ${preview.habits.size} Gewohnheiten importiert. 🎉" else "CSV Import successful! ${preview.habits.size} habits imported. 🎉"
+                when (lang) {
+                    "de" -> "CSV-Import erfolgreich! ${preview.habits.size} Gewohnheiten importiert. 🎉"
+                    "ka" -> "CSV იმპორტი წარმატებულია! ${preview.habits.size} ჩვევა იმპორტირებულია. 🎉"
+                    "zh" -> "CSV 导入成功！已导入 ${preview.habits.size} 个习惯。🎉"
+                    else -> "CSV Import successful! ${preview.habits.size} habits imported. 🎉"
+                }
             } else {
-                if (language.value == "de") "Fehler beim CSV-Import!" else "Error during CSV import!"
+                when (lang) {
+                    "de" -> "Fehler beim CSV-Import!"
+                    "ka" -> "შეცდომა CSV იმპორტისას!"
+                    "zh" -> "CSV 导入失败！"
+                    else -> "Error during CSV import!"
+                }
             }
         }
     }
@@ -2409,496 +2408,64 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // STATS CALCULATION FUNCTIONS
-    fun calculateStreak(habit: Habit, logs: List<HabitLog>, targetDateStr: String? = null): Pair<Int, Int> {
-        // Return (currentStreak, longestStreak)
-        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-        val startSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val startSdfStr = startSdf.format(Date(validStartMillis))
+    fun calculateStreak(habit: Habit, logs: List<HabitLog>, targetDateStr: String? = null): Pair<Int, Int> =
+        HabitCalculationEngine.calculateStreak(habit, logs, targetDateStr)
 
-        val targetMaxDateStr = targetDateStr ?: "9999-12-31"
-        val habitLogs = logs.filter { it.habitId == habit.id && it.date >= startSdfStr && it.date <= targetMaxDateStr }
-        if (habitLogs.isEmpty() && !habit.isNegative) return 0 to 0
+    fun calculateTotalAchievedValue(habit: Habit, logs: List<HabitLog>): Float =
+        HabitCalculationEngine.calculateTotalAchievedValue(habit, logs)
 
-        val completedDates = mutableSetOf<String>()
-        val loggedDates = mutableSetOf<String>()
-        val pausedDates = mutableSetOf<String>()
-        habitLogs.forEach { log ->
-            if (log.isPaused) {
-                pausedDates.add(log.date)
-            }
-            val isCompleted = isLogCompleted(habit, log)
-            if (isCompleted && !log.isPaused) {
-                completedDates.add(log.date)
-            }
-            if (!log.isPaused) {
-                loggedDates.add(log.date)
-            }
-        }
+    fun completeFinishableGoal(habitId: Int, reflectionNote: String = "", claimReward: Boolean = false) {
+        viewModelScope.launch {
+            val habit = allHabits.value.find { it.id == habitId } ?: return@launch
+            val updated = habit.copy(
+                isCompletedGoal = true,
+                completedAt = System.currentTimeMillis(),
+                completionNote = reflectionNote.trim()
+            )
+            repository.updateHabit(updated)
 
-        if (habit.frequency == "TIMES_WEEKLY") {
-            val targetTimes = habit.specificDays.toIntOrNull() ?: 3
-            val today = if (targetDateStr != null) {
-                try { java.time.LocalDate.parse(targetDateStr) } catch (e: Exception) { java.time.LocalDate.now() }
-            } else java.time.LocalDate.now()
-            
-            val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-            val habitStartDate = try {
-                java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L))
-                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-            } catch (e: Exception) {
-                java.time.LocalDate.now()
+            // Unlock and optionally redeem any milestone rewards associated with this habit
+            val rewards = repository.getAllMilestoneRewardsRaw().filter { it.habitId == habitId }
+            rewards.forEach { reward ->
+                val updatedReward = reward.copy(
+                    unlockedAt = if (reward.unlockedAt > 0L) reward.unlockedAt else System.currentTimeMillis(),
+                    isRedeemed = if (claimReward) true else reward.isRedeemed
+                )
+                repository.updateMilestoneReward(updatedReward)
             }
 
-            if (habitStartDate.isAfter(today)) return 0 to 0
-
-            var longestStreak = 0
-            var tempStreak = 0
-            var currDate = habitStartDate
-            val daysSuccessMap = mutableMapOf<java.time.LocalDate, Boolean>()
-
-            while (!currDate.isAfter(today)) {
-                val startOf7Days = currDate.minusDays(6)
-                var completedInWindow = 0
-                var pausedInWindow = 0
-                for (d in 0..6) {
-                    val dayStr = startOf7Days.plusDays(d.toLong()).toString()
-                    if (completedDates.contains(dayStr)) completedInWindow++
-                    if (pausedDates.contains(dayStr)) pausedInWindow++
-                }
-                val adjustedTarget = (targetTimes - pausedInWindow).coerceAtLeast(1)
-                val isSuccess = completedInWindow >= adjustedTarget
-                daysSuccessMap[currDate] = isSuccess
-
-                if (isSuccess) {
-                    tempStreak++
-                    if (tempStreak > longestStreak) longestStreak = tempStreak
-                } else {
-                    if (currDate != today) {
-                        tempStreak = 0
-                    }
-                }
-                currDate = currDate.plusDays(1)
-            }
-
-            // Calculate current streak backwards from today (or yesterday if today is not yet met)
-            var currentStreak = 0
-            val startFrom = if (daysSuccessMap[today] == true) today else today.minusDays(1)
-            var checkDate = startFrom
-            while (!checkDate.isBefore(habitStartDate) && daysSuccessMap[checkDate] == true) {
-                currentStreak++
-                checkDate = checkDate.minusDays(1)
-            }
-
-            return currentStreak to longestStreak
-        }
-
-        if (habit.isNegative && loggedDates.isEmpty() && validStartMillis >= System.currentTimeMillis()) return 0 to 0
-
-        val actualTodayEpoch = millisToEpochDays(System.currentTimeMillis())
-        val targetEpoch = if (targetDateStr != null) dateToEpochDaysFast(targetDateStr) else actualTodayEpoch
-        val todayEpoch = targetEpoch.coerceAtMost(actualTodayEpoch)
-        val startEpoch = millisToEpochDays(validStartMillis)
-
-        if (startEpoch > todayEpoch) return 0 to 0
-
-        val completedEpochDays = completedDates.map { dateToEpochDaysFast(it) }.toSet()
-        val loggedEpochDays = loggedDates.map { dateToEpochDaysFast(it) }.toSet()
-        val pausedEpochDays = pausedDates.map { dateToEpochDaysFast(it) }.toSet()
-
-        val getDayStr = { ep: Int ->
-            val localDate = java.time.LocalDate.ofEpochDay(ep.toLong())
-            String.format(Locale.US, "%04d-%02d-%02d", localDate.year, localDate.monthValue, localDate.dayOfMonth)
-        }
-
-        var longest = 0
-        var tempStreak = 0
-
-        for (d in startEpoch..todayEpoch) {
-            val dStr = getDayStr(d)
-            if (!isHabitActiveOnDate(habit, dStr) || pausedEpochDays.contains(d)) {
-                continue
-            }
-
-            val successful = if (habit.isNegative) {
-                !loggedEpochDays.contains(d) || completedEpochDays.contains(d)
-            } else {
-                completedEpochDays.contains(d)
-            }
-
-            if (successful) {
-                tempStreak++
-                if (tempStreak > longest) longest = tempStreak
-            } else {
-                tempStreak = 0
-            }
-        }
-
-        // Current streak backwards
-        var currentStreak = 0
-        var cursor = todayEpoch
-        var continueChecking = true
-
-        while (continueChecking && cursor >= startEpoch) {
-            val dStr = getDayStr(cursor)
-            if (!isHabitActiveOnDate(habit, dStr) || pausedEpochDays.contains(cursor)) {
-                cursor--
-                continue
-            }
-
-            val successful = if (habit.isNegative) {
-                !loggedEpochDays.contains(cursor) || completedEpochDays.contains(cursor)
-            } else {
-                completedEpochDays.contains(cursor)
-            }
-
-            if (successful) {
-                currentStreak++
-                cursor--
-            } else {
-                if (cursor == todayEpoch) {
-                    // Check yesterday (and skip inactive days)
-                    var prev = cursor - 1
-                    var prevStr = getDayStr(prev)
-                    while (prev >= startEpoch && (!isHabitActiveOnDate(habit, prevStr) || pausedEpochDays.contains(prev))) {
-                        prev--
-                        if (prev >= startEpoch) {
-                            prevStr = getDayStr(prev)
-                        }
-                    }
-                    
-                    val yesterdaySuccessful = if (prev >= startEpoch) {
-                        if (habit.isNegative) {
-                            !loggedEpochDays.contains(prev) || completedEpochDays.contains(prev)
-                        } else {
-                            completedEpochDays.contains(prev)
-                        }
-                    } else {
-                        false
-                    }
-
-                    if (yesterdaySuccessful && prev >= startEpoch) {
-                        cursor = prev
-                    } else {
-                        continueChecking = false
-                    }
-                } else {
-                    continueChecking = false
-                }
-            }
-        }
-
-        return currentStreak to longest
-    }
-
-    fun calculateTotalStrength(habits: List<Habit>, logs: List<HabitLog>): Int {
-        if (habits.isEmpty()) return 0
-        // Calculate average strength score of all habits
-        val strengths = habits.map { calculateHabitStrength(it, logs) }
-        return strengths.average().toInt().coerceIn(0, 100)
-    }
-
-    fun calculateHabitStrength(habit: Habit, logs: List<HabitLog>): Int {
-        return com.example.data.calculateHabitStrength(habit, logs)
-    }
-
-    fun calculateCompletionRate(habit: Habit, logs: List<HabitLog>): Int {
-        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-        val startSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val startSdfStr = startSdf.format(Date(validStartMillis))
-
-        val habitLogs = logs.filter { it.habitId == habit.id && it.date >= startSdfStr }
-        
-        val completedEpochDays = habitLogs.filter { log ->
-            isLogCompleted(habit, log)
-        }.map { dateToEpochDaysFast(it.date) }.toSet()
-        
-        if (habit.frequency == "TIMES_WEEKLY") {
-            val targetTimes = habit.specificDays.toIntOrNull() ?: 3
-            val today = java.time.LocalDate.now()
-            val habitStartDate = try {
-                java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L))
-                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-            } catch (e: Exception) {
-                today
-            }
-
-            if (habitStartDate.isAfter(today)) return 0
-
-            var weekMonday = habitStartDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-            val currentWeekMonday = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
-
-            var totalExpectedCompletions = 0
-            var safetyCount = 0
-            while (!weekMonday.isAfter(currentWeekMonday) && safetyCount < 2000) {
-                safetyCount++
-                totalExpectedCompletions += targetTimes
-                weekMonday = weekMonday.plusWeeks(1)
-            }
-
-            if (totalExpectedCompletions == 0) return 0
-            val completedCount = habitLogs.filter { log ->
-                isLogCompleted(habit, log)
-            }.size
-            return (completedCount.toFloat() / totalExpectedCompletions.toFloat() * 100).toInt().coerceIn(0, 100)
-        }
-        
-        val loggedEpochDays = habitLogs.map { dateToEpochDaysFast(it.date) }.toSet()
-
-        val todayEpoch = millisToEpochDays(System.currentTimeMillis())
-        val startEpoch = millisToEpochDays(validStartMillis)
-
-        if (startEpoch > todayEpoch) return 0
-
-        var completedDays = 0
-        val totalDays = todayEpoch - startEpoch + 1
-
-        for (d in startEpoch..todayEpoch) {
-            val successful = if (habit.isNegative) {
-                !loggedEpochDays.contains(d) || completedEpochDays.contains(d)
-            } else {
-                completedEpochDays.contains(d)
-            }
-            if (successful) completedDays++
-        }
-
-        return if (totalDays > 0) {
-            (completedDays.toFloat() / totalDays.toFloat() * 100).toInt().coerceIn(0, 100)
-        } else {
-            0
+            HabitWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
-    fun getCompletedLogsCount(habit: Habit, logs: List<HabitLog>, period: String): Int {
-        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-        val startSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val startSdfStr = startSdf.format(Date(validStartMillis))
-
-        val habitLogs = logs.filter { it.habitId == habit.id && it.date >= startSdfStr }
-        val cal = Calendar.getInstance()
-        val limit = when (period) {
-            "WEEK" -> {
-                cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                cal.timeInMillis
-            }
-            "MONTH" -> {
-                cal.set(Calendar.DAY_OF_MONTH, 1)
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                cal.timeInMillis
-            }
-            "YEAR" -> {
-                cal.set(Calendar.DAY_OF_YEAR, 1)
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                cal.timeInMillis
-            }
-            else -> 0L
-        }
-
-        if (!habit.isNegative) {
-            return habitLogs.count { log ->
-                val logTime = parseDateStringToMillis(log.date)
-                logTime >= limit && isLogCompleted(habit, log)
-            }
-        } else {
-            val startEpoch = millisToEpochDays(validStartMillis)
-            val todayEpoch = millisToEpochDays(System.currentTimeMillis())
-            val limitEpoch = if (limit > 0L) millisToEpochDays(limit) else startEpoch
-            
-            val searchStart = maxOf(startEpoch, limitEpoch)
-            if (searchStart > todayEpoch) return 0
-
-            val completedEpochDays = habitLogs.filter { log ->
-                isLogCompleted(habit, log)
-            }.map { dateToEpochDaysFast(it.date) }.toSet()
-
-            val loggedEpochDays = habitLogs.map { dateToEpochDaysFast(it.date) }.toSet()
-
-            var completedDays = 0
-            val getDayStr = { ep: Int ->
-                val localDate = java.time.LocalDate.ofEpochDay(ep.toLong())
-                String.format(Locale.US, "%04d-%02d-%02d", localDate.year, localDate.monthValue, localDate.dayOfMonth)
-            }
-
-            for (d in searchStart..todayEpoch) {
-                val dStr = getDayStr(d)
-                if (!isHabitActiveOnDate(habit, dStr)) {
-                    continue
-                }
-                val successful = !loggedEpochDays.contains(d) || completedEpochDays.contains(d)
-                if (successful) {
-                    completedDays++
-                }
-            }
-            return completedDays
+    fun restartFinishableGoal(habitId: Int, newTotalTarget: Float? = null) {
+        viewModelScope.launch {
+            unDismissGoalDialog(habitId)
+            val habit = allHabits.value.find { it.id == habitId } ?: return@launch
+            val updated = habit.copy(
+                isCompletedGoal = false,
+                completedAt = null,
+                totalTargetValue = newTotalTarget ?: habit.totalTargetValue
+            )
+            repository.updateHabit(updated)
+            HabitWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
-    // Helper functions for dates
-    private fun getTodayDateString(): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        return sdf.format(Date())
-    }
+    fun calculateTotalStrength(habits: List<Habit>, logs: List<HabitLog>): Int =
+        HabitCalculationEngine.calculateTotalStrength(habits, logs)
 
-    fun calculatePerfectDaysStats(habits: List<Habit>, logs: List<HabitLog>, targetDateStr: String? = null): PerfectDaysStats {
-        if (habits.isEmpty()) return PerfectDaysStats(0, 0, 0, 0)
+    fun calculateHabitStrength(habit: Habit, logs: List<HabitLog>, todayStr: String? = null): Int =
+        HabitCalculationEngine.calculateHabitStrength(habit, logs, todayStr)
 
-        val actualTodayEpoch = millisToEpochDays(System.currentTimeMillis())
-        val targetEpoch = if (targetDateStr != null) dateToEpochDaysFast(targetDateStr) else actualTodayEpoch
-        val todayEpoch = targetEpoch.coerceAtMost(actualTodayEpoch)
-        
-        // Oldest start epoch
-        var oldestStartEpoch = todayEpoch
-        habits.forEach { habit ->
-            val validStartMillis = if (habit.startDate > 946684800000L) {
-                habit.startDate
-            } else if (habit.createdAt > 946684800000L) {
-                habit.createdAt
-            } else {
-                System.currentTimeMillis()
-            }
-            val startEpoch = millisToEpochDays(validStartMillis)
-            if (startEpoch < oldestStartEpoch) {
-                oldestStartEpoch = startEpoch
-            }
-        }
+    fun calculateCompletionRate(habit: Habit, logs: List<HabitLog>, todayStr: String? = null): Int =
+        HabitCalculationEngine.calculateCompletionRate(habit, logs, todayStr)
 
-        if (todayEpoch - oldestStartEpoch > 365) {
-            oldestStartEpoch = todayEpoch - 365
-        }
+    fun getCompletedLogsCount(habit: Habit, logs: List<HabitLog>, period: String, referenceTimeMs: Long? = null): Int =
+        HabitCalculationEngine.getCompletedLogsCount(habit, logs, period, referenceTimeMs)
 
-        if (oldestStartEpoch > todayEpoch) return PerfectDaysStats(0, 0, 0, 0)
-
-        // Pre-group logs by date for fast lookup
-        val logsByDateAndHabit = logs.groupBy { it.date }.mapValues { entry ->
-            entry.value.associateBy { it.habitId }
-        }
-
-        var totalPerfectDays = 0
-        var perfectDaysStreak = 0
-        var currentPerfectStreak = 0
-
-        var totalCompletedCompletions = 0
-        var totalPossibleCompletions = 0
-
-        for (epochDay in oldestStartEpoch..todayEpoch) {
-            val date = java.time.LocalDate.ofEpochDay(epochDay.toLong())
-            val dateStr = String.format(Locale.US, "%04d-%02d-%02d", date.year, date.monthValue, date.dayOfMonth)
-            val dateMillis = date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-            val activeHabits = habits.filter { habit ->
-                isHabitActiveOnDate(habit, dateStr)
-            }
-
-            if (activeHabits.isEmpty()) {
-                continue
-            }
-
-            val dayLogs = logsByDateAndHabit[dateStr] ?: emptyMap()
-            var allCompletedThisDay = true
-            var checkedAnyOnDay = false
-
-            activeHabits.forEach { habit ->
-                if (habit.frequency == "TIMES_WEEKLY") {
-                    return@forEach
-                }
-                val log = dayLogs[habit.id]
-                val isPaused = log != null && log.isPaused
-                if (!isPaused) {
-                    checkedAnyOnDay = true
-                    totalPossibleCompletions++
-                    val successful = if (log != null) {
-                        when (log.value) {
-                            -1f -> false
-                            -2f -> true
-                            else -> {
-                                if (habit.type == "BINARY") {
-                                    if (habit.isNegative) false else true
-                                } else {
-                                    if (habit.isNegative) log.value < habit.targetValue else log.value >= habit.targetValue
-                                }
-                            }
-                        }
-                    } else {
-                        habit.isNegative
-                    }
-
-                    if (successful) {
-                        totalCompletedCompletions++
-                    } else {
-                        allCompletedThisDay = false
-                    }
-                }
-            }
-
-            if (checkedAnyOnDay && allCompletedThisDay) {
-                totalPerfectDays++
-                currentPerfectStreak++
-                if (currentPerfectStreak > perfectDaysStreak) {
-                    perfectDaysStreak = currentPerfectStreak
-                }
-            } else if (checkedAnyOnDay) {
-                if (epochDay < actualTodayEpoch) {
-                    currentPerfectStreak = 0
-                }
-            }
-        }
-
-        val completionRate = if (totalPossibleCompletions > 0) {
-            (totalCompletedCompletions.toFloat() / totalPossibleCompletions.toFloat() * 100).toInt().coerceIn(0, 100)
-        } else {
-            0
-        }
-
-        return PerfectDaysStats(
-            totalPerfectDays = totalPerfectDays,
-            perfectDaysStreak = perfectDaysStreak,
-            currentStreak = currentPerfectStreak,
-            totalCompletedHabits = totalCompletedCompletions,
-            totalCompletionRate = completionRate
-        )
-    }
-
-    private val dateToMillisCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
-
-    private fun parseDateStringToMillis(dateStr: String): Long {
-        return dateToMillisCache.getOrPut(dateStr) {
-            try {
-                val parts = dateStr.split("-")
-                if (parts.size == 3) {
-                    val year = parts[0].toInt()
-                    val month = parts[1].toInt()
-                    val day = parts[2].toInt()
-                    val localDate = java.time.LocalDate.of(year, month, day)
-                    localDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-                } else {
-                    System.currentTimeMillis()
-                }
-            } catch (e: Exception) {
-                try {
-                    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                    sdf.parse(dateStr)?.time ?: System.currentTimeMillis()
-                } catch (ex: Exception) {
-                    System.currentTimeMillis()
-                }
-            }
-        }
-    }
-
-    // Achievement Unlocked Popup State
-    private val achievementQueue = MutableStateFlow<List<com.example.data.UnlockedAchievementInfo>>(emptyList())
-    private val _newlyUnlockedAchievement = MutableStateFlow<com.example.data.UnlockedAchievementInfo?>(null)
-    val newlyUnlockedAchievement: StateFlow<com.example.data.UnlockedAchievementInfo?> = _newlyUnlockedAchievement.asStateFlow()
-
-    private var knownUnlockedAchievementIds: MutableSet<String>? = null
+    fun calculatePerfectDaysStats(habits: List<Habit>, logs: List<HabitLog>, targetDateStr: String? = null): PerfectDaysStats =
+        HabitCalculationEngine.calculatePerfectDaysStats(habits, logs, targetDateStr)
 
     private fun initAchievementObserver() {
         viewModelScope.launch {
@@ -2939,7 +2506,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
 
-                val currentUnlocked = calculateUnlockedAchievementsList(stats, lang, rewards)
+                val currentUnlocked = AchievementEvaluator.calculateUnlockedAchievementsList(stats, lang, rewards)
                 val currentIds = currentUnlocked.map { it.id }.toSet()
 
                 if (knownUnlockedAchievementIds == null) {
@@ -2962,7 +2529,7 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
                     val updatedQueue = achievementQueue.value + newlyUnlocked
                     achievementQueue.value = updatedQueue
                     if (_newlyUnlockedAchievement.value == null) {
-                        _newlyUnlockedAchievement.value = updatedQueue.firstOrNull()
+                        _newlyUnlockedAchievement.value = if (updatedQueue.isNotEmpty()) updatedQueue[0] else null
                     }
                 }
             }
@@ -2974,218 +2541,9 @@ class HabitsViewModel(application: Application) : AndroidViewModel(application) 
         if (currentQueue.isNotEmpty()) {
             val nextQueue = currentQueue.drop(1)
             achievementQueue.value = nextQueue
-            _newlyUnlockedAchievement.value = nextQueue.firstOrNull()
+            _newlyUnlockedAchievement.value = if (nextQueue.isNotEmpty()) nextQueue[0] else null
         } else {
             _newlyUnlockedAchievement.value = null
-        }
-    }
-
-    private fun calculateUnlockedAchievementsList(
-        stats: com.example.data.ProfileStats,
-        lang: String,
-        rewards: List<MilestoneReward> = emptyList()
-    ): List<com.example.data.UnlockedAchievementInfo> {
-        val list = mutableListOf<com.example.data.UnlockedAchievementInfo>()
-
-        // Helper to find reward text
-        fun getRewardText(trophyId: String, habitId: Int? = null): String? {
-            return rewards.find { it.conditionType == "TROPHY_COUPLED" && it.trophyId == trophyId && (habitId == null || it.habitId == habitId) }?.rewardText
-        }
-
-        // Global Completions
-        val totalGlobalCompletions = stats.totalGlobalCompletions
-        if (totalGlobalCompletions >= 10) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "COMP_10",
-                type = "COMPLETIONS",
-                tier = "COMP_10",
-                title = if (lang == "de") "Erster Schritt" else if (lang == "ka") "პირველი ნაბიჯი" else if (lang == "zh") "第一步" else "First Step",
-                description = if (lang == "de") "Trage insgesamt 10 Erledigungen ein." else if (lang == "ka") "ჩაწერეთ სულ 10 შესრულება." else if (lang == "zh") "记录累计 10 次完成。" else "Log a total of 10 completions across all habits."
-            ))
-        }
-        if (totalGlobalCompletions >= 50) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "COMP_50",
-                type = "COMPLETIONS",
-                tier = "COMP_50",
-                title = if (lang == "de") "Gewohnheits-Routine" else if (lang == "ka") "ჩვევის რუტინა" else if (lang == "zh") "习惯养成" else "Habit Routine",
-                description = if (lang == "de") "Trage insgesamt 50 Erledigungen ein." else if (lang == "ka") "ჩაწერეთ სულ 50 შესრულება." else if (lang == "zh") "记录累计 50 次完成。" else "Log a total of 50 completions across all habits."
-            ))
-        }
-        if (totalGlobalCompletions >= 200) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "COMP_200",
-                type = "COMPLETIONS",
-                tier = "COMP_200",
-                title = if (lang == "de") "Eiserner Wille" else if (lang == "ka") "რკინის ნებისყოფა" else if (lang == "zh") "钢铁意志" else "Iron Will",
-                description = if (lang == "de") "Trage insgesamt 200 Erledigungen ein." else if (lang == "ka") "ჩაწერეთ სულ 200 შესრულება." else if (lang == "zh") "记录累计 200 次完成。" else "Log a total of 200 completions across all habits."
-            ))
-        }
-        if (totalGlobalCompletions >= 500) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "COMP_500",
-                type = "COMPLETIONS",
-                tier = "COMP_500",
-                title = if (lang == "de") "Lebensstil-Transformation" else if (lang == "ka") "ცხოვრების ტრანსფორმაცია" else if (lang == "zh") "生活蜕变" else "Lifestyle Transformation",
-                description = if (lang == "de") "Trage insgesamt 500 Erledigungen ein." else if (lang == "ka") "ჩაწერეთ სულ 500 შესრულება." else if (lang == "zh") "记录累计 500 次完成。" else "Log a total of 500 completions across all habits."
-            ))
-        }
-
-        // Perfect Days
-        val perfectDaysStreak = stats.perfectDaysStreak
-        if (perfectDaysStreak >= 7) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "PERF_7",
-                type = "PERFECT_DAYS",
-                tier = "PERF_7",
-                title = if (lang == "de") "Perfekte Woche" else if (lang == "ka") "სრულყოფილი კვირა" else if (lang == "zh") "完美周" else "Perfect Week",
-                description = if (lang == "de") "Erreiche eine Serie von 7 perfekten Tagen am Stück." else if (lang == "ka") "მიაღწიეთ 7 სრულყოფილი დღის სერიას." else if (lang == "zh") "连续达成 7 个完美天。" else "Achieve a streak of 7 consecutive perfect days."
-            ))
-        }
-        if (perfectDaysStreak >= 30) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "PERF_30",
-                type = "PERFECT_DAYS",
-                tier = "PERF_30",
-                title = if (lang == "de") "Perfekter Monat" else if (lang == "ka") "სრულყოფილი თვე" else if (lang == "zh") "完美月" else "Perfect Month",
-                description = if (lang == "de") "Erreiche eine Serie von 30 perfekten Tagen am Stück." else if (lang == "ka") "მიაღწიეთ 30 სრულყოფილი დღის სერიას." else if (lang == "zh") "连续达成 30 个完美天。" else "Achieve a streak of 30 consecutive perfect days."
-            ))
-        }
-        if (perfectDaysStreak >= 100) {
-            list.add(com.example.data.UnlockedAchievementInfo(
-                id = "PERF_100",
-                type = "PERFECT_DAYS",
-                tier = "PERF_100",
-                title = if (lang == "de") "Perfektion" else if (lang == "ka") "სრულყოფილება" else if (lang == "zh") "完美极致" else "Perfection",
-                description = if (lang == "de") "Erreiche eine Serie von 100 perfekten Tagen am Stück." else if (lang == "ka") "მიაღწიეთ 100 სრულყოფილი დღის სერიას." else if (lang == "zh") "连续达成 100 个完美天。" else "Achieve a streak of 100 consecutive perfect days."
-            ))
-        }
-
-        // Individual Habit Streaks
-        stats.habitStreaks.forEach { streakInfo ->
-            val habit = streakInfo.habit
-            val streak = streakInfo.longestStreak
-            if (streak >= 7) {
-                list.add(com.example.data.UnlockedAchievementInfo(
-                    id = "STREAK_${habit.id}_7",
-                    type = "STREAK",
-                    tier = "WOOD",
-                    title = if (lang == "de") "${habit.name}: Holz-Streak" else if (lang == "ka") "${habit.name}: ხის სერია" else if (lang == "zh") "${habit.name}：木质连续" else "${habit.name}: Wood Streak",
-                    description = if (lang == "de") "7 Tage Serie erreicht!" else if (lang == "ka") "7 დღის სერია მიღწეულია!" else if (lang == "zh") "达成 7 天连续！" else "Reached a 7-day streak!",
-                    habitName = habit.name,
-                    habitColor = habit.color,
-                    habitIcon = habit.icon
-                ))
-            }
-            if (streak >= 14) {
-                list.add(com.example.data.UnlockedAchievementInfo(
-                    id = "STREAK_${habit.id}_14",
-                    type = "STREAK",
-                    tier = "BRONZE",
-                    title = if (lang == "de") "${habit.name}: Bronze-Streak" else if (lang == "ka") "${habit.name}: ბრინჯაოს სერია" else if (lang == "zh") "${habit.name}：青铜连续" else "${habit.name}: Bronze Streak",
-                    description = if (lang == "de") "14 Tage Serie erreicht!" else if (lang == "ka") "14 დღის სერია მიღწეულია!" else if (lang == "zh") "达成 14 天连续！" else "Reached a 14-day streak!",
-                    habitName = habit.name,
-                    habitColor = habit.color,
-                    habitIcon = habit.icon
-                ))
-            }
-            if (streak >= 30) {
-                list.add(com.example.data.UnlockedAchievementInfo(
-                    id = "STREAK_${habit.id}_30",
-                    type = "STREAK",
-                    tier = "SILVER",
-                    title = if (lang == "de") "${habit.name}: Silber-Streak" else if (lang == "ka") "${habit.name}: ვერცხლის სერია" else if (lang == "zh") "${habit.name}：白银连续" else "${habit.name}: Silver Streak",
-                    description = if (lang == "de") "30 Tage Serie erreicht!" else if (lang == "ka") "30 დღის სერია მიღწეულია!" else if (lang == "zh") "达成 30 天连续！" else "Reached a 30-day streak!",
-                    habitName = habit.name,
-                    habitColor = habit.color,
-                    habitIcon = habit.icon
-                ))
-            }
-            if (streak >= 100) {
-                list.add(com.example.data.UnlockedAchievementInfo(
-                    id = "STREAK_${habit.id}_100",
-                    type = "STREAK",
-                    tier = "GOLD",
-                    title = if (lang == "de") "${habit.name}: Gold-Streak" else if (lang == "ka") "${habit.name}: ოქროს სერია" else if (lang == "zh") "${habit.name}：黄金连续" else "${habit.name}: Gold Streak",
-                    description = if (lang == "de") "100 Tage Serie erreicht!" else if (lang == "ka") "100 დღის სერია მიღწეულია!" else if (lang == "zh") "达成 100 天连续！" else "Reached a 100-day streak!",
-                    habitName = habit.name,
-                    habitColor = habit.color,
-                    habitIcon = habit.icon
-                ))
-            }
-        }
-
-        // Apply reward text and milestoneRewardId to standard achievements
-        val finalList = list.map { ach ->
-            val habitId = if (ach.id.startsWith("STREAK_")) ach.id.split("_")[1].toIntOrNull() else null
-            val matchingReward = rewards.find { it.conditionType == "TROPHY_COUPLED" && it.trophyId == ach.tier && (habitId == null || it.habitId == habitId) }
-            ach.copy(
-                rewardText = matchingReward?.rewardText,
-                rewardDescription = matchingReward?.description,
-                milestoneRewardId = matchingReward?.id
-            )
-        }.toMutableList()
-
-        // Add custom milestone rewards as virtual achievements
-        val customMilestones = rewards.filter { it.conditionType == "STREAK" || it.conditionType == "COMPLETIONS" }
-        customMilestones.forEach { reward ->
-            val habitStat = stats.habitStreaks.find { it.habit.id == reward.habitId }
-            if (habitStat != null) {
-                val isReached = when (reward.conditionType) {
-                    "STREAK" -> habitStat.longestStreak >= reward.conditionValue
-                    "COMPLETIONS" -> habitStat.totalCompletions >= reward.conditionValue
-                    else -> false
-                }
-                
-                if (isReached) {
-                    finalList.add(com.example.data.UnlockedAchievementInfo(
-                        id = "CUSTOM_${reward.id}",
-                        type = "CUSTOM_MILESTONE",
-                        tier = "CUSTOM",
-                        title = if (lang == "de") "${habitStat.habit.name}: Meilenstein erreicht" else if (lang == "ka") "${habitStat.habit.name}: ეტაპი მიღწეულია" else if (lang == "zh") "${habitStat.habit.name}：达成里程碑" else "${habitStat.habit.name}: Milestone Reached",
-                        description = if (lang == "de") "Belohnung freigeschaltet!" else if (lang == "ka") "ჯილდო განბლოკილია!" else if (lang == "zh") "奖励已解锁！" else "Reward unlocked!",
-                        habitName = habitStat.habit.name,
-                        habitColor = habitStat.habit.color,
-                        habitIcon = habitStat.habit.icon,
-                        rewardText = reward.rewardText,
-                        rewardDescription = reward.description,
-                        milestoneRewardId = reward.id
-                    ))
-                }
-            }
-        }
-
-        return finalList
-    }
-
-    init {
-        com.example.ui.theme.updateAccentColors(_accentColorName.value)
-        initAchievementObserver()
-        viewModelScope.launch {
-            perfectDaysStats.collect { stats ->
-                sharedPrefs.edit().putInt("current_perfect_streak", stats.currentStreak).apply()
-            }
-        }
-        viewModelScope.launch {
-            selectedDate.collect {
-                _heatmapMonthOffset.value = 0
-            }
-        }
-        viewModelScope.launch {
-            try {
-                com.example.NotificationHelper.scheduleSmartInsightNotifications(getApplication())
-                com.example.NotificationHelper.scheduleReviewNotifications(getApplication())
-                
-                val list = database.habitDao().getAllHabitsRaw()
-                list.forEach { habit ->
-                    com.example.NotificationHelper.scheduleAllHabitReminders(
-                        getApplication(),
-                        habit
-                    )
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
     }
 

@@ -30,6 +30,8 @@ class HabitRepository(private val habitDao: HabitDao) {
     suspend fun insertHabit(habit: Habit): Long = habitDao.insertHabit(habit)
 
     suspend fun updateHabit(habit: Habit) = habitDao.updateHabit(habit)
+    
+    suspend fun updateHabitSortOrders(orders: List<Pair<Int, Int>>) = habitDao.updateHabitSortOrders(orders)
 
     suspend fun deleteHabit(habit: Habit) = habitDao.deleteHabit(habit)
 
@@ -38,6 +40,8 @@ class HabitRepository(private val habitDao: HabitDao) {
     fun getLogsForDate(date: String): Flow<List<HabitLog>> = habitDao.getLogsForDate(date)
 
     fun getLogsForHabit(habitId: Int): Flow<List<HabitLog>> = habitDao.getLogsForHabit(habitId)
+
+    suspend fun getLogsForHabitRaw(habitId: Int): List<HabitLog> = habitDao.getLogsForHabitRaw(habitId)
 
     suspend fun getLogsForHabitOnDate(habitId: Int, date: String): List<HabitLog> =
         habitDao.getLogsForHabitOnDate(habitId, date)
@@ -50,8 +54,20 @@ class HabitRepository(private val habitDao: HabitDao) {
         habitDao.togglePauseHabitTransaction(habitId, date)
     }
 
+    suspend fun setPauseStateForHabit(habitId: Int, date: String, shouldPause: Boolean) {
+        habitDao.setPauseStateForHabit(habitId, date, shouldPause)
+    }
+
+    suspend fun toggleMinimalViableHabit(habitId: Int, date: String) {
+        habitDao.toggleMinimalViableHabitTransaction(habitId, date)
+    }
+
+    suspend fun setMinimalViableStateForHabit(habitId: Int, date: String, shouldMinimalViable: Boolean) {
+        habitDao.setMinimalViableStateForHabit(habitId, date, shouldMinimalViable)
+    }
+
     suspend fun unlogHabit(habitId: Int, date: String) {
-        habitDao.deleteLogsForHabitOnDate(habitId, date)
+        habitDao.unlogHabitTransaction(habitId, date)
     }
 
     fun getTimeCapsuleNote(type: String, targetPeriod: String): Flow<TimeCapsuleNote?> =
@@ -80,6 +96,8 @@ class HabitRepository(private val habitDao: HabitDao) {
         habitDao.clearAllLogs()
         habitDao.clearAllHabits()
         habitDao.clearAllTimeCapsuleNotes()
+        habitDao.clearAllDailyNotes()
+        habitDao.clearAllMilestoneRewards()
     }
 
     // Milestone Rewards

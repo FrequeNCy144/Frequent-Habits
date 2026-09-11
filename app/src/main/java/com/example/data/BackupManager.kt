@@ -48,6 +48,24 @@ object BackupManager {
                 put("customReminders", habit.customReminders)
                 put("isArchived", habit.isArchived)
                 put("description", habit.description)
+                put("clickIncrement", habit.clickIncrement.toDouble())
+                if (habit.minimalViableValue != null) {
+                    put("minimalViableValue", habit.minimalViableValue.toDouble())
+                }
+                put("minimalViableText", habit.minimalViableText)
+                put("why", habit.why)
+                if (habit.stackedOnHabitId != null) {
+                    put("stackedOnHabitId", habit.stackedOnHabitId)
+                }
+                put("isFinishable", habit.isFinishable)
+                if (habit.totalTargetValue != null) {
+                    put("totalTargetValue", habit.totalTargetValue.toDouble())
+                }
+                put("isCompletedGoal", habit.isCompletedGoal)
+                if (habit.completedAt != null) {
+                    put("completedAt", habit.completedAt)
+                }
+                put("completionNote", habit.completionNote)
             }
             habitsArray.put(hJson)
         }
@@ -62,6 +80,7 @@ object BackupManager {
                 put("value", log.value.toDouble())
                 put("timestamp", log.timestamp)
                 put("isPaused", log.isPaused)
+                put("isMinimalViable", log.isMinimalViable)
             }
             logsArray.put(lJson)
         }
@@ -112,9 +131,23 @@ object BackupManager {
             val prefs = context.getSharedPreferences("habits_settings", Context.MODE_PRIVATE)
             put("user_name", prefs.getString("user_name", ""))
             put("profile_image_uri", prefs.getString("profile_image_uri", ""))
+            
+            // Backup profile image file if it exists
+            val avatarFile = java.io.File(context.filesDir, "profile_avatar.jpg")
+            if (avatarFile.exists() && avatarFile.length() > 0) {
+                try {
+                    val bytes = avatarFile.readBytes()
+                    val base64Str = android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
+                    put("profile_image_base64", base64Str)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
             put("language", prefs.getString("language", "en"))
             put("accent_color_name", prefs.getString("accent_color_name", "PURPLE"))
             put("dark_mode_enabled", prefs.getBoolean("dark_mode_enabled", true))
+            put("widget_opacity", prefs.getFloat("widget_opacity", 1.0f).toDouble())
             put("vibration_enabled", prefs.getBoolean("vibration_enabled", true))
             put("info_cards_enabled", prefs.getBoolean("info_cards_enabled", true))
             put("notifications_enabled", prefs.getBoolean("notifications_enabled", true))
@@ -192,7 +225,17 @@ object BackupManager {
                     reminderMinute = hJson.optInt("reminderMinute", 0),
                     customReminders = hJson.optString("customReminders", ""),
                     isArchived = hJson.optBoolean("isArchived", false),
-                    description = hJson.optString("description", "")
+                    description = hJson.optString("description", ""),
+                    clickIncrement = hJson.optDouble("clickIncrement", 1.0).toFloat(),
+                    minimalViableValue = if (hJson.has("minimalViableValue") && !hJson.isNull("minimalViableValue")) hJson.getDouble("minimalViableValue").toFloat() else null,
+                    minimalViableText = hJson.optString("minimalViableText", ""),
+                    why = hJson.optString("why", ""),
+                    stackedOnHabitId = if (hJson.has("stackedOnHabitId") && !hJson.isNull("stackedOnHabitId")) hJson.getInt("stackedOnHabitId") else null,
+                    isFinishable = hJson.optBoolean("isFinishable", false),
+                    totalTargetValue = if (hJson.has("totalTargetValue") && !hJson.isNull("totalTargetValue")) hJson.getDouble("totalTargetValue").toFloat() else null,
+                    isCompletedGoal = hJson.optBoolean("isCompletedGoal", false),
+                    completedAt = if (hJson.has("completedAt") && !hJson.isNull("completedAt")) hJson.getLong("completedAt") else null,
+                    completionNote = hJson.optString("completionNote", "")
                 )
                 db.habitDao().insertHabit(habit)
             }
@@ -205,7 +248,8 @@ object BackupManager {
                     date = lJson.getString("date"),
                     value = lJson.optDouble("value", 1.0).toFloat(),
                     timestamp = lJson.optLong("timestamp", System.currentTimeMillis()),
-                    isPaused = lJson.optBoolean("isPaused", false)
+                    isPaused = lJson.optBoolean("isPaused", false),
+                    isMinimalViable = lJson.optBoolean("isMinimalViable", false)
                 )
                 db.habitDao().insertLog(log)
             }
@@ -259,9 +303,26 @@ object BackupManager {
 
                 if (settingsJson.has("user_name")) editor.putString("user_name", settingsJson.optString("user_name", ""))
                 if (settingsJson.has("profile_image_uri")) editor.putString("profile_image_uri", settingsJson.optString("profile_image_uri", ""))
+
+                // Restore profile image file if present in backup
+                if (settingsJson.has("profile_image_base64")) {
+                    val base64Str = settingsJson.optString("profile_image_base64", "")
+                    if (base64Str.isNotEmpty()) {
+                        try {
+                            val bytes = android.util.Base64.decode(base64Str, android.util.Base64.DEFAULT)
+                            val avatarFile = java.io.File(context.filesDir, "profile_avatar.jpg")
+                            avatarFile.writeBytes(bytes)
+                            editor.putString("profile_image_uri", android.net.Uri.fromFile(avatarFile).toString())
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+
                 if (settingsJson.has("language")) editor.putString("language", settingsJson.optString("language", "en"))
                 if (settingsJson.has("accent_color_name")) editor.putString("accent_color_name", settingsJson.optString("accent_color_name", "PURPLE"))
                 if (settingsJson.has("dark_mode_enabled")) editor.putBoolean("dark_mode_enabled", settingsJson.optBoolean("dark_mode_enabled", true))
+                if (settingsJson.has("widget_opacity")) editor.putFloat("widget_opacity", settingsJson.optDouble("widget_opacity", 1.0).toFloat())
                 if (settingsJson.has("vibration_enabled")) editor.putBoolean("vibration_enabled", settingsJson.optBoolean("vibration_enabled", true))
                 if (settingsJson.has("info_cards_enabled")) editor.putBoolean("info_cards_enabled", settingsJson.optBoolean("info_cards_enabled", true))
                 if (settingsJson.has("notifications_enabled")) editor.putBoolean("notifications_enabled", settingsJson.optBoolean("notifications_enabled", true))
@@ -317,6 +378,56 @@ object BackupManager {
         }
     }
 
+    suspend fun restoreDatabaseFromInputStream(context: Context, inputStream: java.io.InputStream): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val bytes = inputStream.readBytes()
+            if (bytes.isEmpty()) return@withContext false
+
+            var jsonString: String? = null
+
+            // Try reading as ZIP archive
+            try {
+                val zis = java.util.zip.ZipInputStream(bytes.inputStream())
+                var entry = zis.nextEntry
+                var hasZipEntries = false
+                val audioDir = java.io.File(context.filesDir, "audios")
+                if (!audioDir.exists()) audioDir.mkdirs()
+
+                while (entry != null) {
+                    hasZipEntries = true
+                    val entryName = entry.name
+                    if (entryName == "backup.json" || entryName.endsWith(".json")) {
+                        jsonString = zis.bufferedReader().readText()
+                    } else if (entryName.startsWith("audios/")) {
+                        val audioFileName = entryName.removePrefix("audios/")
+                        if (audioFileName.isNotEmpty()) {
+                            val destFile = java.io.File(audioDir, audioFileName)
+                            destFile.outputStream().use { os ->
+                                zis.copyTo(os)
+                            }
+                        }
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+                zis.close()
+                if (!hasZipEntries) jsonString = null
+            } catch (e: Exception) {
+                jsonString = null
+            }
+
+            // Fallback to plain JSON string if not a ZIP archive or if ZIP extraction didn't yield jsonString
+            if (jsonString == null) {
+                jsonString = String(bytes, Charsets.UTF_8)
+            }
+
+            restoreDatabaseFromJson(context, jsonString)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     suspend fun performBackup(context: Context, treeUriStr: String): Boolean = withContext(Dispatchers.IO) {
         if (treeUriStr.isEmpty()) return@withContext false
         try {
@@ -326,13 +437,35 @@ object BackupManager {
 
             val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
             val dateStr = sdf.format(Date())
-            val filename = "backup_frequent_habits_$dateStr.json"
+            val filename = "backup_frequent_habits_$dateStr.zip"
 
             val jsonContent = exportDatabaseToJson(context)
+            val audioDir = java.io.File(context.filesDir, "audios")
+            val audioFiles = if (audioDir.exists()) {
+                audioDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in listOf("mp3", "m4a", "wav", "ogg", "aac") } ?: emptyList()
+            } else emptyList()
 
-            val backupFile = rootFolder.createFile("application/json", filename) ?: return@withContext false
+            val backupFile = rootFolder.createFile("application/zip", filename) ?: return@withContext false
             context.contentResolver.openOutputStream(backupFile.uri)?.use { os ->
-                os.write(jsonContent.toByteArray())
+                val zos = java.util.zip.ZipOutputStream(os)
+                // 1. Write backup.json
+                zos.putNextEntry(java.util.zip.ZipEntry("backup.json"))
+                zos.write(jsonContent.toByteArray(Charsets.UTF_8))
+                zos.closeEntry()
+
+                // 2. Write custom audio files
+                audioFiles.forEach { aFile ->
+                    try {
+                        zos.putNextEntry(java.util.zip.ZipEntry("audios/${aFile.name}"))
+                        aFile.inputStream().use { input ->
+                            input.copyTo(zos)
+                        }
+                        zos.closeEntry()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                zos.close()
             }
 
             // Cleanup oldest backups if count > 3
@@ -342,7 +475,7 @@ object BackupManager {
                 for (file in files) {
                     if (file.isFile) {
                         val name = file.name
-                        if (name != null && name.startsWith("backup_frequent_habits_") && name.endsWith(".json")) {
+                        if (name != null && name.startsWith("backup_frequent_habits_") && (name.endsWith(".zip") || name.endsWith(".json"))) {
                             backupFiles.add(file)
                         }
                     }
@@ -357,11 +490,22 @@ object BackupManager {
                 }
             }
 
+            val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+            context.getSharedPreferences("habits_settings", Context.MODE_PRIVATE)
+                .edit()
+                .putString("last_backup_time", timeStr)
+                .apply()
+
             true
         } catch (e: Exception) {
             e.printStackTrace()
             false
         }
+    }
+
+    fun getLastBackupTime(context: Context): String {
+        val prefs = context.getSharedPreferences("habits_settings", Context.MODE_PRIVATE)
+        return prefs.getString("last_backup_time", "") ?: ""
     }
 }
 

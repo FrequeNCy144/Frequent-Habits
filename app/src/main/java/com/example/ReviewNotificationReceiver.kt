@@ -23,13 +23,29 @@ class ReviewNotificationReceiver : BroadcastReceiver() {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "review_notifications"
 
+        val language = prefs.getString("language", "en") ?: "en"
+        val channelName = when (language) {
+            "de" -> "Rückblick Benachrichtigungen"
+            "ka" -> "მიმოხილვის შეტყობინებები"
+            "zh" -> "回顾提醒通知"
+            "fr" -> "Notifications de rétrospectives"
+            else -> "Review Notifications"
+        }
+        val channelDesc = when (language) {
+            "de" -> "Erinnert an Monats- und Jahresrückblicke"
+            "ka" -> "შეხსენება ყოველთვიური და წლიური მიმოხილვებისთვის"
+            "zh" -> "提醒查看月度和年度回顾"
+            "fr" -> "Rappelle les bilans mensuels et annuels"
+            else -> "Reminds of monthly and annual reviews"
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Rückblick Benachrichtigungen",
+                channelName,
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Erinnert an Monats- und Jahresrückblicke"
+                description = channelDesc
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -53,8 +69,22 @@ class ReviewNotificationReceiver : BroadcastReceiver() {
             )
 
             val language = prefs.getString("language", "en") ?: "en"
-            val title = if (language == "de") "Dein Jahres-Review ist bereit!" else if (language == "ka") "თქვენი წლიური მიმოხილვა მზად არის!" else if (language == "zh") "你的年度回顾已准备就绪！" else "Your Year in Review is Ready!"
-            val text = if (language == "de") "Schau nach, was dein vergangenes Ich dir in der Zeitkapsel hinterlassen hat." else if (language == "ka") "შეამოწმეთ რა დაგიტოვათ თქვენმა წარსულმა მე-მ დროის კაფსულაში." else if (language == "zh") "快来看看过去的你在时间胶囊中留下了什么。" else "Check out what your past self left you in the time capsule."
+            val title = tr(
+                language,
+                "Dein Jahres-Review ist bereit!",
+                "თქვენი წლიური მიმოხილვა მზად არის!",
+                "你的年度回顾已准备就绪！",
+                "Your Year in Review is Ready!",
+                "Votre rétrospective annuelle est prête !"
+            )
+            val text = tr(
+                language,
+                "Schau nach, was dein vergangenes Ich dir in der Zeitkapsel hinterlassen hat.",
+                "შეამოწმეთ რა დაგიტოვათ თქვენმა წარსულმა მე-მ დროის კაფსულაში.",
+                "快来看看过去的你在时间胶囊中留下了什么。",
+                "Check out what your past self left you in the time capsule.",
+                "Découvrez ce que votre vous du passé vous a laissé dans la capsule temporelle."
+            )
 
             val notification = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification)
@@ -92,8 +122,22 @@ class ReviewNotificationReceiver : BroadcastReceiver() {
             )
 
             val language = prefs.getString("language", "en") ?: "en"
-            val title = if (language == "de") "Dein Monats-Review ist bereit!" else if (language == "ka") "თქვენი ყოველთვიური მიმოხილვა მზად არის!" else if (language == "zh") "你的月度回顾已准备就绪！" else "Your Monthly Review is Ready!"
-            val text = if (language == "de") "Schau nach, was dein vergangenes Ich dir in der Zeitkapsel hinterlassen hat." else if (language == "ka") "შეამოწმეთ რა დაგიტოვათ თქვენმა წარსულმა მე-მ დროის კაფსულაში." else if (language == "zh") "快来看看过去的你在时间胶囊中留下了什么。" else "Check out what your past self left you in the time capsule."
+            val title = tr(
+                language,
+                "Dein Monats-Review ist bereit!",
+                "თქვენი ყოველთვიური მიმოხილვა მზად არის!",
+                "你的月度回顾已准备就绪！",
+                "Your Monthly Review is Ready!",
+                "Votre rétrospective mensuelle est prête !"
+            )
+            val text = tr(
+                language,
+                "Schau nach, was dein vergangenes Ich dir in der Zeitkapsel hinterlassen hat.",
+                "შეამოწმეთ რა დაგიტოვათ თქვენმა წარსულმა მე-მ დროის კაფსულაში.",
+                "快来看看过去的你在时间胶囊中留下了什么。",
+                "Check out what your past self left you in the time capsule.",
+                "Découvrez ce que votre vous du passé vous a laissé dans la capsule temporelle."
+            )
 
             val notification = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification)

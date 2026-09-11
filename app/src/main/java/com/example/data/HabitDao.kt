@@ -24,6 +24,16 @@ interface HabitDao {
     @Update
     suspend fun updateHabit(habit: Habit)
 
+    @Query("UPDATE habits SET sortOrder = :order WHERE id = :id")
+    suspend fun updateHabitSortOrder(id: Int, order: Int)
+
+    @Transaction
+    suspend fun updateHabitSortOrders(orders: List<Pair<Int, Int>>) {
+        orders.forEach { (id, order) ->
+            updateHabitSortOrder(id, order)
+        }
+    }
+
     @Delete
     suspend fun deleteHabit(habit: Habit)
 
@@ -44,6 +54,9 @@ interface HabitDao {
 
     @Query("SELECT * FROM habit_logs WHERE habitId = :habitId")
     fun getLogsForHabit(habitId: Int): Flow<List<HabitLog>>
+
+    @Query("SELECT * FROM habit_logs WHERE habitId = :habitId")
+    suspend fun getLogsForHabitRaw(habitId: Int): List<HabitLog>
 
     @Query("SELECT * FROM habit_logs WHERE habitId = :habitId AND date = :date")
     suspend fun getLogsForHabitOnDate(habitId: Int, date: String): List<HabitLog>
@@ -128,10 +141,31 @@ interface HabitDao {
 
     @Transaction
     suspend fun logHabitTransaction(habitId: Int, date: String, value: Float) {
+        val existing = getLogsForHabitOnDate(habitId, date).firstOrNull()
+        val isMinViable = existing?.isMinimalViable == true
+        val isPaused = existing?.isPaused == true
         deleteLogsForHabitOnDate(habitId, date)
-        if (value != 0f) {
-            val log = HabitLog(habitId = habitId, date = date, value = value, isPaused = false, timestamp = System.currentTimeMillis())
+        if (value != 0f || isMinViable || isPaused) {
+            val log = HabitLog(
+                habitId = habitId,
+                date = date,
+                value = value,
+                isPaused = isPaused,
+                isMinimalViable = isMinViable,
+                timestamp = System.currentTimeMillis()
+            )
             insertLog(log)
+        }
+    }
+
+    @Transaction
+    suspend fun unlogHabitTransaction(habitId: Int, date: String) {
+        val existing = getLogsForHabitOnDate(habitId, date).firstOrNull()
+        if (existing != null && (existing.isMinimalViable || existing.isPaused)) {
+            val updated = existing.copy(value = 0f, timestamp = System.currentTimeMillis())
+            insertLog(updated)
+        } else {
+            deleteLogsForHabitOnDate(habitId, date)
         }
     }
 
@@ -139,11 +173,15 @@ interface HabitDao {
     suspend fun toggleHabitTransaction(habitId: Int, selectedDate: String, isNegative: Boolean, type: String, targetValue: Float) {
         val logs = getLogsForHabitOnDate(habitId, selectedDate)
         val currentLog = logs.firstOrNull()
+        val isMinViable = currentLog?.isMinimalViable == true
+        val isPaused = currentLog?.isPaused == true
 
         val currentStatus = when {
             currentLog == null -> if (isNegative) "SUCCESS" else "PENDING"
+            currentLog.isPaused -> "PAUSED"
             currentLog.value == -1f -> "FAILED"
             currentLog.value == -2f -> "SUCCESS"
+            currentLog.value == 0f -> if (isNegative) "SUCCESS" else "PENDING"
             else -> {
                 if (type == "BINARY") {
                     if (isNegative) "FAILED" else "SUCCESS"
@@ -163,6 +201,7 @@ interface HabitDao {
             when (currentStatus) {
                 "PENDING" -> "SUCCESS"
                 "SUCCESS" -> "FAILED"
+                "PAUSED" -> "SUCCESS"
                 else -> "PENDING"
             }
         }
@@ -178,7 +217,21 @@ interface HabitDao {
                 id = 0,
                 habitId = habitId,
                 date = selectedDate,
-                value = nextValue
+                value = nextValue,
+                isMinimalViable = isMinViable,
+                isPaused = false,
+                timestamp = System.currentTimeMillis()
+            )
+            insertLog(newLog)
+        } else if (isMinViable) {
+            val newLog = HabitLog(
+                id = 0,
+                habitId = habitId,
+                date = selectedDate,
+                value = 0f,
+                isMinimalViable = isMinViable,
+                isPaused = false,
+                timestamp = System.currentTimeMillis()
             )
             insertLog(newLog)
         }
@@ -188,6 +241,8 @@ interface HabitDao {
     suspend fun deltaHabitTransaction(habitId: Int, selectedDate: String, delta: Float, targetValue: Float) {
         val logs = getLogsForHabitOnDate(habitId, selectedDate)
         val currentLog = logs.firstOrNull()
+        val isMinViable = currentLog?.isMinimalViable == true
+        val isPaused = currentLog?.isPaused == true
         val currentValue = when (currentLog?.value) {
             null -> 0f
             -1f -> 0f
@@ -197,12 +252,15 @@ interface HabitDao {
         val newValue = (currentValue + delta).coerceAtLeast(0f)
 
         deleteLogsForHabitOnDate(habitId, selectedDate)
-        if (newValue > 0f) {
+        if (newValue > 0f || isMinViable || isPaused) {
             val newLog = HabitLog(
                 id = 0,
                 habitId = habitId,
                 date = selectedDate,
-                value = newValue
+                value = newValue,
+                isMinimalViable = isMinViable,
+                isPaused = if (newValue > 0f) false else isPaused,
+                timestamp = System.currentTimeMillis()
             )
             insertLog(newLog)
         }
@@ -226,6 +284,76 @@ interface HabitDao {
             }
         } else {
             val log = HabitLog(habitId = habitId, date = date, value = 0f, isPaused = true)
+            insertLog(log)
+        }
+    }
+
+    @Transaction
+    suspend fun setPauseStateForHabit(habitId: Int, date: String, shouldPause: Boolean) {
+        val existing = getLogsForHabitOnDate(habitId, date)
+        if (existing.isNotEmpty()) {
+            val first = existing.first()
+            if (shouldPause) {
+                if (!first.isPaused) {
+                    val updated = first.copy(isPaused = true, timestamp = System.currentTimeMillis())
+                    insertLog(updated)
+                }
+            } else {
+                if (first.isPaused) {
+                    if (first.value == 0f) {
+                        deleteLogsForHabitOnDate(habitId, date)
+                    } else {
+                        val updated = first.copy(isPaused = false, timestamp = System.currentTimeMillis())
+                        insertLog(updated)
+                    }
+                }
+            }
+        } else if (shouldPause) {
+            val log = HabitLog(habitId = habitId, date = date, value = 0f, isPaused = true)
+            insertLog(log)
+        }
+    }
+
+    @Transaction
+    suspend fun toggleMinimalViableHabitTransaction(habitId: Int, date: String) {
+        val existing = getLogsForHabitOnDate(habitId, date)
+        if (existing.isNotEmpty()) {
+            val first = existing.first()
+            val nextState = !first.isMinimalViable
+            if (!nextState && first.value == 0f && !first.isPaused) {
+                deleteLogsForHabitOnDate(habitId, date)
+            } else {
+                val updated = first.copy(isMinimalViable = nextState, timestamp = System.currentTimeMillis())
+                insertLog(updated)
+            }
+        } else {
+            val log = HabitLog(habitId = habitId, date = date, value = 0f, isMinimalViable = true)
+            insertLog(log)
+        }
+    }
+
+    @Transaction
+    suspend fun setMinimalViableStateForHabit(habitId: Int, date: String, shouldMinimalViable: Boolean) {
+        val existing = getLogsForHabitOnDate(habitId, date)
+        if (existing.isNotEmpty()) {
+            val first = existing.first()
+            if (shouldMinimalViable) {
+                if (!first.isMinimalViable) {
+                    val updated = first.copy(isMinimalViable = true, timestamp = System.currentTimeMillis())
+                    insertLog(updated)
+                }
+            } else {
+                if (first.isMinimalViable) {
+                    if (first.value == 0f && !first.isPaused) {
+                        deleteLogsForHabitOnDate(habitId, date)
+                    } else {
+                        val updated = first.copy(isMinimalViable = false, timestamp = System.currentTimeMillis())
+                        insertLog(updated)
+                    }
+                }
+            }
+        } else if (shouldMinimalViable) {
+            val log = HabitLog(habitId = habitId, date = date, value = 0f, isMinimalViable = true)
             insertLog(log)
         }
     }

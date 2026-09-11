@@ -106,3 +106,17 @@ val HabitSlate = Color(0xFF64748B)
 val HabitTeal = Color(0xFF14B8A6)
 val HabitRose = Color(0xFFF43F5E)
 val HabitIndigo = Color(0xFF6366F1)
+
+// Streak flame colors (independent dedicated colors decoupled from accent color)
+// Normal Streak: Richtig leuchtendes heißes Orange
+val NormalStreakFlame = Color(0xFFFF5E00) // Vibrant glowing hot fire orange
+val HabitStreakFlame = NormalStreakFlame // Habit streaks flame
+val StreakFlame = NormalStreakFlame // Legacy alias
+val DailyStreakFlame = NormalStreakFlame
+
+// Perfect Streak: Cooles leuchtendes Eisblau
+val PerfectStreakFlame = Color(0xFF00E5FF) // Cool vibrant electric ice blue flame
+val PerfectStreakIceBlue = PerfectStreakFlame // Alias
+val PerfectStreakCyan = Color(0xFF38BDF8) // Ice cyan accent
+
+val AccentRed = Color(0xFFEF4444)

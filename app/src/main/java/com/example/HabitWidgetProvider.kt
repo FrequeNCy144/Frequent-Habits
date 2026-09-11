@@ -42,8 +42,14 @@ class HabitWidgetProvider : AppWidgetProvider() {
         val action = intent.action
         val widgetId = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
 
-        if (action == ACTION_UPDATE_HABITS ||
-            action == Intent.ACTION_DATE_CHANGED ||
+        if (action == ACTION_UPDATE_HABITS) {
+            scheduleNextMidnightAlarm(context)
+            val pendingResult = goAsync()
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val componentName = ComponentName(context, HabitWidgetProvider::class.java)
+            val ids = appWidgetManager.getAppWidgetIds(componentName)
+            updateAllWidgets(context, appWidgetManager, ids, pendingResult, isFullUpdate = false)
+        } else if (action == Intent.ACTION_DATE_CHANGED ||
             action == Intent.ACTION_TIME_CHANGED ||
             action == Intent.ACTION_TIMEZONE_CHANGED ||
             action == Intent.ACTION_BOOT_COMPLETED ||
@@ -105,7 +111,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
 
             if (itemAction == "TOGGLE" || itemAction == "DELTA") {
                 val now = System.currentTimeMillis()
-                if (habitId == lastClickedHabitId && (now - lastClickTime) < 600L) {
+                if (habitId == lastClickedHabitId && (now - lastClickTime) < 350L) {
                     return
                 }
                 lastClickedHabitId = habitId
@@ -211,14 +217,6 @@ class HabitWidgetProvider : AppWidgetProvider() {
         pendingResult: BroadcastReceiver.PendingResult? = null,
         isFullUpdate: Boolean = true
     ) {
-        if (isFullUpdate) {
-            val now = System.currentTimeMillis()
-            if (now - lastUpdateAllTime < 1500L) {
-                try { pendingResult?.finish() } catch (e: Exception) {}
-                return
-            }
-            lastUpdateAllTime = now
-        }
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 updateAllWidgetsSuspend(context, appWidgetManager, appWidgetIds, isFullUpdate)
@@ -274,15 +272,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
                 val isPaused = log != null && log.isPaused
                 if (!isPaused) {
                     nonPausedCount++
-                    val isDone = if (habit.frequency == "TIMES_WEEKLY") {
-                        val weeklyTarget = habit.specificDays.toIntOrNull() ?: 3
-                        val weeklyCount = allLogs.filter { l ->
-                            l.habitId == habit.id && l.date >= startOf7Days && l.date <= endOf7Days && com.example.data.isLogCompleted(habit, l)
-                        }.size
-                        weeklyCount >= weeklyTarget || com.example.data.isLogCompleted(habit, log)
-                    } else {
-                        com.example.data.isLogCompleted(habit, log)
-                    }
+                    val isDone = com.example.data.isLogCompleted(habit, log)
                     if (isDone) {
                         completed++
                     }
@@ -304,32 +294,42 @@ class HabitWidgetProvider : AppWidgetProvider() {
             val layoutId = if (isDark) R.layout.habit_widget else R.layout.habit_widget_light
             val views = RemoteViews(context.packageName, layoutId)
 
-            views.setInt(R.id.widget_root_layout, "setBackgroundResource", if (isDark) R.drawable.widget_bg else R.drawable.widget_bg_light)
-            views.setInt(R.id.widget_streak_container, "setBackgroundResource", if (isDark) R.drawable.widget_streak_bg else R.drawable.widget_streak_bg_light)
+            val perfectStats = com.example.data.StreakCalculator.calculate(allHabits, allLogs, targetDateStr = todayStr)
+            val currentStreak = perfectStats.currentStreak
+
+            val streakBgRes = if (currentStreak >= 1) {
+                if (isDark) R.drawable.widget_streak_bg_active else R.drawable.widget_streak_bg_light_active
+            } else {
+                if (isDark) R.drawable.widget_streak_bg else R.drawable.widget_streak_bg_light
+            }
+            views.setInt(R.id.widget_streak_container, "setBackgroundResource", streakBgRes)
 
             val progressBitmap = drawProgressBarBitmap(progressPercent, isCompleted, accentColorInt, isDark)
             views.setImageViewBitmap(R.id.widget_progress_bar, progressBitmap)
 
-            val perfectStats = com.example.data.StreakCalculator.calculate(allHabits, allLogs, targetDateStr = todayStr)
-            val currentStreak = perfectStats.currentStreak
-
             sharedPrefs.edit().putInt("current_perfect_streak", currentStreak).apply()
-            views.setTextViewText(R.id.widget_streak_text, currentStreak.toString())
-            views.setTextColor(R.id.widget_streak_text, if (isDark) Color.parseColor("#FF9800") else Color.parseColor("#EA580C"))
-
-            val openAppInt = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingInt = PendingIntent.getActivity(
-                context,
-                widgetId * 5000,
-                openAppInt,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_progress_bar, pendingInt)
-            views.setOnClickPendingIntent(R.id.widget_streak_container, pendingInt)
+            views.setTextViewText(R.id.widget_streak_text, "${currentStreak}d")
+            views.setTextColor(R.id.widget_streak_text, if (isDark) Color.parseColor("#E4E3EC") else Color.parseColor("#111115"))
+            val flameColor = if (currentStreak > 0) Color.parseColor("#00E5FF") else (if (isDark) Color.parseColor("#60808080") else Color.parseColor("#909090"))
+            views.setInt(R.id.widget_streak_icon, "setColorFilter", flameColor)
 
             if (isFullUpdate) {
+                val widgetOpacity = sharedPrefs.getFloat("widget_opacity", 1.0f)
+                val bgBitmap = drawWidgetBackgroundBitmapStatic(isDark, widgetOpacity)
+                views.setImageViewBitmap(R.id.widget_bg_image, bgBitmap)
+
+                val openAppInt = Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val pendingInt = PendingIntent.getActivity(
+                    context,
+                    widgetId * 5000,
+                    openAppInt,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                views.setOnClickPendingIntent(R.id.widget_progress_bar, pendingInt)
+                views.setOnClickPendingIntent(R.id.widget_streak_container, pendingInt)
+
                 val serviceIntent = Intent(context, HabitWidgetService::class.java).apply {
                     putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                     data = android.net.Uri.parse("custom://widget/habits_list/$widgetId")
@@ -376,8 +376,14 @@ class HabitWidgetProvider : AppWidgetProvider() {
                 set(Calendar.SECOND, 2)
                 set(Calendar.MILLISECOND, 0)
             }
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
+                }
+            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
             } else {
                 alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
             }
@@ -388,9 +394,7 @@ class HabitWidgetProvider : AppWidgetProvider() {
 
     private fun getDisplayDate(dateStr: String): String {
         val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-        return if (dateStr == todayStr) {
-            "Heute"
-        } else {
+        return if (dateStr == todayStr) "Heute" else {
             try {
                 val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr)
                 if (date != null) {
@@ -405,337 +409,15 @@ class HabitWidgetProvider : AppWidgetProvider() {
     }
 
     private fun drawProgressBarBitmap(progressPercent: Int, isCompleted: Boolean, accentColorInt: Int, isDark: Boolean): Bitmap {
-        val width = 800
-        val height = 40
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val cornerRadius = 20f
-        val rect = android.graphics.RectF(0f, 0f, width.toFloat(), height.toFloat())
-
-        // 1. Background Track
-        val trackPaint = Paint().apply {
-            isAntiAlias = true
-            style = Paint.Style.FILL
-            color = if (isDark) Color.parseColor("#20FFFFFF") else Color.parseColor("#EAEAEF")
-        }
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, trackPaint)
-
-        // 2. Progress Fill
-        if (progressPercent > 0) {
-            val fillColor = if (isCompleted) Color.parseColor("#10B981") else accentColorInt
-            val fillPaint = Paint().apply {
-                isAntiAlias = true
-                style = Paint.Style.FILL
-                color = fillColor
-            }
-            val fillWidth = width.toFloat() * (progressPercent.coerceIn(0, 100) / 100f)
-
-            val clipPath = Path().apply {
-                addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
-            }
-            canvas.save()
-            canvas.clipPath(clipPath)
-            canvas.drawRect(0f, 0f, fillWidth, height.toFloat(), fillPaint)
-            canvas.restore()
-        }
-
-        // 3. Subtle Border - matches widget_streak_bg and widget_streak_bg_light
-        val borderPaint = Paint().apply {
-            isAntiAlias = true
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-            color = if (isDark) Color.parseColor("#2C2C38") else Color.parseColor("#E5E5ED")
-        }
-        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, borderPaint)
-
-        return bitmap
+        return com.example.widget.WidgetBitmapUtils.drawProgressBarBitmap(progressPercent, isCompleted, accentColorInt, isDark)
     }
 
     private fun getColorInt(colorName: String): Int {
-        return when (colorName.lowercase()) {
-            "blue" -> 0xFF3B82F6.toInt()
-            "purple" -> 0xFF9333EA.toInt()
-            "cyan" -> 0xFF06B6D4.toInt()
-            "green" -> 0xFF10B981.toInt()
-            "yellow" -> 0xFFF59E0B.toInt()
-            "orange" -> 0xFFF97316.toInt()
-            "red" -> 0xFFEF4444.toInt()
-            "pink" -> 0xFFEC4899.toInt()
-            "slate", "grey", "gray" -> 0xFF64748B.toInt()
-            else -> 0xFF7356FF.toInt() // Default to PrimaryViolet
-        }
+        return com.example.widget.WidgetBitmapUtils.getColorInt(colorName)
     }
 
     fun drawIconToBitmap(context: Context, iconName: String, colorInt: Int): Bitmap {
-        val size = 48
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val paint = Paint().apply {
-            color = colorInt
-            isAntiAlias = true
-            style = Paint.Style.FILL
-            strokeWidth = 3f
-        }
-        
-        val half = size / 2f
-        
-        when (iconName.lowercase()) {
-            "sparkle" -> {
-                val path = Path().apply {
-                    moveTo(half, 4f)
-                    quadTo(half, half, size - 4f, half)
-                    quadTo(half, half, half, size - 4f)
-                    quadTo(half, half, 4f, half)
-                    quadTo(half, half, half, 4f)
-                    close()
-                }
-                canvas.drawPath(path, paint)
-            }
-            "moon" -> {
-                val path = Path().apply {
-                    addCircle(half + 4f, half, half - 6f, Path.Direction.CW)
-                    val subtraction = Path().apply {
-                        addCircle(half, half, half - 6f, Path.Direction.CW)
-                    }
-                    op(subtraction, Path.Op.DIFFERENCE)
-                }
-                canvas.drawPath(path, paint)
-            }
-            "sun" -> {
-                canvas.drawCircle(half, half, size / 5f, paint)
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                for (i in 0 until 8) {
-                    val angle = i * Math.PI / 4
-                    val startX = half + (size / 3.5f) * Math.cos(angle).toFloat()
-                    val startY = half + (size / 3.5f) * Math.sin(angle).toFloat()
-                    val endX = half + (size / 2.2f) * Math.cos(angle).toFloat()
-                    val endY = half + (size / 2.2f) * Math.sin(angle).toFloat()
-                    canvas.drawLine(startX, startY, endX, endY, paint)
-                }
-            }
-            "water" -> {
-                val path = Path().apply {
-                    moveTo(half, 6f)
-                    cubicTo(size - 8f, half + 4f, size - 8f, size - 6f, half, size - 6f)
-                    cubicTo(8f, size - 6f, 8f, half + 4f, half, 6f)
-                    close()
-                }
-                canvas.drawPath(path, paint)
-            }
-            "heart" -> {
-                val heartPath = Path().apply {
-                    moveTo(half, size * 0.3f)
-                    cubicTo(size * 0.2f, size * 0.05f, size * 0.02f, size * 0.25f, size * 0.05f, size * 0.5f)
-                    cubicTo(size * 0.08f, size * 0.75f, size * 0.35f, size * 0.9f, half, size * 0.95f)
-                    cubicTo(size * 0.65f, size * 0.9f, size * 0.92f, size * 0.75f, size * 0.95f, size * 0.5f)
-                    cubicTo(size * 0.98f, size * 0.25f, size * 0.8f, size * 0.05f, half, size * 0.3f)
-                    close()
-                }
-                canvas.drawPath(heartPath, paint)
-            }
-            "dumbbell" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 6f
-                canvas.drawLine(8f, half, size - 8f, half, paint)
-                paint.style = Paint.Style.FILL
-                canvas.drawCircle(10f, half, 8f, paint)
-                canvas.drawCircle(size - 10f, half, 8f, paint)
-            }
-            "book" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                val path = Path().apply {
-                    moveTo(half, size - 10f)
-                    lineTo(half, 10f)
-                }
-                canvas.drawPath(path, paint)
-                val leftPage = Path().apply {
-                    moveTo(half, 12f)
-                    cubicTo(half - 8f, 8f, 8f, 8f, 8f, 12f)
-                    lineTo(8f, size - 12f)
-                    cubicTo(8f, size - 16f, half - 8f, size - 16f, half, size - 12f)
-                }
-                canvas.drawPath(leftPage, paint)
-                val rightPage = Path().apply {
-                    moveTo(half, 12f)
-                    cubicTo(half + 8f, 8f, size - 8f, 8f, size - 8f, 12f)
-                    lineTo(size - 8f, size - 12f)
-                    cubicTo(size - 8f, size - 16f, half + 8f, size - 16f, half, size - 12f)
-                }
-                canvas.drawPath(rightPage, paint)
-            }
-            "coffee" -> {
-                val cup = Path().apply {
-                    moveTo(10f, 16f)
-                    lineTo(size - 14f, 16f)
-                    cubicTo(size - 14f, size - 10f, 14f, size - 10f, 10f, 16f)
-                    close()
-                }
-                canvas.drawPath(cup, paint)
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 3f
-                val handle = Path().apply {
-                    moveTo(size - 14f, 20f)
-                    cubicTo(size - 6f, 20f, size - 6f, size - 16f, size - 14f, size - 16f)
-                }
-                canvas.drawPath(handle, paint)
-                val steam1 = Path().apply {
-                    moveTo(16f, 12f)
-                    quadTo(18f, 9f, 16f, 6f)
-                }
-                val steam2 = Path().apply {
-                    moveTo(half - 2f, 12f)
-                    quadTo(half, 9f, half - 2f, 6f)
-                }
-                canvas.drawPath(steam1, paint)
-                canvas.drawPath(steam2, paint)
-            }
-            "run" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                paint.style = Paint.Style.FILL
-                canvas.drawCircle(half + 4f, 10f, 4f, paint)
-                paint.style = Paint.Style.STROKE
-                val torso = Path().apply {
-                    moveTo(half + 2f, 14f)
-                    lineTo(half - 2f, size * 0.6f)
-                    moveTo(half - 2f, size * 0.6f)
-                    lineTo(half - 8f, size * 0.75f)
-                    lineTo(half - 4f, size * 0.9f)
-                    moveTo(half - 2f, size * 0.6f)
-                    lineTo(half + 6f, size * 0.75f)
-                    lineTo(half + 2f, size * 0.9f)
-                    moveTo(half + 2f, 16f)
-                    lineTo(half + 8f, 20f)
-                    lineTo(half + 12f, 16f)
-                    moveTo(half + 2f, 16f)
-                    lineTo(half - 6f, 20f)
-                    lineTo(half - 10f, 24f)
-                }
-                canvas.drawPath(torso, paint)
-            }
-            "code" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                val left = Path().apply {
-                    moveTo(12f, 10f)
-                    lineTo(6f, half)
-                    lineTo(12f, size - 10f)
-                }
-                val right = Path().apply {
-                    moveTo(size - 12f, 10f)
-                    lineTo(size - 6f, half)
-                    lineTo(size - 12f, size - 10f)
-                }
-                val slash = Path().apply {
-                    moveTo(size - 10f, 6f)
-                    lineTo(10f, size - 6f)
-                }
-                canvas.drawPath(left, paint)
-                canvas.drawPath(right, paint)
-                canvas.drawPath(slash, paint)
-            }
-            "music" -> {
-                canvas.drawCircle(12f, size - 12f, 6f, paint)
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                val stem = Path().apply {
-                    moveTo(16f, size - 12f)
-                    lineTo(16f, 8f)
-                    lineTo(size - 10f, 12f)
-                }
-                canvas.drawPath(stem, paint)
-            }
-            "phone" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 5f
-                val phone = Path().apply {
-                    moveTo(10f, 10f)
-                    cubicTo(6f, 14f, 14f, size - 6f, size - 10f, size - 10f)
-                }
-                canvas.drawPath(phone, paint)
-                paint.style = Paint.Style.FILL
-                canvas.drawCircle(10f, 10f, 4f, paint)
-                canvas.drawCircle(size - 10f, size - 10f, 4f, paint)
-            }
-            "meditation" -> {
-                paint.style = Paint.Style.FILL
-                canvas.drawCircle(half, 10f, 4f, paint)
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                val body = Path().apply {
-                    moveTo(half, 18f)
-                    lineTo(half, size * 0.65f)
-                    moveTo(half, size * 0.65f)
-                    cubicTo(8f, size * 0.65f, 10f, size * 0.9f, half, size * 0.85f)
-                    moveTo(half, size * 0.65f)
-                    cubicTo(size - 8f, size * 0.65f, size - 10f, size * 0.9f, half, size * 0.85f)
-                    moveTo(half, 23f)
-                    cubicTo(8f, 23f, 8f, size * 0.6f, 12f, size * 0.65f)
-                    moveTo(half, 23f)
-                    cubicTo(size - 8f, 23f, size - 8f, size * 0.6f, size - 12f, size * 0.65f)
-                }
-                canvas.drawPath(body, paint)
-            }
-            "clock" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                canvas.drawCircle(half, half, size / 2f - 6f, paint)
-                canvas.drawLine(half, half, half, 12f, paint)
-                canvas.drawLine(half, half, half + 8f, half, paint)
-            }
-            "food" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 3f
-                canvas.drawCircle(half, half, 12f, paint)
-                canvas.drawLine(10f, 16f, 10f, size - 16f, paint)
-                canvas.drawLine(size - 10f, 16f, size - 10f, size - 16f, paint)
-            }
-            "money" -> {
-                paint.style = Paint.Style.FILL
-                paint.textSize = 34f
-                paint.textAlign = Paint.Align.CENTER
-                paint.isFakeBoldText = true
-                canvas.drawText("$", half, half + 12f, paint)
-            }
-            "work" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 3f
-                val rect = Path().apply {
-                    addRoundRect(10f, 16f, size - 10f, size - 10f, 4f, 4f, Path.Direction.CW)
-                }
-                canvas.drawPath(rect, paint)
-                val handle = Path().apply {
-                    moveTo(half - 6f, 16f)
-                    lineTo(half - 6f, 10f)
-                    lineTo(half + 6f, 10f)
-                    lineTo(half + 6f, 16f)
-                }
-                canvas.drawPath(handle, paint)
-            }
-            "clean" -> {
-                paint.style = Paint.Style.STROKE
-                paint.strokeWidth = 4f
-                canvas.drawLine(10f, size - 10f, size - 16f, 16f, paint)
-                canvas.drawLine(10f, size - 10f, 6f, size - 6f, paint)
-                canvas.drawLine(10f, size - 10f, 14f, size - 6f, paint)
-                canvas.drawLine(10f, size - 10f, 6f, size - 14f, paint)
-            }
-            else -> {
-                val path = Path().apply {
-                    moveTo(half, 4f)
-                    quadTo(half, half, size - 4f, half)
-                    quadTo(half, half, half, size - 4f)
-                    quadTo(half, half, 4f, half)
-                    quadTo(half, half, half, 4f)
-                    close()
-                }
-                canvas.drawPath(path, paint)
-            }
-        }
-        
-        return bitmap
+        return com.example.widget.WidgetBitmapUtils.drawIconToBitmap(context, iconName, colorInt)
     }
 
     companion object {
@@ -759,139 +441,28 @@ class HabitWidgetProvider : AppWidgetProvider() {
         @Volatile
         private var lastUpdateTriggerTime = 0L
 
+        private var debounceJob: kotlinx.coroutines.Job? = null
+
         fun triggerUpdate(context: Context) {
-            val intent = Intent(context, HabitWidgetProvider::class.java).apply {
-                action = ACTION_UPDATE_HABITS
+            val appContext = context.applicationContext
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val intent = Intent(appContext, HabitWidgetProvider::class.java).apply {
+                        action = ACTION_UPDATE_HABITS
+                    }
+                    appContext.sendBroadcast(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
-            context.sendBroadcast(intent)
         }
 
         fun drawProgressBarBitmapStatic(progressPercent: Int, isCompleted: Boolean, accentColorInt: Int, isDark: Boolean): Bitmap {
-            val width = 800
-            val height = 40
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            val cornerRadius = 20f
-            val rect = android.graphics.RectF(0f, 0f, width.toFloat(), height.toFloat())
-
-            // 1. Background Track
-            val trackPaint = Paint().apply {
-                isAntiAlias = true
-                style = Paint.Style.FILL
-                color = if (isDark) Color.parseColor("#20FFFFFF") else Color.parseColor("#EAEAEF")
-            }
-            canvas.drawRoundRect(rect, cornerRadius, cornerRadius, trackPaint)
-
-            // 2. Progress Fill
-            if (progressPercent > 0) {
-                val fillColor = if (isCompleted) Color.parseColor("#10B981") else accentColorInt
-                val fillPaint = Paint().apply {
-                    isAntiAlias = true
-                    style = Paint.Style.FILL
-                    color = fillColor
-                }
-                val fillWidth = width.toFloat() * (progressPercent.coerceIn(0, 100) / 100f)
-
-                val clipPath = Path().apply {
-                    addRoundRect(rect, cornerRadius, cornerRadius, Path.Direction.CW)
-                }
-                canvas.save()
-                canvas.clipPath(clipPath)
-                canvas.drawRect(0f, 0f, fillWidth, height.toFloat(), fillPaint)
-                canvas.restore()
-            }
-
-            // 3. Subtle Border
-            val borderPaint = Paint().apply {
-                isAntiAlias = true
-                style = Paint.Style.STROKE
-                strokeWidth = 2f
-                color = if (isDark) Color.parseColor("#2C2C38") else Color.parseColor("#E5E5ED")
-            }
-            canvas.drawRoundRect(rect, cornerRadius, cornerRadius, borderPaint)
-
-            return bitmap
+            return com.example.widget.WidgetBitmapUtils.drawProgressBarBitmap(progressPercent, isCompleted, accentColorInt, isDark)
         }
 
-        suspend fun updateWidgetHeaderStatic(context: Context, widgetId: Int) {
-            try {
-                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                val todayStr = sdf.format(Date())
-                val db = AppDatabase.getDatabase(context)
-                val allHabits = db.habitDao().getAllHabitsRaw()
-                val widgetLogs = db.habitDao().getLogsForDateRaw(todayStr)
-                val logsMap = widgetLogs.associateBy { it.habitId }
-                val allLogs = db.habitDao().getAllLogsRaw()
-
-                val activeHabits = allHabits
-                    .filter { !it.isArchived && com.example.data.isHabitActiveOnDate(it, todayStr) }
-                    .sortedWith(compareBy<com.example.data.Habit> { it.sortOrder }.thenByDescending { it.id })
-
-                var completed = 0
-                var nonPausedCount = 0
-
-                val curDate = try { java.time.LocalDate.parse(todayStr) } catch (e: Exception) { java.time.LocalDate.now() }
-                val startOf7Days = curDate.minusDays(6).toString()
-                val endOf7Days = curDate.toString()
-
-                activeHabits.forEach { habit ->
-                    val log = logsMap[habit.id]
-                    val isPaused = log != null && log.isPaused
-                    if (!isPaused) {
-                        nonPausedCount++
-                        val isDone = if (habit.frequency == "TIMES_WEEKLY") {
-                            val weeklyTarget = habit.specificDays.toIntOrNull() ?: 3
-                            val weeklyCount = allLogs.filter { l ->
-                                l.habitId == habit.id && l.date >= startOf7Days && l.date <= endOf7Days && com.example.data.isLogCompleted(habit, l)
-                            }.size
-                            weeklyCount >= weeklyTarget || com.example.data.isLogCompleted(habit, log)
-                        } else {
-                            com.example.data.isLogCompleted(habit, log)
-                        }
-                        if (isDone) {
-                            completed++
-                        }
-                    }
-                }
-
-                val sharedPrefs = context.getSharedPreferences("habits_settings", Context.MODE_PRIVATE)
-                val habitPrefs = context.getSharedPreferences("habit_prefs", Context.MODE_PRIVATE)
-                val isDark = sharedPrefs.getBoolean("dark_mode_enabled", habitPrefs.getBoolean("dark_mode_enabled", true))
-
-                val accentColorName = sharedPrefs.getString("accent_color_name", null)
-                    ?: habitPrefs.getString("accent_color_name", "PURPLE")
-                    ?: "PURPLE"
-                val accentColorInt = com.example.ui.HabitIconMapping.getColor(accentColorName).toArgb()
-
-                val progressPercent = if (nonPausedCount > 0) (completed.toFloat() / nonPausedCount * 100).toInt() else 0
-                val isCompleted = progressPercent >= 100 && nonPausedCount > 0
-
-                val layoutId = if (isDark) R.layout.habit_widget else R.layout.habit_widget_light
-                val views = RemoteViews(context.packageName, layoutId)
-
-                val progressBitmap = drawProgressBarBitmapStatic(progressPercent, isCompleted, accentColorInt, isDark)
-                views.setImageViewBitmap(R.id.widget_progress_bar, progressBitmap)
-
-                val perfectStats = com.example.data.StreakCalculator.calculate(allHabits, allLogs, targetDateStr = todayStr)
-                val currentStreak = perfectStats.currentStreak
-
-                sharedPrefs.edit().putInt("current_perfect_streak", currentStreak).apply()
-                views.setTextViewText(R.id.widget_streak_text, currentStreak.toString())
-                views.setTextColor(R.id.widget_streak_text, if (isDark) Color.parseColor("#FF9800") else Color.parseColor("#EA580C"))
-
-                val appWidgetManager = AppWidgetManager.getInstance(context)
-                if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                    appWidgetManager.partiallyUpdateAppWidget(widgetId, views)
-                } else {
-                    val componentName = ComponentName(context, HabitWidgetProvider::class.java)
-                    val ids = appWidgetManager.getAppWidgetIds(componentName)
-                    if (ids.isNotEmpty()) {
-                        appWidgetManager.partiallyUpdateAppWidget(ids, views)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        fun drawWidgetBackgroundBitmapStatic(isDark: Boolean, opacity: Float): Bitmap {
+            return com.example.widget.WidgetBitmapUtils.drawWidgetBackgroundBitmapStatic(isDark, opacity)
         }
     }
 }

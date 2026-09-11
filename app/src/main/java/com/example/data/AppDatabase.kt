@@ -108,7 +108,43 @@ val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
-@Database(entities = [Habit::class, HabitLog::class, DailyNote::class, TimeCapsuleNote::class, MilestoneReward::class], version = 12, exportSchema = false)
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        safeAddColumn(db, "habits", "minimalViableValue", "REAL")
+        safeAddColumn(db, "habits", "minimalViableText", "TEXT NOT NULL DEFAULT ''")
+        safeAddColumn(db, "habit_logs", "isMinimalViable", "INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        safeAddColumn(db, "habits", "why", "TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        safeAddColumn(db, "habits", "stackedOnHabitId", "INTEGER")
+    }
+}
+
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        safeAddColumn(db, "habits", "isFinishable", "INTEGER NOT NULL DEFAULT 0")
+        safeAddColumn(db, "habits", "totalTargetValue", "REAL")
+        safeAddColumn(db, "habits", "isCompletedGoal", "INTEGER NOT NULL DEFAULT 0")
+        safeAddColumn(db, "habits", "completedAt", "INTEGER")
+        safeAddColumn(db, "habits", "completionNote", "TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        safeAddColumn(db, "habits", "difficulty", "TEXT NOT NULL DEFAULT 'MEDIUM'")
+    }
+}
+
+@Database(entities = [Habit::class, HabitLog::class, DailyNote::class, TimeCapsuleNote::class, MilestoneReward::class], version = 17, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
 
@@ -134,7 +170,12 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_8_9,
                     MIGRATION_9_10,
                     MIGRATION_10_11,
-                    MIGRATION_11_12
+                    MIGRATION_11_12,
+                    MIGRATION_12_13,
+                    MIGRATION_13_14,
+                    MIGRATION_14_15,
+                    MIGRATION_15_16,
+                    MIGRATION_16_17
                 )
                 .fallbackToDestructiveMigration()
                 .build()

@@ -7,13 +7,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -255,18 +260,28 @@ fun CustomColorPickerDialog(
     }
 
     var currentHue by remember { mutableFloatStateOf(if (hsv[0].isNaN()) 0f else hsv[0]) }
-    var currentSat by remember { mutableFloatStateOf(if (hsv[1] < 0.1f) 0.85f else hsv[1]) }
-    var currentVal by remember { mutableFloatStateOf(if (hsv[2] < 0.1f) 0.95f else hsv[2]) }
+    var currentSat by remember { mutableFloatStateOf(if (hsv[1] < 0.02f) 0.85f else hsv[1]) }
+    var currentVal by remember { mutableFloatStateOf(if (hsv[2] < 0.02f) 0.95f else hsv[2]) }
+    var currentAlpha by remember { mutableFloatStateOf(initialColor.alpha) }
 
-    val currentColor = remember(currentHue, currentSat, currentVal) {
+    val baseColor = remember(currentHue, currentSat, currentVal) {
         Color(android.graphics.Color.HSVToColor(floatArrayOf(currentHue, currentSat, currentVal)))
     }
+    val currentColor = remember(baseColor, currentAlpha) {
+        baseColor.copy(alpha = currentAlpha)
+    }
 
-    val currentHex = remember(currentColor) {
-        String.format("#%06X", (0xFFFFFF and currentColor.toArgb()))
+    val currentHex = remember(currentColor, currentAlpha) {
+        if (currentAlpha >= 0.995f) {
+            String.format("#%06X", (0xFFFFFF and currentColor.toArgb()))
+        } else {
+            String.format("#%08X", currentColor.toArgb())
+        }
     }
 
     var hexText by remember(currentHex) { mutableStateOf(currentHex) }
+    var selectedSlotIndex by remember { mutableStateOf<Int?>(null) }
+    var showSlotInfoDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val sharedPrefs = remember { context.getSharedPreferences("habit_prefs", android.content.Context.MODE_PRIVATE) }
@@ -308,6 +323,7 @@ fun CustomColorPickerDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -318,7 +334,61 @@ fun CustomColorPickerDialog(
                     onHueChanged = { currentHue = it },
                     centerColor = currentColor,
                     hexText = currentHex,
-                    modifier = Modifier.size(200.dp)
+                    modifier = Modifier.size(180.dp)
+                )
+
+                // 1. Saturation Slider (Sättigung: 0% bis 100%)
+                val satGradient = remember(currentHue, currentVal) {
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color(android.graphics.Color.HSVToColor(floatArrayOf(currentHue, 0f, currentVal))),
+                            Color(android.graphics.Color.HSVToColor(floatArrayOf(currentHue, 1f, currentVal)))
+                        )
+                    )
+                }
+                ColorSlider(
+                    label = tr(language, "Sättigung", "Saturation"),
+                    value = currentSat,
+                    onValueChange = { currentSat = it },
+                    valueRange = 0f..1f,
+                    gradient = satGradient,
+                    valueText = "${(currentSat * 100).toInt()}%"
+                )
+
+                // 2. Brightness / Value Slider (Helligkeit: Dunkel bis Hell)
+                val valGradient = remember(currentHue, currentSat) {
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Black,
+                            Color(android.graphics.Color.HSVToColor(floatArrayOf(currentHue, currentSat, 1f)))
+                        )
+                    )
+                }
+                ColorSlider(
+                    label = tr(language, "Helligkeit", "Brightness"),
+                    value = currentVal,
+                    onValueChange = { currentVal = it },
+                    valueRange = 0f..1f,
+                    gradient = valGradient,
+                    valueText = "${(currentVal * 100).toInt()}%"
+                )
+
+                // 3. Opacity / Transparency Slider (Deckkraft / Transparenz: 10% bis 100%)
+                val alphaGradient = remember(baseColor) {
+                    Brush.horizontalGradient(
+                        listOf(
+                            baseColor.copy(alpha = 0.1f),
+                            baseColor.copy(alpha = 1f)
+                        )
+                    )
+                }
+                ColorSlider(
+                    label = tr(language, "Deckkraft", "Opacity"),
+                    value = currentAlpha,
+                    onValueChange = { currentAlpha = it },
+                    valueRange = 0.1f..1f,
+                    gradient = alphaGradient,
+                    valueText = "${(currentAlpha * 100).toInt()}%"
                 )
 
                 // Saved Slots Section
@@ -332,12 +402,28 @@ fun CustomColorPickerDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = tr(language, "Gemerkte Farben", "Saved Slots"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = tr(language, "Gemerkte Farben", "Saved Slots"),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(
+                                onClick = { showSlotInfoDialog = true },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Info",
+                                    tint = PrimaryViolet,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                         Text(
                             text = tr(language, "Tippen: Laden • Halten: Speichern", "Tap: Load • Hold: Save"),
                             style = MaterialTheme.typography.labelSmall,
@@ -357,6 +443,7 @@ fun CustomColorPickerDialog(
                                     try { Color(android.graphics.Color.parseColor(slotHex)) } catch (e: Exception) { null }
                                 } else null
                             }
+                            val isSlotActive = selectedSlotIndex == index
 
                             Box(
                                 modifier = Modifier
@@ -364,8 +451,8 @@ fun CustomColorPickerDialog(
                                     .clip(CircleShape)
                                     .background(slotColor ?: AppBg)
                                     .border(
-                                        width = if (slotColor != null && slotColor == currentColor) 2.dp else 1.dp,
-                                        color = if (slotColor != null && slotColor == currentColor) Color.White else AppBorder,
+                                        width = if (isSlotActive) 2.5.dp else 1.dp,
+                                        color = if (isSlotActive) Color.White else AppBorder,
                                         shape = CircleShape
                                     )
                                     .pointerInput(slotHex, currentHex) {
@@ -374,15 +461,19 @@ fun CustomColorPickerDialog(
                                                 if (slotColor != null) {
                                                     val arr = FloatArray(3)
                                                     android.graphics.Color.colorToHSV(slotColor.toArgb(), arr)
-                                                    currentHue = arr[0]
-                                                    currentSat = if (arr[1] < 0.05f) 0.85f else arr[1]
-                                                    currentVal = if (arr[2] < 0.05f) 0.95f else arr[2]
+                                                    currentHue = if (arr[0].isNaN()) 0f else arr[0]
+                                                    currentSat = arr[1]
+                                                    currentVal = arr[2]
+                                                    currentAlpha = slotColor.alpha
+                                                    selectedSlotIndex = index
                                                 } else {
                                                     saveSlotColor(index, currentHex)
+                                                    selectedSlotIndex = index
                                                 }
                                             },
                                             onLongPress = {
                                                 saveSlotColor(index, currentHex)
+                                                selectedSlotIndex = index
                                             }
                                         )
                                     },
@@ -395,13 +486,90 @@ fun CustomColorPickerDialog(
                                         tint = TextSecondary.copy(alpha = 0.5f),
                                         modifier = Modifier.size(18.dp)
                                     )
-                                } else if (slotColor == currentColor) {
+                                } else if (isSlotActive) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
                                         tint = Color.White,
                                         modifier = Modifier.size(16.dp)
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    // Action buttons for selected slot (Replace & Delete)
+                    if (selectedSlotIndex != null) {
+                        val activeIndex = selectedSlotIndex!!
+                        val activeSlotHex = savedSlots.getOrNull(activeIndex) ?: ""
+                        val activeHasColor = activeSlotHex.isNotBlank()
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = AppBg.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AppBorder)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Slot ${activeIndex + 1}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Replace / Speichern Button
+                                    FilledTonalButton(
+                                        onClick = {
+                                            saveSlotColor(activeIndex, currentHex)
+                                        },
+                                        colors = ButtonDefaults.filledTonalButtonColors(
+                                            containerColor = PrimaryViolet.copy(alpha = 0.2f),
+                                            contentColor = PrimaryViolet
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (activeHasColor) tr(language, "Ersetzen", "Replace") else tr(language, "Speichern", "Save"),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    // Delete / Löschen Button (only if slot has a color)
+                                    if (activeHasColor) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                saveSlotColor(activeIndex, "")
+                                                selectedSlotIndex = null
+                                            },
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRed.copy(alpha = 0.5f)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = tr(language, "Löschen", "Delete"),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -414,18 +582,29 @@ fun CustomColorPickerDialog(
                     onValueChange = { input ->
                         hexText = input
                         val clean = if (input.startsWith("#")) input else "#$input"
-                        if (clean.length == 7 || clean.length == 9) {
+                        if (clean.length == 7) {
                             try {
                                 val c = Color(android.graphics.Color.parseColor(clean))
                                 val arr = FloatArray(3)
                                 android.graphics.Color.colorToHSV(c.toArgb(), arr)
-                                currentHue = arr[0]
-                                currentSat = if (arr[1] < 0.05f) 0.85f else arr[1]
-                                currentVal = if (arr[2] < 0.05f) 0.95f else arr[2]
+                                currentHue = if (arr[0].isNaN()) 0f else arr[0]
+                                currentSat = arr[1]
+                                currentVal = arr[2]
+                                currentAlpha = 1f
+                            } catch (e: Exception) {}
+                        } else if (clean.length == 9) {
+                            try {
+                                val c = Color(android.graphics.Color.parseColor(clean))
+                                val arr = FloatArray(3)
+                                android.graphics.Color.colorToHSV(c.toArgb(), arr)
+                                currentHue = if (arr[0].isNaN()) 0f else arr[0]
+                                currentSat = arr[1]
+                                currentVal = arr[2]
+                                currentAlpha = c.alpha
                             } catch (e: Exception) {}
                         }
                     },
-                    labelText = "HEX Code",
+                    labelText = "HEX Code (#RRGGBB / #AARRGGBB)",
                     singleLine = true,
                     testTag = "hex_color_input"
                 )
@@ -449,6 +628,112 @@ fun CustomColorPickerDialog(
         containerColor = AppCard,
         shape = RoundedCornerShape(20.dp)
     )
+
+    if (showSlotInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showSlotInfoDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = PrimaryViolet)
+                    Text(
+                        text = tr(language, "Farben speichern & verwalten", "Manage Saved Colors"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = tr(language, "• Tippen: Gespeicherte Farbe in den Regler laden.", "• Tap: Load the saved color into the picker."),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = tr(language, "• Ersetzen: Tippe auf einen Slot und nutze den 'Ersetzen'-Button (oder halte den Slot gedrückt), um ihn mit der aktuellen Farbe zu überschreiben.", "• Replace: Tap a slot and use the 'Replace' button (or long-press the slot) to overwrite it with the current color."),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = tr(language, "• Löschen: Wähle einen belegten Slot aus und tippe auf 'Löschen', um ihn wieder freizugeben.", "• Delete: Select an occupied slot and tap 'Delete' to clear it."),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showSlotInfoDialog = false }) {
+                    Text(tr(language, "Verstanden", "Got it"), color = PrimaryViolet, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = AppCard,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+}
+
+@Composable
+fun ColorSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    gradient: Brush,
+    valueText: String
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = valueText,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(gradient)
+                    .border(1.dp, AppBorder, RoundedCornerShape(7.dp))
+            )
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = Color.Transparent,
+                    inactiveTrackColor = Color.Transparent
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }
 
 @Composable
