@@ -1,0 +1,28 @@
+name: 🌍 Language Translation
+description: Propose a new language or report a translation issue
+title: "[Translation]: "
+labels: ["translation"]
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: What would you like to do?
+      options:
+        - Add a new language
+        - Report an issue with an existing translation
+    validations:
+      required: true
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: "e.g. French (fr)"
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: If reporting an issue, please name the affected string/screen
+    validations:
+      required: true

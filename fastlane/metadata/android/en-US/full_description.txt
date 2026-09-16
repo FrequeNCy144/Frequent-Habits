@@ -1,0 +1,36 @@
+Frequent Habits — Private, Beautiful & Deep Habit Tracking
+
+Often, you have to make a hard choice when looking for a habit tracker: either choose a visually stunning app trapped behind expensive paywalls and aggressive data harvesting, or settle for privacy-friendly open-source apps that feel visually basic. Frequent Habits bridges that gap completely.
+
+It combines an ultra-modern interface, rich audio-visual feedback, and deep behavioral analytics with 100% offline privacy and zero cloud dependencies.
+
+✉️ A Personal Welcome
+"I built Frequent Habits after searching high and low for an app with the exact feature set I wanted. Frequent Habits has everything I always wished for: clean design, deep analytics, interactive widgets, local backups, and gamification to stay motivated!" — @FrequeNCy144
+
+✨ Key Features & Highlights
+
+🧠 Science-Based Habit Principles to build lasting habits — Habit Stacking, Minimum Viable Mode and more...
+
+🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
+
+📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and much more...
+
+🏆 Trophies & Gold Series — Unlock achievements as your habits grow.
+
+🎉 Custom Self-Rewards — Define your own rewards for your dedication to your goals.
+
+💡 Algorithmic Smart Insights — Get interesting insights into your tracking patterns.
+
+📝 Weekly & Annual Reviews — Structured reflections built right into your routine.
+
+⏳ Time Capsules — Leave notes for your future self, tied to your habit history.
+
+🎨 Make It Yours — Choose light or dark mode with custom accent colors.
+
+💾 Local JSON Backup & Restore — Full data ownership via Android's Storage Access Framework.
+
+📥 1-Click Habit Import — Switch from other habit trackers without losing your history.
+
+⚡ Homescreen Widget — Check off habits right from your home screen.
+
+🔒 100% Offline, No Ads, No Tracking — Everything stays strictly on your device.
