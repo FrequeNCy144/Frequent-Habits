@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 1. Ambient backglow of the progress ring in standard violet -->
+    <path
+        android:pathData="M 73.8,34.2 A 28,28 0 1,1 61.2,27"
+        android:strokeWidth="16"
+        android:strokeColor="#7356FF"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.25"
+        android:fillColor="#00000000" />
+
+    <!-- 2. The main progress ring with our standard violet color -->
+    <path
+        android:pathData="M 73.8,34.2 A 28,28 0 1,1 61.2,27"
+        android:strokeWidth="8.5"
+        android:strokeColor="#7356FF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- 3. Dynamic inner gloss/highlight on the progress ring for depth -->
+    <path
+        android:pathData="M 32,42 A 28,28 0 0,0 42,78"
+        android:strokeWidth="1.5"
+        android:strokeAlpha="0.15"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- 4. Soft glowing shadow for the checkmark to give it distinct separation and depth -->
+    <path
+        android:pathData="M 41,54 L 50,63 L 69,44"
+        android:strokeWidth="13"
+        android:strokeColor="#7356FF"
+        android:strokeAlpha="0.15"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- 5. Stark, bold white checkmark representing habit completion and daily success -->
+    <path
+        android:pathData="M 41,54 L 50,63 L 69,44"
+        android:strokeWidth="7.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- 6. Subtle glowing dot at the end of the progress arc to emphasize tracking and focus -->
+    <path
+        android:pathData="M 73.8,34.2 m -2,0 a 2,2 0 1,1 4,0 a 2,2 0 1,1 -4,0"
+        android:fillColor="#7356FF" />
+
+</vector>

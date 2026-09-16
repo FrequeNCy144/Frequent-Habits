@@ -1,0 +1,38 @@
+# Built artifacts
+build/
+/build/
+/*/build/
+.gradle/
+.kotlin/
+.build-outputs/
+
+# IDE files (Android Studio / IntelliJ)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Android specific artifacts & releases
+/app/release/
+*.apk
+*.ap_
+*.aab
+*.dm
+output-metadata.json
+
+# Local files & secrets
+local.properties
+/local.properties
+.env
+debug.keystore
+debug.keystore.base64
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+/captures/
+.externalNativeBuild/
+.cxx/
+

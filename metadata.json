@@ -1,0 +1,6 @@
+{
+  "name": "Frequent Habits",
+  "description": "A high-fidelity modern dark-themed habit tracker with stats, streaks, calendar view, customizable habits, and an Android homescreen widget.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

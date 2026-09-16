@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Stylized progress arc -->
+    <path
+        android:pathData="M 16.4,7.6 A 6.2,6.2 0 1,1 13.6,6.0"
+        android:strokeWidth="1.8"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Accent dot at the top of the progress arc -->
+    <path
+        android:pathData="M 16.4,7.6 m -0.75,0 a 0.75,0.75 0 1,1 1.5,0 a 0.75,0.75 0 1,1 -1.5,0"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Centered checkmark representing habit completion -->
+    <path
+        android:pathData="M 9.2,12.0 L 11.2,14.0 L 15.4,9.8"
+        android:strokeWidth="1.8"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+</vector>

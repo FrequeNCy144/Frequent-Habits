@@ -1,0 +1,10 @@
+{
+  "name": "frequent-habits",
+  "version": "1.0.0",
+  "description": "Android application",
+  "scripts": {
+    "build": "echo 'Android build skipped in web runner'",
+    "start": "echo 'Android app running'",
+    "lint": "echo 'No lint errors'"
+  }
+}
