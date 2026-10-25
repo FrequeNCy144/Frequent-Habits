@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.data.Habit
 import com.example.tr
+import com.example.getLocalizedUnit
 import com.example.ui.HabitIconMapping
 import com.example.ui.theme.*
 import com.frequent.habits.R
@@ -42,7 +43,14 @@ fun HabitRowContent(
     anchorCompleted: Boolean,
     totalAchievedValue: Float,
     language: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isMonthlyTargetReached: Boolean = false,
+    monthlyLoggedCount: Int = 0,
+    monthlyTargetCount: Int = 0,
+    isWeeklyNumeric: Boolean = false,
+    weeklySum: Float = 0f,
+    isMonthlyNumeric: Boolean = false,
+    monthlySum: Float = 0f
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -96,13 +104,43 @@ fun HabitRowContent(
             val subtitleText = if (isPaused) {
                 tr(language, "Skipped", "გამოტოვებული", "已跳过", "Skipped")
             } else if (habit.frequency == "TIMES_WEEKLY") {
-                "$weeklyLoggedCount/$weeklyTargetCount " + tr(language, "in 7 Tagen", "7 დღეში", "7 天内", "in 7 days")
+                if (isWeeklyNumeric) {
+                    val formattedSum = if (weeklySum % 1f == 0f) weeklySum.toInt().toString() else weeklySum.toString()
+                    val targetVal = habit.targetValue
+                    val formattedTarget = if (targetVal % 1f == 0f) targetVal.toInt().toString() else targetVal.toString()
+                    val unitStr = if (habit.unit.isNotBlank()) " ${getLocalizedUnit(habit.unit, language)}" else ""
+                    val limitPrefix = if (habit.isNegative) tr(language, "max. ", "მაქს. ", "最多 ", "max ") else ""
+                    val todayPart = if (currentValue > 0f) {
+                        val formattedToday = if (currentValue % 1f == 0f) currentValue.toInt().toString() else currentValue.toString()
+                        " (" + tr(language, "Heute: +$formattedToday", "დღეს: +$formattedToday", "今日: +$formattedToday", "Today: +$formattedToday") + ")"
+                    } else ""
+                    "$formattedSum / $limitPrefix$formattedTarget$unitStr " + tr(language, "in 7 Tagen", "7 დღეში", "7 天内", "in 7 days") + todayPart
+                } else {
+                    val todayDone = if (currentValue > 0f) " (" + tr(language, "Heute erledigt", "დღეს შესრულდა", "今日已完成", "Done today") + ")" else ""
+                    "$weeklyLoggedCount/$weeklyTargetCount " + tr(language, "in 7 Tagen", "7 დღეში", "7 天内", "in 7 days") + todayDone
+                }
+            } else if (habit.frequency == "TIMES_MONTHLY") {
+                if (isMonthlyNumeric) {
+                    val formattedSum = if (monthlySum % 1f == 0f) monthlySum.toInt().toString() else monthlySum.toString()
+                    val targetVal = habit.targetValue
+                    val formattedTarget = if (targetVal % 1f == 0f) targetVal.toInt().toString() else targetVal.toString()
+                    val unitStr = if (habit.unit.isNotBlank()) " ${getLocalizedUnit(habit.unit, language)}" else ""
+                    val limitPrefix = if (habit.isNegative) tr(language, "max. ", "მაქს. ", "最多 ", "max ") else ""
+                    val todayPart = if (currentValue > 0f) {
+                        val formattedToday = if (currentValue % 1f == 0f) currentValue.toInt().toString() else currentValue.toString()
+                        " (" + tr(language, "Heute: +$formattedToday", "დღეს: +$formattedToday", "今日: +$formattedToday", "Today: +$formattedToday") + ")"
+                    } else ""
+                    "$formattedSum / $limitPrefix$formattedTarget$unitStr " + tr(language, "in 30 Tagen", "30 დღეში", "30 天内", "in 30 days") + todayPart
+                } else {
+                    val todayDone = if (currentValue > 0f) " (" + tr(language, "Heute erledigt", "დღეს შესრულდა", "今日已完成", "Done today") + ")" else ""
+                    "$monthlyLoggedCount/$monthlyTargetCount " + tr(language, "in 30 Tagen", "30 დღეში", "30 天内", "in 30 days") + todayDone
+                }
             } else if (isNumerical) {
                 val displayValue = if (isFailed && !habit.isNegative) 0f else currentValue
                 val formattedVal = if (displayValue % 1f == 0f) displayValue.toInt().toString() else displayValue.toString()
                 val targetVal = if (isMinimalViable && habit.minimalViableValue != null) habit.minimalViableValue else habit.targetValue
                 val formattedTarget = if (targetVal % 1f == 0f) targetVal.toInt().toString() else targetVal.toString()
-                val unitStr = if (habit.unit.isNotBlank()) " ${habit.unit}" else ""
+                val unitStr = if (habit.unit.isNotBlank()) " ${getLocalizedUnit(habit.unit, language)}" else ""
                 val suffix = if (isMinimalViable) " (Min)" else ""
                 val limitPrefix = if (habit.isNegative) tr(language, "max. ", "მაქს. ", "最多 ", "max ") else ""
                 "$formattedVal / $limitPrefix$formattedTarget$unitStr$suffix"
@@ -162,7 +200,7 @@ fun HabitRowContent(
                             isPaused -> HabitOrange
                             isCompleted -> SuccessGreen
                             isFailed -> FailedRed
-                            habit.frequency == "TIMES_WEEKLY" && isWeeklyTargetReached -> SuccessGreen
+                            (habit.frequency == "TIMES_WEEKLY" && isWeeklyTargetReached) || (habit.frequency == "TIMES_MONTHLY" && isMonthlyTargetReached) -> SuccessGreen
                             anchorCompleted && isStackAuraActive -> HabitOrange
                             isMinimalViable -> PrimaryViolet
                             else -> if (isNumerical) habitColor else TextSecondary
@@ -184,7 +222,7 @@ fun HabitRowContent(
                     val pct = (fraction * 100).toInt()
                     val formattedCurrent = if (totalAchievedValue % 1f == 0f) totalAchievedValue.toInt().toString() else totalAchievedValue.toString()
                     val formattedTarget = if (totalTarget % 1f == 0f) totalTarget.toInt().toString() else totalTarget.toString()
-                    val unitStr = if (habit.unit.isNotBlank()) " ${habit.unit}" else if (!isNumerical) " " + tr(language, "Tage", "დღე", "天", "days") else ""
+                    val unitStr = if (habit.unit.isNotBlank()) " ${getLocalizedUnit(habit.unit, language)}" else if (!isNumerical) " " + tr(language, "Tage", "დღე", "天", "days") else ""
 
                     LinearProgressIndicator(
                         progress = { fraction },

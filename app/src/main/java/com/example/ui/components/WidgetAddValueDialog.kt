@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.widget.Toast
+import com.example.tr
 import com.example.FocusTimerManager
 import com.example.data.AppDatabase
 import com.example.data.Habit
@@ -112,11 +114,7 @@ fun WidgetAddValueDialog(
 
         val refreshAudios = remember(context) {
             {
-                val dir = File(context.filesDir, "audios")
-                if (!dir.exists()) dir.mkdirs()
-                val files = dir.listFiles()?.filter {
-                    it.isFile && (it.extension.lowercase() in listOf("mp3", "m4a", "wav", "ogg", "aac"))
-                }?.sortedBy { it.name } ?: emptyList()
+                val files = AudioSoundscapeManager.listImportedAudios(context)
                 importedAudios = files
 
                 val lastSaved = AudioSoundscapeManager.getLastSelectedAudio(context)
@@ -134,35 +132,25 @@ fun WidgetAddValueDialog(
         }
 
         val audioPickerLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
+            contract = ActivityResultContracts.OpenDocument()
         ) { uri ->
             if (uri != null) {
-                try {
-                    val contentResolver = context.contentResolver
-                    var fileName = "imported_audio_${System.currentTimeMillis()}.mp3"
-                    contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                        if (nameIndex != -1 && cursor.moveToFirst()) {
-                            val dispName = cursor.getString(nameIndex)
-                            if (!dispName.isNullOrEmpty()) {
-                                fileName = dispName
-                            }
-                        }
-                    }
-                    val destDir = File(context.filesDir, "audios")
-                    if (!destDir.exists()) destDir.mkdirs()
-                    val destFile = File(destDir, fileName)
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        destFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
+                val imported = AudioSoundscapeManager.importAudioFromUri(context, uri)
+                if (imported != null) {
                     refreshAudios()
-                    selectedAudioFile = destFile
-                    AudioSoundscapeManager.setLastSelectedAudio(context, destFile.name)
-                    FocusTimerManager.updateAudio(context, destFile)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                    selectedAudioFile = imported
+                    FocusTimerManager.updateAudio(context, imported)
+                    Toast.makeText(
+                        context,
+                        tr(language, "Audio erfolgreich importiert: ${imported.nameWithoutExtension}", "აუდიო წარმატებით იმპორტირებულია: ${imported.nameWithoutExtension}", "已成功导入音频: ${imported.nameWithoutExtension}", "Audio imported successfully: ${imported.nameWithoutExtension}"),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        context,
+                        tr(language, "Import fehlgeschlagen. Bitte wähle eine gültige Audiodatei.", "იმპორტი ვერ მოხერხდა", "导入失败，请选择有效的音频文件。", "Import failed. Please choose a valid audio file."),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
@@ -261,7 +249,13 @@ fun WidgetAddValueDialog(
                         importedAudios = importedAudios,
                         selectedAudioFile = selectedAudioFile,
                         onSelectAudio = { selectedAudioFile = it },
-                        onLaunchAudioPicker = { audioPickerLauncher.launch("audio/*") }
+                        onLaunchAudioPicker = {
+                            try {
+                                audioPickerLauncher.launch(AudioSoundscapeManager.AUDIO_MIME_TYPES)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
                     )
                 }
 

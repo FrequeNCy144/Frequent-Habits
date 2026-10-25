@@ -69,9 +69,12 @@ fun SettingsScreen(
     val vibrationEnabled by viewModel.vibrationEnabled.collectAsStateWithLifecycle()
     val accentColorName by viewModel.accentColorName.collectAsStateWithLifecycle()
     val accentColor = remember(accentColorName) { HabitIconMapping.getColor(accentColorName) }
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val darkModeEnabled by viewModel.darkModeEnabled.collectAsStateWithLifecycle()
+    val isCurrentDark = LocalDarkMode.current
     val widgetOpacity by viewModel.widgetOpacity.collectAsStateWithLifecycle()
     val infoCardsEnabled by viewModel.infoCardsEnabled.collectAsStateWithLifecycle()
+    val coloredFolderCardsEnabled by viewModel.coloredFolderCardsEnabled.collectAsStateWithLifecycle()
     val reviewNotificationsEnabled by viewModel.reviewNotificationsEnabled.collectAsStateWithLifecycle()
     val insightNotificationsEnabled by viewModel.insightNotificationsEnabled.collectAsStateWithLifecycle()
     val smartInsightsInAppEnabled by viewModel.smartInsightsInAppEnabled.collectAsStateWithLifecycle()
@@ -131,11 +134,7 @@ fun SettingsScreen(
 
     val refreshAudios = remember(context) {
         {
-            val dir = File(context.filesDir, "audios")
-            if (!dir.exists()) dir.mkdirs()
-            importedAudios = dir.listFiles()?.filter {
-                it.isFile && (it.extension.lowercase() in listOf("mp3", "m4a", "wav", "ogg", "aac"))
-            }?.sortedBy { it.name } ?: emptyList()
+            importedAudios = AudioSoundscapeManager.listImportedAudios(context)
 
             val savedName = AudioSoundscapeManager.getLastSelectedAudio(context)
             selectedAudioFile = if (savedName.isNotEmpty()) {
@@ -151,35 +150,24 @@ fun SettingsScreen(
     }
 
     val audioPickerLauncherSettings = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            try {
-                val contentResolver = context.contentResolver
-                var fileName = "imported_audio_${System.currentTimeMillis()}.mp3"
-                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (nameIndex != -1 && cursor.moveToFirst()) {
-                        val dispName = cursor.getString(nameIndex)
-                        if (!dispName.isNullOrEmpty()) {
-                            fileName = dispName
-                        }
-                    }
-                }
-                val destDir = File(context.filesDir, "audios")
-                if (!destDir.exists()) destDir.mkdirs()
-                val destFile = File(destDir, fileName)
-                contentResolver.openInputStream(uri)?.use { inputStream ->
-                    destFile.outputStream().use { outputStream ->
-                        inputStream.copyTo(outputStream)
-                    }
-                }
+            val imported = AudioSoundscapeManager.importAudioFromUri(context, uri)
+            if (imported != null) {
                 refreshAudios()
-                selectedAudioFile = destFile
-                AudioSoundscapeManager.setLastSelectedAudio(context, destFile.name)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                Toast.makeText(context, "Import failed", Toast.LENGTH_SHORT).show()
+                selectedAudioFile = imported
+                Toast.makeText(
+                    context,
+                    tr(language, "Audio erfolgreich importiert: ${imported.nameWithoutExtension}", "აუდიო წარმატებით იმპორტირებულია: ${imported.nameWithoutExtension}", "已成功导入音频: ${imported.nameWithoutExtension}", "Audio imported successfully: ${imported.nameWithoutExtension}"),
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                Toast.makeText(
+                    context,
+                    tr(language, "Import fehlgeschlagen. Bitte wähle eine gültige Audiodatei.", "იმპორტი ვერ მოხერხდა", "导入失败，请选择有效的音频文件。", "Import failed. Please choose a valid audio file."),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
@@ -209,13 +197,15 @@ fun SettingsScreen(
             contract = ActivityResultContracts.OpenDocument()
         ) { uri ->
             if (uri != null) {
-                try {
-                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        viewModel.triggerManualRestoreFromStream(inputStream)
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Error reading backup file", Toast.LENGTH_SHORT).show()
-                }
+                viewModel.triggerManualRestoreFromUri(uri)
+            }
+        }
+
+        val createBackupLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/zip")
+        ) { uri ->
+            if (uri != null) {
+                viewModel.exportBackupToUri(uri)
             }
         }
 
@@ -412,9 +402,11 @@ fun SettingsScreen(
                         "appearance" -> {
                             appearanceSettingsSection(
                                 language = language,
-                                isDark = darkModeEnabled,
+                                themeMode = themeMode,
+                                isDark = isCurrentDark,
                                 isVibrationEnabled = vibrationEnabled,
                                 isInfoCardsEnabled = infoCardsEnabled,
+                                coloredFolderCardsEnabled = coloredFolderCardsEnabled,
                                 widgetOpacity = widgetOpacity,
                                 accentColorName = accentColorName,
                                 viewModel = viewModel,
@@ -429,7 +421,7 @@ fun SettingsScreen(
                                 onShowAudioDialog = { showAudioDialog = true },
                                 onImportAudioClick = {
                                     try {
-                                        audioPickerLauncherSettings.launch("audio/*")
+                                        audioPickerLauncherSettings.launch(AudioSoundscapeManager.AUDIO_MIME_TYPES)
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
@@ -468,10 +460,28 @@ fun SettingsScreen(
                                 onManualBackup = { viewModel.triggerManualBackup() },
                                 onPickRestoreFile = {
                                     try {
-                                        fileLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                                        fileLauncher.launch(arrayOf(
+                                            "application/zip",
+                                            "application/x-zip-compressed",
+                                            "application/octet-stream",
+                                            "application/json",
+                                            "text/plain",
+                                            "*/*"
+                                        ))
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
+                                },
+                                onExportBackupFile = {
+                                    try {
+                                        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm", java.util.Locale.US)
+                                        createBackupLauncher.launch("backup_frequent_habits_${sdf.format(java.util.Date())}.zip")
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                },
+                                onShareBackup = {
+                                    viewModel.shareBackupFile(context)
                                 },
                                 onPickCsvFile = {
                                     try {
@@ -530,11 +540,12 @@ fun SettingsScreen(
                 },
                 onImportAudioClick = {
                     try {
-                        audioPickerLauncherSettings.launch("audio/*")
+                        audioPickerLauncherSettings.launch(AudioSoundscapeManager.AUDIO_MIME_TYPES)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
                 },
+                onAudiosChanged = { refreshAudios() },
                 onDeleteAudioClick = { file ->
                     try {
                         if (file.exists()) {

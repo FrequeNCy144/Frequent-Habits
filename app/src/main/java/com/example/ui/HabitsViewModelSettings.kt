@@ -21,22 +21,44 @@ fun HabitsViewModel.setAccentColorName(name: String) {
             .putString("accent_color_name", name)
             .apply()
     } catch (e: Exception) {}
+    if (name.equals("SYSTEM", ignoreCase = true)) {
+        try { HabitIconMapping.initSystemAccentColor(getApplication()) } catch (_: Exception) {}
+    }
     updateAccentColors(name)
     HabitWidgetProvider.triggerUpdate(getApplication())
 }
 
-fun HabitsViewModel.setDarkModeEnabled(enabled: Boolean) {
-    _darkModeEnabled.value = enabled
-    sharedPrefs.edit().putBoolean("dark_mode_enabled", enabled).commit()
+fun HabitsViewModel.setThemeMode(mode: String) {
+    _themeMode.value = mode
+    sharedPrefs.edit().putString("theme_mode", mode).commit()
     try {
         getApplication<android.app.Application>()
             .getSharedPreferences("habit_prefs", Context.MODE_PRIVATE)
             .edit()
-            .putBoolean("dark_mode_enabled", enabled)
+            .putString("theme_mode", mode)
             .commit()
     } catch (e: Exception) {}
-    updateThemeColors(enabled)
+    when (mode) {
+        "DARK" -> {
+            _darkModeEnabled.value = true
+            sharedPrefs.edit().putBoolean("dark_mode_enabled", true).commit()
+            updateThemeColors(true)
+        }
+        "LIGHT" -> {
+            _darkModeEnabled.value = false
+            sharedPrefs.edit().putBoolean("dark_mode_enabled", false).commit()
+            updateThemeColors(false)
+        }
+        else -> {
+            // "SYSTEM" -> will be evaluated dynamically by isSystemInDarkTheme()
+            setAccentColorName("SYSTEM")
+        }
+    }
     HabitWidgetProvider.triggerUpdate(getApplication())
+}
+
+fun HabitsViewModel.setDarkModeEnabled(enabled: Boolean) {
+    setThemeMode(if (enabled) "DARK" else "LIGHT")
 }
 
 fun HabitsViewModel.setWidgetOpacity(opacity: Float) {
@@ -54,6 +76,11 @@ fun HabitsViewModel.setVibrationEnabled(enabled: Boolean) {
 fun HabitsViewModel.setInfoCardsEnabled(enabled: Boolean) {
     _infoCardsEnabled.value = enabled
     sharedPrefs.edit().putBoolean("info_cards_enabled", enabled).apply()
+}
+
+fun HabitsViewModel.setColoredFolderCardsEnabled(enabled: Boolean) {
+    _coloredFolderCardsEnabled.value = enabled
+    sharedPrefs.edit().putBoolean("colored_folder_cards_enabled", enabled).apply()
 }
 
 fun HabitsViewModel.setReviewNotificationsEnabled(enabled: Boolean) {

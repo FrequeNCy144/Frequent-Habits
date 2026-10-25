@@ -5,6 +5,8 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -69,7 +71,7 @@ fun MainNavHost(
             val initialRoute = initialState.destination.route
             val targetRoute = targetState.destination.route
             if (isMainTabRoute(initialRoute) && isMainTabRoute(targetRoute)) {
-                fadeIn(animationSpec = tween(150, easing = LinearOutSlowInEasing))
+                EnterTransition.None
             } else {
                 slideInHorizontally(
                     initialOffsetX = { fullWidth -> fullWidth },
@@ -81,7 +83,7 @@ fun MainNavHost(
             val initialRoute = initialState.destination.route
             val targetRoute = targetState.destination.route
             if (isMainTabRoute(initialRoute) && isMainTabRoute(targetRoute)) {
-                fadeOut(animationSpec = tween(120, easing = FastOutLinearInEasing))
+                ExitTransition.None
             } else {
                 slideOutHorizontally(
                     targetOffsetX = { fullWidth -> -fullWidth },
@@ -93,7 +95,7 @@ fun MainNavHost(
             val initialRoute = initialState.destination.route
             val targetRoute = targetState.destination.route
             if (isMainTabRoute(initialRoute) && isMainTabRoute(targetRoute)) {
-                fadeIn(animationSpec = tween(150, easing = LinearOutSlowInEasing))
+                EnterTransition.None
             } else {
                 slideInHorizontally(
                     initialOffsetX = { fullWidth -> -fullWidth },
@@ -105,7 +107,7 @@ fun MainNavHost(
             val initialRoute = initialState.destination.route
             val targetRoute = targetState.destination.route
             if (isMainTabRoute(initialRoute) && isMainTabRoute(targetRoute)) {
-                fadeOut(animationSpec = tween(120, easing = FastOutLinearInEasing))
+                ExitTransition.None
             } else {
                 slideOutHorizontally(
                     targetOffsetX = { fullWidth -> fullWidth },
@@ -137,7 +139,6 @@ fun MainNavHost(
             )
         }
         composable("TODAY") {
-            var isReorderMode by remember { mutableStateOf(false) }
             TodayScreen(
                 viewModel = viewModel,
                 language = language,
@@ -156,8 +157,11 @@ fun MainNavHost(
                 },
                 showCreateFirstHabitHint = showCreateFirstHabitHint,
                 onDismissFirstHabitHint = { onSetShowCreateFirstHabitHint(false) },
-                isReorderMode = isReorderMode,
-                onReorderModeChange = { isReorderMode = it }
+                onNavigateToReorder = {
+                    navController.navigate("REORDER") {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
         composable("CREATE") {
@@ -169,11 +173,6 @@ fun MainNavHost(
                     allMilestoneRewards.filter { it.habitId == editingHabit.id }
                 } else {
                     emptyList()
-                }
-            }
-            DisposableEffect(Unit) {
-                onDispose {
-                    onSetEditingHabit(null)
                 }
             }
             CreateHabitScreen(
@@ -269,7 +268,33 @@ fun MainNavHost(
                         }
                     }
                 },
+                onEditHabit = { habit ->
+                    onSetEditingHabit(habit)
+                    navController.navigate("CREATE") {
+                        launchSingleTop = true
+                    }
+                },
+                onReorderClick = {
+                    navController.navigate("REORDER") {
+                        launchSingleTop = true
+                    }
+                },
                 listState = statsListState
+            )
+        }
+        composable("REORDER") {
+            ReorderHabitsScreen(
+                viewModel = viewModel,
+                language = language,
+                onBack = {
+                    navController.popBackStack()
+                },
+                onEditHabit = { habit ->
+                    onSetEditingHabit(habit)
+                    navController.navigate("CREATE") {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
         composable("OVERALL_STATS") {

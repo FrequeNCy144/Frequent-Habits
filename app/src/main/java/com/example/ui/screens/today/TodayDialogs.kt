@@ -1,6 +1,8 @@
 package com.example.ui.screens.today
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import com.example.data.Habit
 import com.example.data.HabitFolder
@@ -26,6 +28,7 @@ fun TodayDialogs(
     showFolderDialog: Boolean,
     editingFolder: HabitFolder?,
     onDismissFolderDialog: () -> Unit,
+    onRequestCreateFolder: (() -> Unit)? = null,
     showDayOverviewSheet: Boolean,
     onDismissDayOverviewSheet: () -> Unit,
     onStartReorder: () -> Unit,
@@ -45,6 +48,7 @@ fun TodayDialogs(
     onRequestArchiveHabit: (Habit) -> Unit,
     onRequestDeleteHabit: (Habit) -> Unit
 ) {
+    val allFolders by viewModel.allFolders.collectAsState()
     if (showDayOverviewSheet) {
         val eligibleMvHabits = activeHabitUiItemsForSelectedDate.filter { 
             (it.habit.minimalViableValue != null && it.habit.minimalViableValue > 0f) || it.habit.minimalViableText.isNotBlank()
@@ -105,6 +109,12 @@ fun TodayDialogs(
                 onDismissLongPressAction()
                 onRequestDeleteHabit(habit)
             },
+            onStartReorder = onStartReorder,
+            allFolders = allFolders,
+            onMoveToFolder = { newFolderId ->
+                viewModel.updateHabit(habit.copy(folderId = newFolderId))
+            },
+            onCreateFolderAndMove = onRequestCreateFolder,
             onDismiss = onDismissLongPressAction
         )
     }

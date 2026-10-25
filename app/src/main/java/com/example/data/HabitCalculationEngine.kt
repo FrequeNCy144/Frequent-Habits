@@ -42,7 +42,13 @@ object HabitCalculationEngine {
     }
     fun calculateStreak(habit: Habit, logs: List<HabitLog>, targetDateStr: String? = null): Pair<Int, Int> {
         // Return (currentStreak, longestStreak)
-        val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
+        val validStartMillis = if (habit.startDate > 946684800000L) {
+            habit.startDate
+        } else if (habit.createdAt > 946684800000L) {
+            habit.createdAt
+        } else {
+            System.currentTimeMillis()
+        }
         val startSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val startSdfStr = startSdf.format(Date(validStartMillis))
 
@@ -76,13 +82,12 @@ object HabitCalculationEngine {
                 try { java.time.LocalDate.parse(targetDateStr) } catch (e: Exception) { java.time.LocalDate.now() }
             } else java.time.LocalDate.now()
             
-            val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
             val habitStartDate = try {
-                java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L))
+                java.time.Instant.ofEpochMilli(validStartMillis)
                     .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             } catch (e: Exception) {
-                java.time.LocalDate.now()
-            }
+                today
+            }.coerceAtLeast(today.minusDays(365))
 
             if (habitStartDate.isAfter(today)) return 0 to 0
 
@@ -93,26 +98,56 @@ object HabitCalculationEngine {
 
             while (!currDate.isAfter(today)) {
                 val startOf7Days = currDate.minusDays(6)
+                val effectiveStart = if (startOf7Days.isBefore(habitStartDate)) habitStartDate else startOf7Days
+                val daysInWindow = (java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, currDate) + 1).toInt().coerceIn(1, 7)
                 var completedInWindow = 0
                 var pausedInWindow = 0
-                for (d in 0..6) {
-                    val dDate = startOf7Days.plusDays(d.toLong())
-                    val dayStr = dDate.toString()
-                    if (pausedDates.contains(dayStr)) {
-                        pausedInWindow++
-                    } else if (habit.isNegative) {
-                        if (!dDate.isBefore(habitStartDate) && !dDate.isAfter(currDate) && !failedDates.contains(dayStr)) {
-                            completedInWindow++
-                        }
-                    } else {
-                        if (completedDates.contains(dayStr)) completedInWindow++
-                    }
-                }
-                val adjustedTarget = (targetTimes - pausedInWindow).coerceAtLeast(1)
-                val isSuccess = completedInWindow >= adjustedTarget
-                daysSuccessMap[currDate] = isSuccess
 
-                if (isSuccess) {
+                if (habit.type == "NUMBER") {
+                    val startStr = effectiveStart.toString()
+                    val endStr = currDate.toString()
+                    val habitLogsInWindow = logs.filter { l ->
+                        l.habitId == habit.id && l.date >= startStr && l.date <= endStr
+                    }
+                    val effectiveNumericTarget = if (daysInWindow < 7) {
+                        ((habit.targetValue * daysInWindow) / 7f).coerceAtLeast(0.1f)
+                    } else {
+                        habit.targetValue
+                    }
+                    val weeklySum = habitLogsInWindow.filter { !it.isPaused }.sumOf { it.value.toDouble() }.toFloat()
+                    val isSuccess = if (habit.isNegative) {
+                        weeklySum <= effectiveNumericTarget
+                    } else {
+                        weeklySum >= effectiveNumericTarget
+                    }
+                    daysSuccessMap[currDate] = isSuccess
+                } else {
+                    val effectiveTarget = if (daysInWindow < 7) {
+                        ((targetTimes.toFloat() * daysInWindow) / 7f).toInt().coerceAtLeast(1)
+                    } else {
+                        targetTimes
+                    }
+
+                    var dDate = effectiveStart
+                    while (!dDate.isAfter(currDate)) {
+                        val dayStr = dDate.toString()
+                        if (pausedDates.contains(dayStr)) {
+                            pausedInWindow++
+                        } else if (habit.isNegative) {
+                            if (!failedDates.contains(dayStr)) {
+                                completedInWindow++
+                            }
+                        } else {
+                            if (completedDates.contains(dayStr)) completedInWindow++
+                        }
+                        dDate = dDate.plusDays(1)
+                    }
+                    val adjustedTarget = (effectiveTarget - pausedInWindow).coerceAtLeast(1)
+                    val isSuccess = completedInWindow >= adjustedTarget
+                    daysSuccessMap[currDate] = isSuccess
+                }
+
+                if (daysSuccessMap[currDate] == true) {
                     tempStreak++
                     if (tempStreak > longestStreak) longestStreak = tempStreak
                 } else {
@@ -135,12 +170,106 @@ object HabitCalculationEngine {
             return currentStreak to longestStreak
         }
 
+        if (habit.frequency == "TIMES_MONTHLY") {
+            val targetTimes = habit.specificDays.toIntOrNull() ?: 15
+            val today = if (targetDateStr != null) {
+                try { java.time.LocalDate.parse(targetDateStr) } catch (e: Exception) { java.time.LocalDate.now() }
+            } else java.time.LocalDate.now()
+            
+            val habitStartDate = try {
+                java.time.Instant.ofEpochMilli(validStartMillis)
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            } catch (e: Exception) {
+                today
+            }.coerceAtLeast(today.minusDays(365))
+
+            if (habitStartDate.isAfter(today)) return 0 to 0
+
+            var longestStreak = 0
+            var tempStreak = 0
+            var currDate = habitStartDate
+            val daysSuccessMap = mutableMapOf<java.time.LocalDate, Boolean>()
+
+            while (!currDate.isAfter(today)) {
+                val startOf30Days = currDate.minusDays(29)
+                val effectiveStart = if (startOf30Days.isBefore(habitStartDate)) habitStartDate else startOf30Days
+                val daysInWindow = (java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, currDate) + 1).toInt().coerceIn(1, 30)
+
+                if (habit.type == "NUMBER") {
+                    val startStr = effectiveStart.toString()
+                    val endStr = currDate.toString()
+                    val habitLogsInWindow = logs.filter { l ->
+                        l.habitId == habit.id && l.date >= startStr && l.date <= endStr
+                    }
+                    val effectiveNumericTarget = if (daysInWindow < 30) {
+                        ((habit.targetValue * daysInWindow) / 30f).coerceAtLeast(0.1f)
+                    } else {
+                        habit.targetValue
+                    }
+                    val monthlySum = habitLogsInWindow.filter { !it.isPaused }.sumOf { it.value.toDouble() }.toFloat()
+                    val isSuccess = if (habit.isNegative) {
+                        monthlySum <= effectiveNumericTarget
+                    } else {
+                        monthlySum >= effectiveNumericTarget
+                    }
+                    daysSuccessMap[currDate] = isSuccess
+                } else {
+                    val effectiveTarget = if (daysInWindow < 30) {
+                        ((targetTimes.toFloat() * daysInWindow) / 30f).toInt().coerceAtLeast(1)
+                    } else {
+                        targetTimes
+                    }
+
+                    var completedInWindow = 0
+                    var pausedInWindow = 0
+                    var dDate = effectiveStart
+                    while (!dDate.isAfter(currDate)) {
+                        val dayStr = dDate.toString()
+                        if (pausedDates.contains(dayStr)) {
+                            pausedInWindow++
+                        } else if (habit.isNegative) {
+                            if (!failedDates.contains(dayStr)) {
+                                completedInWindow++
+                            }
+                        } else {
+                            if (completedDates.contains(dayStr)) completedInWindow++
+                        }
+                        dDate = dDate.plusDays(1)
+                    }
+                    val adjustedTarget = (effectiveTarget - pausedInWindow).coerceAtLeast(1)
+                    val isSuccess = completedInWindow >= adjustedTarget
+                    daysSuccessMap[currDate] = isSuccess
+                }
+
+                if (daysSuccessMap[currDate] == true) {
+                    tempStreak++
+                    if (tempStreak > longestStreak) longestStreak = tempStreak
+                } else {
+                    if (currDate != today) {
+                        tempStreak = 0
+                    }
+                }
+                currDate = currDate.plusDays(1)
+            }
+
+            // Calculate current streak backwards from today
+            var currentStreak = 0
+            val startFrom = if (daysSuccessMap[today] == true) today else today.minusDays(1)
+            var checkDate = startFrom
+            while (!checkDate.isBefore(habitStartDate) && daysSuccessMap[checkDate] == true) {
+                currentStreak++
+                checkDate = checkDate.minusDays(1)
+            }
+
+            return currentStreak to longestStreak
+        }
+
         if (habit.isNegative && loggedDates.isEmpty() && validStartMillis >= System.currentTimeMillis()) return 0 to 0
 
         val actualTodayEpoch = millisToEpochDays(System.currentTimeMillis())
         val targetEpoch = if (targetDateStr != null) dateToEpochDaysFast(targetDateStr) else actualTodayEpoch
         val todayEpoch = targetEpoch.coerceAtMost(actualTodayEpoch)
-        val startEpoch = millisToEpochDays(validStartMillis)
+        val startEpoch = millisToEpochDays(validStartMillis).coerceAtLeast(todayEpoch - 365)
 
         if (startEpoch > todayEpoch) return 0 to 0
 
@@ -308,6 +437,59 @@ object HabitCalculationEngine {
             }.size
             return (completedCount.toFloat() / totalExpectedCompletions.toFloat() * 100).toInt().coerceIn(0, 100)
         }
+
+        if (habit.frequency == "TIMES_MONTHLY") {
+            val targetTimes = habit.specificDays.toIntOrNull() ?: 15
+            val today = if (todayStr != null) {
+                try { java.time.LocalDate.parse(todayStr) } catch (e: Exception) { java.time.LocalDate.now() }
+            } else {
+                java.time.LocalDate.now()
+            }
+            val habitStartDate = try {
+                java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L))
+                    .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            } catch (e: Exception) {
+                today
+            }
+
+            if (habitStartDate.isAfter(today)) return 0
+
+            var monthFirstDay = habitStartDate.withDayOfMonth(1)
+            val currentMonthFirstDay = today.withDayOfMonth(1)
+
+            var totalExpectedCompletions = 0
+            var safetyCount = 0
+            while (!monthFirstDay.isAfter(currentMonthFirstDay) && safetyCount < 2000) {
+                safetyCount++
+                totalExpectedCompletions += targetTimes
+                monthFirstDay = monthFirstDay.plusMonths(1)
+            }
+
+            if (habit.isNegative) {
+                var totalDays = 0
+                var cleanDays = 0
+                val failedDates = habitLogs.filter { it.value == -1f }.map { it.date }.toSet()
+                val pausedDates = habitLogs.filter { it.isPaused }.map { it.date }.toSet()
+                var cur = habitStartDate
+                while (!cur.isAfter(today)) {
+                    val dStr = cur.toString()
+                    if (!pausedDates.contains(dStr)) {
+                        totalDays++
+                        if (!failedDates.contains(dStr)) {
+                            cleanDays++
+                        }
+                    }
+                    cur = cur.plusDays(1)
+                }
+                return if (totalDays > 0) ((cleanDays.toFloat() / totalDays.toFloat()) * 100).toInt().coerceIn(0, 100) else 100
+            }
+
+            if (totalExpectedCompletions == 0) return 0
+            val completedCount = habitLogs.filter { log ->
+                isLogCompleted(habit, log)
+            }.size
+            return (completedCount.toFloat() / totalExpectedCompletions.toFloat() * 100).toInt().coerceIn(0, 100)
+        }
         
         val loggedEpochDays = habitLogs.map { dateToEpochDaysFast(it.date) }.toSet()
         val pausedEpochDays = habitLogs.filter { it.isPaused }.map { dateToEpochDaysFast(it.date) }.toSet()
@@ -324,8 +506,14 @@ object HabitCalculationEngine {
         var completedDays = 0
         var totalDays = 0
 
+        val getDayStr = { ep: Int ->
+            val localDate = java.time.LocalDate.ofEpochDay(ep.toLong())
+            String.format(Locale.US, "%04d-%02d-%02d", localDate.year, localDate.monthValue, localDate.dayOfMonth)
+        }
+
         for (d in startEpoch..todayEpoch) {
-            if (pausedEpochDays.contains(d)) {
+            val dStr = getDayStr(d)
+            if (!isHabitActiveOnDate(habit, dStr) || pausedEpochDays.contains(d)) {
                 continue
             }
             totalDays++

@@ -55,7 +55,8 @@ fun ColorPaletteSelector(
         selectedColorKey.startsWith("#") || selectedColorKey.startsWith("0x") ||
             (norm != "purple" && norm != "electric_blue" && norm != "emerald_green" &&
              norm != "sunset_orange" && norm != "crimson_red" && norm != "neon_teal" &&
-             norm != "rose_pink" && presetColors.none { it.first.equals(norm, ignoreCase = true) })
+             norm != "rose_pink" && norm != "system" && norm != "dynamic" && norm != "auto" &&
+             presetColors.none { it.first.equals(norm, ignoreCase = true) })
     }
 
     val currentCustomColor = remember(selectedColorKey) {

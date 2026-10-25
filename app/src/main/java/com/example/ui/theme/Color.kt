@@ -56,6 +56,12 @@ fun updateAccentColors(colorHex: String) {
             return
         } catch(e: Exception) {}
     }
+    if (colorHex.uppercase() in listOf("SYSTEM", "DYNAMIC", "AUTO")) {
+        val sysColor = com.example.ui.HabitIconMapping.systemAccentColor ?: Color(0xFF783CFA)
+        PrimaryViolet = sysColor
+        SecondaryViolet = sysColor.copy(alpha = 0.7f)
+        return
+    }
     val (primary, secondary) = when (colorHex.uppercase()) {
         "ELECTRIC_BLUE", "BLUE" -> Color(0xFF3B82F6) to Color(0xFF93C5FD)
         "EMERALD_GREEN", "GREEN" -> Color(0xFF10B981) to Color(0xFF6EE7B7)

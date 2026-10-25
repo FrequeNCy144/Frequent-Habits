@@ -119,7 +119,8 @@ object HabitStatsEngine {
         habits: List<Habit>,
         logs: List<HabitLog>,
         monthCal: Calendar,
-        lang: String
+        lang: String,
+        folders: List<HabitFolder> = emptyList()
     ): List<HabitStatModel> {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val todayCal = Calendar.getInstance()
@@ -129,9 +130,24 @@ object HabitStatsEngine {
             sdf.format(c.time)
         }.reversed()
 
+        val folderMap = folders.associateBy { it.id }
         val activeHabits = habits.filter { !(it.isFinishable && it.isCompletedGoal) }
+        val sortedActiveHabits = if (folders.isNotEmpty()) {
+            activeHabits.sortedWith(
+                compareBy<Habit> { habit ->
+                    val folder = habit.folderId?.let { folderMap[it] }
+                    folder?.sortOrder ?: (10000 + habit.sortOrder)
+                }.thenBy { habit ->
+                    habit.sortOrder
+                }.thenByDescending { habit ->
+                    habit.id
+                }
+            )
+        } else {
+            activeHabits
+        }
 
-        return activeHabits.map { habit ->
+        return sortedActiveHabits.map { habit ->
             val habitLogs = logs.filter { it.habitId == habit.id }
             val logsByDate = habitLogs.associateBy { it.date }
             val strength = calculateHabitStrength(habit, logs)

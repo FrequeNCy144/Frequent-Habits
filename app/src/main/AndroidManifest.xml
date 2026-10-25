@@ -50,6 +50,9 @@
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
 
             <meta-data
@@ -62,20 +65,11 @@
             android:exported="false" />
 
         <receiver
-            android:name="com.example.BootReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
+            android:name="com.example.ReviewNotificationReceiver"
+            android:exported="false" />
 
         <receiver
-            android:name="com.example.ReviewNotificationReceiver"
+            android:name="com.example.SmartInsightNotificationReceiver"
             android:exported="false" />
 
         <service
@@ -101,7 +95,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        <receiver android:name="com.example.SmartInsightNotificationReceiver" android:exported="false" />
     </application>
 
 </manifest>

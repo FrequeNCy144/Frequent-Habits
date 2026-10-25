@@ -54,6 +54,9 @@ class HabitWidgetProvider : AppWidgetProvider() {
             action == Intent.ACTION_TIMEZONE_CHANGED ||
             action == Intent.ACTION_BOOT_COMPLETED ||
             action == "android.intent.action.MY_PACKAGE_REPLACED" ||
+            action == "android.intent.action.QUICKBOOT_POWERON" ||
+            action == "com.htc.intent.action.QUICKBOOT_POWERON" ||
+            action == "android.intent.action.LOCKED_BOOT_COMPLETED" ||
             action == "android.intent.action.TIME_SET") {
             
             scheduleNextMidnightAlarm(context)

@@ -91,6 +91,7 @@ fun OnboardingStepWelcome(language: String) {
 fun OnboardingStepPersonalize(language: String, viewModel: HabitsViewModel) {
     val accentColorName by viewModel.accentColorName.collectAsStateWithLifecycle()
     val accentColor = remember(accentColorName) { HabitIconMapping.getColor(accentColorName) }
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val darkModeEnabled by viewModel.darkModeEnabled.collectAsStateWithLifecycle()
     val backupFolderUri by viewModel.backupFolderUri.collectAsStateWithLifecycle()
     val isBackupConfigured = !backupFolderUri.isNullOrEmpty()
@@ -125,6 +126,20 @@ fun OnboardingStepPersonalize(language: String, viewModel: HabitsViewModel) {
                 e.printStackTrace()
             }
             viewModel.saveBackupFolderUri(uri.toString())
+        }
+    }
+
+    val restoreFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    viewModel.triggerManualRestoreFromStream(stream)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -164,45 +179,81 @@ fun OnboardingStepPersonalize(language: String, viewModel: HabitsViewModel) {
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Row 1: Language & Theme side by side
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(modifier = Modifier.weight(1.1f)) {
-                Text(
-                    text = tr(language, "SPRACHE", "ენა", "语言", "LANGUAGE", "LANGUE"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                LanguageDropdown(
-                    currentLanguage = language,
-                    onLanguageSelected = { viewModel.setLanguage(it) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+        // Language block (Full Width)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = tr(language, "SPRACHE", "ენა", "语言", "LANGUAGE", "LANGUE"),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            LanguageDropdown(
+                currentLanguage = language,
+                onLanguageSelected = { viewModel.setLanguage(it) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-            Column(modifier = Modifier.weight(0.9f)) {
-                Text(
-                    text = tr(language, "THEME", "თემა", "主题", "THEME", "THÈME"),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                AppSegmentedButtonWithIcons(
-                    options = listOf(
-                        (tr(language, "Dunkel", "Dark")) to Icons.Default.DarkMode,
-                        (tr(language, "Hell", "Light")) to Icons.Default.LightMode
-                    ),
-                    selectedIndex = if (darkModeEnabled) 0 else 1,
-                    onOptionSelected = { index -> viewModel.setDarkModeEnabled(index == 0) },
-                    accentColor = accentColor,
-                    testTagPrefix = "customizer_theme_toggle"
-                )
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // Theme block (Side-by-side, 1 compact row)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = tr(language, "THEME", "თემა", "主题", "THEME", "THÈME"),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val themeOptions = listOf(
+                Triple("DARK", tr(language, "Dunkel", "ბნელი", "深色", "Dark", "Sombre"), Icons.Default.DarkMode),
+                Triple("LIGHT", tr(language, "Hell", "ღია", "浅色", "Light", "Clair"), Icons.Default.LightMode),
+                Triple("SYSTEM", tr(language, "System", "სისტემა", "系统", "System", "Système"), Icons.Default.PhoneAndroid)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                themeOptions.forEach { (mode, label, icon) ->
+                    val isSelected = themeMode == mode
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isSelected) accentColor.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        border = BorderStroke(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) accentColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp)
+                            .clickable { viewModel.setThemeMode(mode) }
+                            .testTag("customizer_theme_row_$mode")
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = if (isSelected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -328,83 +379,105 @@ fun OnboardingStepPersonalize(language: String, viewModel: HabitsViewModel) {
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(14.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .background(accentColor.copy(alpha = 0.16f), CircleShape),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Backup,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .background(accentColor.copy(alpha = 0.16f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Backup,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = tr(language, "Audio- & Daten-Backup", "აუდიო და სარეზერვო ასლი", "音频与数据备份", "Audio & Data Backup", "Sauvegarde audio & données"),
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (isBackupConfigured) {
+                                tr(language, "Tägliches Auto-Backup aktiv ✓", "ყოველდღიური ასლი აქტიურია ✓", "每日自动备份已启用 ✓", "Daily auto-backup active ✓", "Sauvegarde quotidienne active ✓")
+                            } else {
+                                tr(language, "Gewohnheiten & Sounds automatisch sichern", "ჩვევების და ხმების დაცვა", "自动保存习惯与音频", "Auto-save habits & custom sounds", "Sauvegarder habitudes & sons")
+                            },
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                            color = if (isBackupConfigured) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tr(language, "Audio- & Daten-Backup", "აუდიო და სარეზერვო ასლი", "音频与数据备份", "Audio & Data Backup", "Sauvegarde audio & données"),
-                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (isBackupConfigured) {
-                            tr(language, "Tägliches Backup aktiv ✓", "ყოველდღიური ასლი აქტიურია ✓", "每日自动备份已启用 ✓", "Daily backup active ✓", "Sauvegarde quotidienne active ✓")
-                        } else {
-                            tr(language, "Gewohnheiten & Sounds sichern", "ჩვევების და ხმების დაცვა", "自动保存习惯与音频", "Auto-save habits & sounds", "Sauvegarde des habitudes & sons")
-                        },
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                        color = if (isBackupConfigured) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                if (!isBackupConfigured) {
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Button(
                         onClick = { folderLauncher.launch(null) },
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isBackupConfigured) MaterialTheme.colorScheme.surfaceVariant else accentColor),
+                        border = if (isBackupConfigured) BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.5f)) else null,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        modifier = Modifier.height(38.dp)
+                        modifier = Modifier.weight(1f).height(40.dp)
                     ) {
-                        Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(15.dp), tint = Color.White)
+                        Icon(
+                            imageVector = if (isBackupConfigured) Icons.Default.CheckCircle else Icons.Default.Folder,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = if (isBackupConfigured) SuccessGreen else Color.White
+                        )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = tr(language, "Ordner wählen", "არჩევა", "选择文件夹", "Select", "Choisir"),
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.5.sp),
+                            text = if (isBackupConfigured) {
+                                tr(language, "Ordner aktiv", "აქტიურია", "已设置", "Folder set", "Actif")
+                            } else {
+                                tr(language, "Ordner wählen", "არჩევა", "选择文件夹", "Select folder", "Choisir dossier")
+                            },
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = if (isBackupConfigured) SuccessGreen else Color.White,
+                            maxLines = 1
                         )
                     }
-                } else {
-                    Surface(
-                        color = SuccessGreen.copy(alpha = 0.15f),
+
+                    OutlinedButton(
+                        onClick = { restoreFileLauncher.launch("*/*") },
                         shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, SuccessGreen.copy(alpha = 0.3f)),
-                        modifier = Modifier.clickable { folderLauncher.launch(null) }
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        modifier = Modifier.weight(1f).height(40.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = tr(language, "Aktiv", "აქტიური", "已开启", "Active", "Actif"),
-                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = SuccessGreen
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Restore,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = tr(language, "Wiederherstellen", "აღდგენა", "恢复备份", "Restore", "Restaurer"),
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 1
+                        )
                     }
                 }
             }

@@ -29,8 +29,9 @@ fun TodayScreen(
     onOpenSettings: (String) -> Unit,
     showCreateFirstHabitHint: Boolean,
     onDismissFirstHabitHint: () -> Unit,
-    isReorderMode: Boolean,
-    onReorderModeChange: (Boolean) -> Unit
+    onNavigateToReorder: (() -> Unit)? = null,
+    isReorderMode: Boolean = false,
+    onReorderModeChange: (Boolean) -> Unit = {}
 ) {
     val listState = rememberLazyListState()
     val activeHabitUiItemsForSelectedDate by viewModel.activeHabitUiItemsForSelectedDate.collectAsStateWithLifecycle()
@@ -95,20 +96,33 @@ fun TodayScreen(
         }
     }
 
-    LaunchedEffect(isReorderMode, activeHabitUiItemsForSelectedDate) {
+    LaunchedEffect(isReorderMode, activeHabitUiItemsForSelectedDate, allHabits) {
         if (!isReorderMode) {
             localReorderList = null
         } else {
+            val allActive = allHabits.filter { !it.isArchived && !(it.isFinishable && it.isCompletedGoal) }
+            val activeMap = activeHabitUiItemsForSelectedDate.associateBy { it.habit.id }
+            val fullList = allActive.map { habit ->
+                activeMap[habit.id] ?: HabitUiItem(
+                    habit = habit,
+                    currentValue = 0f,
+                    isCompleted = false,
+                    isFailed = false,
+                    isPaused = false,
+                    hasLog = false,
+                    isMinimalViable = false
+                )
+            }
             if (localReorderList == null) {
-                localReorderList = activeHabitUiItemsForSelectedDate
+                localReorderList = fullList
             } else if (currentlyDraggedHabitId == null) {
                 val currentOrder = localReorderList!!
-                val activeMap = activeHabitUiItemsForSelectedDate.associateBy { it.habit.id }
+                val fullMap = fullList.associateBy { it.habit.id }
                 val updatedList = currentOrder.mapNotNull { item ->
-                    activeMap[item.habit.id]?.copy(habit = item.habit) ?: item
+                    fullMap[item.habit.id]?.copy(habit = item.habit) ?: item
                 }
                 val existingIds = updatedList.map { it.habit.id }.toSet()
-                val newItems = activeHabitUiItemsForSelectedDate.filter { it.habit.id !in existingIds }
+                val newItems = fullList.filter { it.habit.id !in existingIds }
                 localReorderList = updatedList + newItems
             }
         }
@@ -305,7 +319,10 @@ fun TodayScreen(
         )
 
         if (showCreateFirstHabitHint && activeHabitUiItemsForSelectedDate.isEmpty()) {
-            CreateFirstHabitArrowHint(language = language)
+            CreateFirstHabitArrowHint(
+                language = language,
+                onDismiss = onDismissFirstHabitHint
+            )
         }
 
         TodayDialogs(
@@ -322,13 +339,33 @@ fun TodayScreen(
             showFolderDialog = showFolderDialog,
             editingFolder = editingFolder,
             onDismissFolderDialog = { showFolderDialog = false },
+            onRequestCreateFolder = {
+                editingFolder = null
+                showFolderDialog = true
+            },
             showDayOverviewSheet = showDayOverviewSheet,
             onDismissDayOverviewSheet = { showDayOverviewSheet = false },
             onStartReorder = {
-                val habitsList = activeHabitUiItemsForSelectedDate.map { it.habit }
-                originalSortOrders = habitsList.associate { it.id to it.sortOrder }
-                localReorderList = activeHabitUiItemsForSelectedDate
-                onReorderModeChange(true)
+                showDayOverviewSheet = false
+                if (onNavigateToReorder != null) {
+                    onNavigateToReorder.invoke()
+                } else {
+                    val allActive = allHabits.filter { !it.isArchived && !(it.isFinishable && it.isCompletedGoal) }
+                    originalSortOrders = allActive.associate { it.id to it.sortOrder }
+                    val activeMap = activeHabitUiItemsForSelectedDate.associateBy { it.habit.id }
+                    localReorderList = allActive.map { habit ->
+                        activeMap[habit.id] ?: HabitUiItem(
+                            habit = habit,
+                            currentValue = 0f,
+                            isCompleted = false,
+                            isFailed = false,
+                            isPaused = false,
+                            hasLog = false,
+                            isMinimalViable = false
+                        )
+                    }
+                    onReorderModeChange(true)
+                }
             },
             longPressedHabit = longPressedHabit,
             onDismissLongPressAction = { longPressedHabit = null },

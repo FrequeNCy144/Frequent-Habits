@@ -61,6 +61,7 @@ fun HabitTargetGoalCard(
     onChallengeModeChange: (String) -> Unit = {},
     challengeSuccessRate: Int = 90,
     onChallengeSuccessRateChange: (Int) -> Unit = {},
+    frequencyType: String = "DAILY",
     isEditMode: Boolean = false,
     onShowInfoDialog: (String, String) -> Unit = { _, _ -> }
 ) {
@@ -245,16 +246,18 @@ fun HabitTargetGoalCard(
                     )
 
                     val standardUnits = if (isNegative) {
-                        if (language == "de") {
-                            listOf("Tassen", "Zigaretten", "Minuten", "Stunden", "Mal", "Anderes...")
-                        } else {
-                            listOf("Cups", "Cigarettes", "Minutes", "Hours", "Times", "Custom...")
+                        when (language) {
+                            "de" -> listOf("Tassen", "Zigaretten", "Minuten", "Stunden", "Mal", "Anderes...")
+                            "ka" -> listOf("ჭიქა", "სიგარეტი", "წუთი", "საათი", "ჯერ", "სხვა...")
+                            "zh" -> listOf("杯", "支", "分钟", "小时", "次", "其他...")
+                            else -> listOf("Cups", "Cigarettes", "Minutes", "Hours", "Times", "Custom...")
                         }
                     } else {
-                        if (language == "de") {
-                            listOf("Minuten", "km", "Liter", "Stunden", "Mal", "Anderes...")
-                        } else {
-                            listOf("Minutes", "km", "Liters", "Hours", "Times", "Custom...")
+                        when (language) {
+                            "de" -> listOf("Minuten", "km", "Liter", "Stunden", "Mal", "Anderes...")
+                            "ka" -> listOf("წუთი", "კმ", "ლიტრი", "საათი", "ჯერ", "სხვა...")
+                            "zh" -> listOf("分钟", "公里", "升", "小时", "次", "其他...")
+                            else -> listOf("Minutes", "km", "Liters", "Hours", "Times", "Custom...")
                         }
                     }
 
@@ -268,11 +271,12 @@ fun HabitTargetGoalCard(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 units.forEach { standardUnit ->
-                                    val isSelected = selectedChip == standardUnit || (unit.equals(standardUnit, ignoreCase = true) && standardUnit != "Anderes..." && standardUnit != "Custom...")
+                                    val isCustomChip = standardUnit.endsWith("...")
+                                    val isSelected = selectedChip == standardUnit || (unit.equals(standardUnit, ignoreCase = true) && !isCustomChip)
                                     Button(
                                         onClick = {
                                             onChipSelect(standardUnit)
-                                            if (standardUnit != "Anderes..." && standardUnit != "Custom...") {
+                                            if (!isCustomChip) {
                                                 onUnitChange(standardUnit)
                                             } else {
                                                 onUnitChange("")
@@ -339,9 +343,17 @@ fun HabitTargetGoalCard(
                             ) {
                                 Text(
                                     text = if (isNegative) {
-                                        tr(language, "Tageslimit (max)", "დღიური ლიმიტი", "每日上限", "Daily Limit (Max)")
+                                        when (frequencyType) {
+                                            "TIMES_WEEKLY" -> tr(language, "Wochenlimit (max)", "კვირის ლიმიტი", "每周上限", "Weekly Limit (Max)")
+                                            "TIMES_MONTHLY" -> tr(language, "Monatslimit (max)", "თვის ლიმიტი", "每月上限", "Monthly Limit (Max)")
+                                            else -> tr(language, "Tageslimit (max)", "დღიური ლიმიტი", "每日上限", "Daily Limit (Max)")
+                                        }
                                     } else {
-                                        tr(language, "Tagesziel", "Daily Target")
+                                        when (frequencyType) {
+                                            "TIMES_WEEKLY" -> tr(language, "Wochenziel", "კვირის მიზანი", "每周目标", "Weekly Target")
+                                            "TIMES_MONTHLY" -> tr(language, "Monatsziel", "თვის მიზანი", "每月目标", "Monthly Target")
+                                            else -> tr(language, "Tagesziel", "დღიური მიზანი", "每日目标", "Daily Target")
+                                        }
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = TextSecondary,

@@ -114,7 +114,7 @@ data class MilestoneReward(
     val conditionType: String = "", // "STREAK", "COMPLETIONS", "TROPHY_COUPLED"
     val conditionValue: Int = 0, // e.g., 30 for 30 completions
     val trophyId: String = "" // if conditionType == "TROPHY_COUPLED", e.g., "STREAK_BRONZE"
-)
+) : java.io.Serializable
 
 @Immutable
 data class StableHabitLogs(val list: List<HabitLog>)
@@ -214,7 +214,12 @@ fun isHabitActiveOnDate(habit: Habit, dateStr: String): Boolean {
     }
 
     return when (habit.frequency) {
-        "DAILY", "TIMES_WEEKLY" -> true
+        "DAILY", "TIMES_WEEKLY", "TIMES_MONTHLY" -> true
+        "INTERVAL" -> {
+            val n = (habit.specificDays.toIntOrNull() ?: 2).coerceAtLeast(1)
+            val daysBetween = java.time.temporal.ChronoUnit.DAYS.between(startLocalDate, date)
+            daysBetween >= 0 && daysBetween % n == 0L
+        }
         "SPECIFIC" -> {
             val isoDayNum = date.dayOfWeek.value // Monday = 1, ..., Sunday = 7
             val specList = habit.specificDays.split(",").mapNotNull { it.trim().toIntOrNull() }
@@ -263,13 +268,21 @@ fun getLogStatus(habit: Habit, log: HabitLog?, dateStr: String, startSdfStr: Str
     if (log != null && log.value == -1f) {
         return "FAILED"
     }
+    if (log != null && isLogCompleted(habit, log)) {
+        return "SUCCESS"
+    }
+    if (habit.frequency == "TIMES_WEEKLY" || habit.frequency == "TIMES_MONTHLY") {
+        return if (isWeeklyTargetReached) "SUCCESS" else {
+            if (habit.isNegative) "SUCCESS" else if (dateStr == todayStr) "PENDING" else "INACTIVE"
+        }
+    }
     if (isLogCompleted(habit, log)) {
         return "SUCCESS"
     }
     if (habit.isNegative) {
         return "FAILED"
     }
-    return "PENDING"
+    return if (dateStr == todayStr) "PENDING" else "FAILED"
 }
 
 @Immutable
@@ -325,7 +338,14 @@ data class HabitUiItem(
     val streak: Int = 0,
     val isMinimalViable: Boolean = false,
     val totalAchievedValue: Float = 0f,
-    val isGoalTargetReached: Boolean = false
+    val isGoalTargetReached: Boolean = false,
+    val isMonthlyTargetReached: Boolean = false,
+    val monthlyLoggedCount: Int = 0,
+    val monthlyTargetCount: Int = 0,
+    val isWeeklyNumeric: Boolean = false,
+    val weeklySum: Float = 0f,
+    val isMonthlyNumeric: Boolean = false,
+    val monthlySum: Float = 0f
 )
 
 @Immutable

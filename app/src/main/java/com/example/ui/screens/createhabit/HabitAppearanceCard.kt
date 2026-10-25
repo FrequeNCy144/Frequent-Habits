@@ -51,31 +51,6 @@ fun HabitAppearanceCard(
     activeColor: Color,
     filteredIcons: List<Pair<String, Int>>
 ) {
-    fun getIconLabel(key: String, lang: String): String {
-        return when (key) {
-            "fitness_center" -> tr(lang, "Fitness / Sport", "ფიტნესი / სპორტი", "健身 / 运动", "Fitness / Sport")
-            "directions_run" -> tr(lang, "Laufen / Joggen", "სირბილი", "跑步", "Running")
-            "menu_book" -> tr(lang, "Lesen / Buch", "კითხვა / წიგნი", "阅读 / 书籍", "Reading / Books")
-            "code" -> tr(lang, "Programmieren", "დაპროგრამება", "编程", "Coding")
-            "local_drink" -> tr(lang, "Wasser trinken", "წყლის დალევა", "喝水", "Drinking Water")
-            "self_improvement" -> tr(lang, "Meditation / Achtsamkeit", "მედიტაცია", "冥想 / 正念", "Meditation / Mindfulness")
-            "alarm" -> tr(lang, "Früh aufstehen", "ადრე გაღვიძება", "早起", "Early Wake-up")
-            "language" -> tr(lang, "Sprachen lernen", "ენის სწავლა", "语言学习", "Language Learning")
-            "palette" -> tr(lang, "Kreativität / Malen", "კრეატიულობა / ხატვა", "创意 / 绘画", "Creativity / Art")
-            "psychology" -> tr(lang, "Fokus / Gehirntraining", "ფოკუსირება", "专注 / 大脑训练", "Focus / Mind")
-            "work" -> tr(lang, "Arbeit / Produktivität", "სამუშაო", "工作 / 生产力", "Work / Productivity")
-            "clean_hands" -> tr(lang, "Hygiene / Self-Care", "ჰიგიენა", "卫生 / 自我护理", "Hygiene / Self-care")
-            "bed" -> tr(lang, "Schlaf", "ძილი", "睡眠", "Sleep")
-            "music_note" -> tr(lang, "Musik / Instrument", "მუსიკა", "音乐 / 乐器", "Music / Instruments")
-            "fastfood" -> tr(lang, "Ernährung / Kochen", "კვება", "饮食 / 烹饪", "Food / Nutrition")
-            "spa" -> tr(lang, "Erholung / Wellness", "ველნესი", "放松 / 水疗", "Wellness / Relaxation")
-            "nature_people" -> tr(lang, "Spaziergang / Natur", "გასეირნება / ბუნება", "散步 / 亲近自然", "Walk / Nature")
-            "edit" -> tr(lang, "Journaling / Schreiben", "დღიურის წარმოება", "日记 / 写作", "Journaling / Writing")
-            "savings" -> tr(lang, "Sparen / Finanzen", "დანაზოგი / ფინანსები", "存钱 / 财务", "Savings / Finance")
-            "school" -> tr(lang, "Lernen / Studium", "სწავლა", "学习 / 进修", "Studying / Education")
-            else -> key.replace("_", " ").replaceFirstChar { it.uppercase() }
-        }
-    }
             // 3. CARD: Aussehen anpassen
             Card(
                 colors = CardDefaults.cardColors(containerColor = AppCard),
@@ -94,7 +69,7 @@ fun HabitAppearanceCard(
                     ) {
                         Icon(painter = painterResource(id = R.drawable.ic_palette), contentDescription = null, tint = HabitOrange, modifier = Modifier.size(20.dp))
                         Text(
-                            text = tr(language, "Aussehen anpassen", "Visuals-ის მორგება", "定制视觉外观", "Customize Visuals"),
+                            text = tr(language, "Aussehen anpassen", "გარეგნობის მორგება", "定制视觉外观", "Customize Visuals"),
                             style = MaterialTheme.typography.titleMedium,
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold
@@ -123,7 +98,7 @@ fun HabitAppearanceCard(
                                 onClick = { selectedCategoryId = cat.id },
                                 label = {
                                     Text(
-                                        text = if (language == "de") cat.nameDe else cat.nameEn,
+                                        text = cat.getLocalizedName(language),
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = if (isCatSelected) FontWeight.Bold else FontWeight.Medium,
                                         color = if (isCatSelected) Color.White else TextSecondary
@@ -241,7 +216,7 @@ fun HabitAppearanceCard(
                                                     .widthIn(max = 200.dp)
                                             ) {
                                                 Text(
-                                                    text = getIconLabel(key, language),
+                                                    text = HabitIconMapping.getIconLabel(key, language),
                                                     color = TextPrimary,
                                                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp),
                                                     fontWeight = FontWeight.Bold,

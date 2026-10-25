@@ -223,29 +223,61 @@ fun SupportFeedbackCard(
                 }
             }
             Spacer(modifier = Modifier.height(14.dp))
-            Button(
-                onClick = { uriHandler.openUri("https://ko-fi.com/frequency_144") },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFF5E5B)
-                ),
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Favorite,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = tr(language, "Unterstützen via Ko-fi", "Support via Ko-fi"),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Button(
+                    onClick = { uriHandler.openUri("https://ko-fi.com/frequency_144") },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF5E5B)
+                    ),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Ko-fi",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1
+                    )
+                }
+
+                Button(
+                    onClick = { uriHandler.openUri("https://liberapay.com/FrequeNCy144") },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF6C915)
+                    ),
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = null,
+                        tint = Color(0xFF1A1A1A),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Liberapay",
+                        color = Color(0xFF1A1A1A),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(14.dp))
             Row(

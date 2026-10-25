@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.HabitWidgetProvider
 import com.example.data.*
+import com.example.ui.theme.updateAccentColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.*
@@ -16,6 +17,27 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+fun SharedPreferences.safeGetString(key: String, def: String): String =
+    try { getString(key, def) ?: def } catch (_: Throwable) { def }
+
+fun SharedPreferences.safeGetInt(key: String, def: Int): Int =
+    try { getInt(key, def) } catch (_: Throwable) {
+        try { getString(key, null)?.toIntOrNull() ?: def } catch (_: Throwable) { def }
+    }
+
+fun SharedPreferences.safeGetBoolean(key: String, def: Boolean): Boolean =
+    try { getBoolean(key, def) } catch (_: Throwable) {
+        try { getString(key, null)?.toBooleanStrictOrNull() ?: def } catch (_: Throwable) { def }
+    }
+
+fun SharedPreferences.safeGetFloat(key: String, def: Float): Float =
+    try { getFloat(key, def) } catch (_: Throwable) {
+        try { getString(key, null)?.toFloatOrNull() ?: def } catch (_: Throwable) { def }
+    }
+
+fun SharedPreferences.safeGetStringSet(key: String, def: Set<String>): Set<String> =
+    try { getStringSet(key, def) ?: def } catch (_: Throwable) { def }
 
 open class HabitsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -28,7 +50,7 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     // User / Profile
     internal val avatarFile = File(application.filesDir, "profile_avatar.jpg")
     internal val _userName = MutableStateFlow(
-        (sharedPrefs.getString("user_name", "") ?: "").let { if (it == "Inlitx") "" else it }
+        sharedPrefs.safeGetString("user_name", "").let { if (it == "Inlitx") "" else it }
     )
     val userName: StateFlow<String> = _userName.asStateFlow()
 
@@ -36,7 +58,7 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
         when {
             avatarFile.exists() && avatarFile.length() > 0 -> Uri.fromFile(avatarFile).toString()
             else -> {
-                val pUri = sharedPrefs.getString("profile_image_uri", "") ?: ""
+                val pUri = sharedPrefs.safeGetString("profile_image_uri", "")
                 if (pUri.startsWith("file://")) {
                     val f = File(pUri.removePrefix("file://"))
                     if (f.exists() && f.length() > 0) pUri else ""
@@ -50,13 +72,13 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     val pendingWidgetHabitId: StateFlow<Int?> = _pendingWidgetHabitId.asStateFlow()
 
     internal val _smartInsightDismissedDate = MutableStateFlow(
-        sharedPrefs.getString("smart_insight_dismissed_date", "") ?: ""
+        sharedPrefs.safeGetString("smart_insight_dismissed_date", "")
     )
     val smartInsightDismissedDate: StateFlow<String> = _smartInsightDismissedDate.asStateFlow()
 
     internal val _dismissedGoalIds = MutableStateFlow(
-        sharedPrefs.getStringSet("dismissed_goal_dialog_ids", emptySet())
-            ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+        sharedPrefs.safeGetStringSet("dismissed_goal_dialog_ids", emptySet())
+            .mapNotNull { it.toIntOrNull() }.toSet()
     )
     val dismissedGoalIds: StateFlow<Set<Int>> = _dismissedGoalIds.asStateFlow()
 
@@ -70,42 +92,58 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     val justCompletedHabitEvent: StateFlow<Pair<Int, Long>?> = _justCompletedHabitEvent.asStateFlow()
 
     // Preferences
-    internal val _language = MutableStateFlow(sharedPrefs.getString("language", "en") ?: "en")
+    internal val _language = MutableStateFlow(sharedPrefs.safeGetString("language", "en"))
     val language: StateFlow<String> = _language.asStateFlow()
 
-    internal val _accentColorName = MutableStateFlow(sharedPrefs.getString("accent_color_name", "PURPLE") ?: "PURPLE")
+    internal val _accentColorName = MutableStateFlow(sharedPrefs.safeGetString("accent_color_name", "PURPLE"))
     val accentColorName: StateFlow<String> = _accentColorName.asStateFlow()
 
-    internal val _darkModeEnabled = MutableStateFlow(sharedPrefs.getBoolean("dark_mode_enabled", true))
+    internal val _themeMode = MutableStateFlow(
+        try {
+            sharedPrefs.getString("theme_mode", null) ?: if (sharedPrefs.contains("dark_mode_enabled")) {
+                if (sharedPrefs.safeGetBoolean("dark_mode_enabled", true)) "DARK" else "LIGHT"
+            } else {
+                "DARK"
+            }
+        } catch (_: Throwable) {
+            "DARK"
+        }
+    )
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    internal val _darkModeEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("dark_mode_enabled", true))
     val darkModeEnabled: StateFlow<Boolean> = _darkModeEnabled.asStateFlow()
 
-    internal val _widgetOpacity = MutableStateFlow(sharedPrefs.getFloat("widget_opacity", 0.9f))
+    internal val _widgetOpacity = MutableStateFlow(sharedPrefs.safeGetFloat("widget_opacity", 0.9f))
     val widgetOpacity: StateFlow<Float> = _widgetOpacity.asStateFlow()
 
-    internal val _vibrationEnabled = MutableStateFlow(sharedPrefs.getBoolean("vibration_enabled", true))
+    internal val _vibrationEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("vibration_enabled", true))
     val vibrationEnabled: StateFlow<Boolean> = _vibrationEnabled.asStateFlow()
 
-    internal val _infoCardsEnabled = MutableStateFlow(sharedPrefs.getBoolean("info_cards_enabled", true))
+    internal val _infoCardsEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("info_cards_enabled", true))
     val infoCardsEnabled: StateFlow<Boolean> = _infoCardsEnabled.asStateFlow()
 
-    internal val _reviewNotificationsEnabled = MutableStateFlow(sharedPrefs.getBoolean("notifications_enabled", true))
+    internal val _coloredFolderCardsEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("colored_folder_cards_enabled", true))
+    val coloredFolderCardsEnabled: StateFlow<Boolean> = _coloredFolderCardsEnabled.asStateFlow()
+
+    internal val _reviewNotificationsEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("notifications_enabled", true))
     val reviewNotificationsEnabled: StateFlow<Boolean> = _reviewNotificationsEnabled.asStateFlow()
 
     internal val _dismissedReviews = MutableStateFlow<Set<String>>(
-        sharedPrefs.getStringSet("dismissed_reviews", emptySet()) ?: emptySet()
+        sharedPrefs.safeGetStringSet("dismissed_reviews", emptySet())
     )
     val dismissedReviews: StateFlow<Set<String>> = _dismissedReviews.asStateFlow()
 
-    internal val _insightNotificationsEnabled = MutableStateFlow(sharedPrefs.getBoolean("insight_notifications_enabled", true))
+    internal val _insightNotificationsEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("insight_notifications_enabled", true))
     val insightNotificationsEnabled: StateFlow<Boolean> = _insightNotificationsEnabled.asStateFlow()
 
-    internal val _smartInsightsInAppEnabled = MutableStateFlow(sharedPrefs.getBoolean("smart_insights_in_app_enabled", true))
+    internal val _smartInsightsInAppEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("smart_insights_in_app_enabled", true))
     val smartInsightsInAppEnabled: StateFlow<Boolean> = _smartInsightsInAppEnabled.asStateFlow()
 
-    internal val _monthlyReviewEnabled = MutableStateFlow(sharedPrefs.getBoolean("monthly_review_enabled", true))
+    internal val _monthlyReviewEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("monthly_review_enabled", true))
     val monthlyReviewEnabled: StateFlow<Boolean> = _monthlyReviewEnabled.asStateFlow()
 
-    internal val _yearlyReviewEnabled = MutableStateFlow(sharedPrefs.getBoolean("yearly_review_enabled", true))
+    internal val _yearlyReviewEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("yearly_review_enabled", true))
     val yearlyReviewEnabled: StateFlow<Boolean> = _yearlyReviewEnabled.asStateFlow()
 
     internal val _deepLinkReviewMonth = MutableStateFlow<Pair<Int, Int>?>(null)
@@ -114,10 +152,10 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     internal val _deepLinkReviewYear = MutableStateFlow<Int?>(null)
     val deepLinkReviewYear: StateFlow<Int?> = _deepLinkReviewYear.asStateFlow()
 
-    internal val _hasOnboarded = MutableStateFlow(sharedPrefs.getBoolean("has_onboarded", false))
+    internal val _hasOnboarded = MutableStateFlow(sharedPrefs.safeGetBoolean("has_onboarded", false))
     val hasOnboarded: StateFlow<Boolean> = _hasOnboarded.asStateFlow()
 
-    internal val _backupFolderUri = MutableStateFlow(sharedPrefs.getString("backup_folder_uri", "") ?: "")
+    internal val _backupFolderUri = MutableStateFlow(sharedPrefs.safeGetString("backup_folder_uri", ""))
     val backupFolderUri: StateFlow<String> = _backupFolderUri.asStateFlow()
 
     internal val _syncStatus = MutableStateFlow<String?>(null)
@@ -129,22 +167,29 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     internal val _isAnalyzingCsv = MutableStateFlow(false)
     val isAnalyzingCsv: StateFlow<Boolean> = _isAnalyzingCsv.asStateFlow()
 
-    internal val _gameMode = MutableStateFlow(sharedPrefs.getString("game_mode", "FREE") ?: "FREE")
+    internal val _gameMode = MutableStateFlow(sharedPrefs.safeGetString("game_mode", "FREE"))
     val gameMode: StateFlow<String> = _gameMode.asStateFlow()
 
-    internal val _unlockedStorySlots = MutableStateFlow(sharedPrefs.getInt("unlocked_story_slots", 1))
+    internal val _unlockedStorySlots = MutableStateFlow(sharedPrefs.safeGetInt("unlocked_story_slots", 1))
     val unlockedStorySlots: StateFlow<Int> = _unlockedStorySlots.asStateFlow()
 
-    internal val _notificationsEnabled = MutableStateFlow(sharedPrefs.getBoolean("reminder_enabled", false))
+    internal val _notificationsEnabled = MutableStateFlow(sharedPrefs.safeGetBoolean("reminder_enabled", false))
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
 
-    internal val _notificationsHour = MutableStateFlow(sharedPrefs.getInt("reminder_hour", 18))
+    private val _editingHabit = MutableStateFlow<Habit?>(null)
+    val editingHabit: StateFlow<Habit?> = _editingHabit.asStateFlow()
+
+    fun setEditingHabit(habit: Habit?) {
+        _editingHabit.value = habit
+    }
+
+    internal val _notificationsHour = MutableStateFlow(sharedPrefs.safeGetInt("reminder_hour", 18))
     val notificationsHour: StateFlow<Int> = _notificationsHour.asStateFlow()
 
-    internal val _notificationsMinute = MutableStateFlow(sharedPrefs.getInt("reminder_minute", 0))
+    internal val _notificationsMinute = MutableStateFlow(sharedPrefs.safeGetInt("reminder_minute", 0))
     val notificationsMinute: StateFlow<Int> = _notificationsMinute.asStateFlow()
 
-    internal val _isSaskiaUnlocked = MutableStateFlow(sharedPrefs.getBoolean("is_saskia_unlocked", false))
+    internal val _isSaskiaUnlocked = MutableStateFlow(sharedPrefs.safeGetBoolean("is_saskia_unlocked", false))
     val isSaskiaUnlocked: StateFlow<Boolean> = _isSaskiaUnlocked.asStateFlow()
 
     // Selected habit for detail screen view
@@ -185,6 +230,11 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     val heatmapViewMode: StateFlow<String> = _heatmapViewMode.asStateFlow()
 
     // Core Data Flows
+    internal val _allFolders = MutableStateFlow<List<HabitFolder>>(
+        com.example.data.FolderStorageHelper.loadFolders(application)
+    )
+    val allFolders: StateFlow<List<HabitFolder>> = _allFolders.asStateFlow()
+
     val allMilestoneRewards: StateFlow<List<MilestoneReward>> = repository.allMilestoneRewards
         .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -272,6 +322,10 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ProfileStats())
 
     init {
+        try {
+            HabitIconMapping.initSystemAccentColor(getApplication())
+            updateAccentColors(_accentColorName.value)
+        } catch (_: Exception) {}
         initAchievementObserver()
     }
 
@@ -342,8 +396,8 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
         HabitUiEngine.calculateStatsDayNamesAndNumbers(l)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val statsScreenData: StateFlow<List<HabitStatModel>> = combine(allHabits, allLogs, heatmapMonthCalendar, language) { h, l, m, lang ->
-        HabitStatsEngine.calculateStatsScreenData(h, l, m, lang)
+    val statsScreenData: StateFlow<List<HabitStatModel>> = combine(allHabits, allLogs, heatmapMonthCalendar, language, allFolders) { h, l, m, lang, f ->
+        HabitStatsEngine.calculateStatsScreenData(h, l, m, lang, f)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val selectedHabitDetailState: StateFlow<HabitDetailUiState?> = combine(_selectedHabitIdForDetail, allHabits, allLogs, language, _calendarMonthOffset) { id, h, l, lang, off ->
@@ -371,10 +425,10 @@ open class HabitsViewModel(application: Application) : AndroidViewModel(applicat
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), androidx.compose.ui.graphics.Color(0xFF8B5CF6))
 
     // Folders
-    internal val _allFolders = MutableStateFlow<List<HabitFolder>>(
-        com.example.data.FolderStorageHelper.loadFolders(application)
-    )
-    val allFolders: StateFlow<List<HabitFolder>> = _allFolders.asStateFlow()
+    fun saveFoldersOrder(folders: List<HabitFolder>) {
+        val updated = folders.mapIndexed { i, f -> f.copy(sortOrder = i) }
+        persistFolders(updated)
+    }
 
     private fun persistFolders(folders: List<HabitFolder>) {
         _allFolders.value = folders

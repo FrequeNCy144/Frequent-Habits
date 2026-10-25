@@ -36,6 +36,8 @@ fun LazyListScope.dataBackupSettingsSection(
     onPickFolder: () -> Unit,
     onManualBackup: () -> Unit,
     onPickRestoreFile: () -> Unit,
+    onExportBackupFile: () -> Unit,
+    onShareBackup: () -> Unit,
     onPickCsvFile: () -> Unit,
     onShowWipeDialog: () -> Unit,
     viewModel: HabitsViewModel
@@ -301,12 +303,41 @@ fun LazyListScope.dataBackupSettingsSection(
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = onExportBackupFile,
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = BorderStroke(1.dp, AppBorder),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.Download, contentDescription = "Download", modifier = Modifier.size(16.dp), tint = TextPrimary)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(tr(language, "Herunterladen", "Download"), color = TextPrimary)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onShareBackup,
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = BorderStroke(1.dp, AppBorder),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(16.dp), tint = TextPrimary)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(tr(language, "Teilen", "Share"), color = TextPrimary)
+                                    }
+                                }
+
                                 if (syncStatus != null) {
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
                                         text = syncStatus ?: "",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = SuccessGreen,
+                                        color = if (syncStatus?.startsWith("Fehler") == true || syncStatus?.startsWith("Error") == true || syncStatus?.startsWith("Échec") == true) ErrorRed else SuccessGreen,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.clickable { viewModel.clearSyncStatus() }
                                     )

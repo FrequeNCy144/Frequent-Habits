@@ -1,14 +1,37 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.Habit
 import com.example.data.HabitFolder
@@ -16,9 +39,24 @@ import com.example.data.MilestoneReward
 import com.example.tr
 import com.example.ui.HabitIconMapping
 import com.example.ui.screens.createhabit.*
-import com.example.ui.theme.AppBg
+import com.example.ui.theme.*
 import java.util.*
 import kotlinx.coroutines.launch
+
+private val intSetSaver = Saver<Set<Int>, ArrayList<Int>>(
+    save = { ArrayList(it) },
+    restore = { it.toSet() }
+)
+
+private val stringListSaver = Saver<List<String>, ArrayList<String>>(
+    save = { ArrayList(it) },
+    restore = { it.toList() }
+)
+
+private val milestoneRewardSaver = Saver<List<MilestoneReward>, ArrayList<MilestoneReward>>(
+    save = { ArrayList(it) },
+    restore = { it.toList() }
+)
 
 @Composable
 fun CreateHabitScreen(
@@ -65,22 +103,22 @@ fun CreateHabitScreen(
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
-    var name by remember(editingHabit?.id) { mutableStateOf(editingHabit?.name ?: "") }
-    var nameError by remember { mutableStateOf(false) }
-    var description by remember(editingHabit?.id) { mutableStateOf(editingHabit?.description ?: "") }
+    var name by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.name ?: "") }
+    var nameError by rememberSaveable { mutableStateOf(false) }
+    var description by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.description ?: "") }
 
-    var isNegative by remember(editingHabit?.id) { mutableStateOf(editingHabit?.isNegative ?: false) }
-    var selectedColor by remember(editingHabit?.id) { mutableStateOf(editingHabit?.color ?: "purple") }
-    var selectedIcon by remember(editingHabit?.id) { mutableStateOf(editingHabit?.icon ?: "fitness_center") }
-    var iconSearchQuery by remember { mutableStateOf("") }
-    var category by remember(editingHabit?.id) { mutableStateOf(editingHabit?.category ?: "Sonstiges") }
-    var selectedFolderId by remember(editingHabit?.id) { mutableStateOf<Int?>(editingHabit?.folderId) }
+    var isNegative by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.isNegative ?: false) }
+    var selectedColor by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.color ?: "purple") }
+    var selectedIcon by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.icon ?: "fitness_center") }
+    var iconSearchQuery by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.category ?: "Sonstiges") }
+    var selectedFolderId by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf<Int?>(editingHabit?.folderId) }
 
-    var type by remember(editingHabit?.id) { mutableStateOf(editingHabit?.type ?: "BINARY") }
-    var unit by remember(editingHabit?.id) { mutableStateOf(editingHabit?.unit ?: "") }
-    var selectedChip by remember(editingHabit?.id) { mutableStateOf(if (editingHabit?.type == "NUMBER") editingHabit.unit else "") }
+    var type by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.type ?: "BINARY") }
+    var unit by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(editingHabit?.unit ?: "") }
+    var selectedChip by rememberSaveable(inputs = arrayOf(editingHabit?.id)) { mutableStateOf(if (editingHabit?.type == "NUMBER") editingHabit.unit else "") }
 
-    var targetValueStr by remember(editingHabit?.id) {
+    var targetValueStr by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(
             if (editingHabit != null && editingHabit.targetValue > 0f) {
                 if (editingHabit.targetValue % 1f == 0f) editingHabit.targetValue.toInt().toString()
@@ -89,7 +127,7 @@ fun CreateHabitScreen(
         )
     }
 
-    var clickIncrementStr by remember(editingHabit?.id) {
+    var clickIncrementStr by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(
             if (editingHabit != null && editingHabit.clickIncrement > 0f) {
                 if (editingHabit.clickIncrement % 1f == 0f) editingHabit.clickIncrement.toInt().toString()
@@ -98,8 +136,14 @@ fun CreateHabitScreen(
         )
     }
 
-    var frequency by remember(editingHabit?.id) { mutableStateOf(editingHabit?.frequency ?: "EVERYDAY") }
-    var specificDaysSet by remember(editingHabit?.id) {
+    var frequency by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
+        val initialFreq = when (editingHabit?.frequency) {
+            "EVERYDAY", null -> "DAILY"
+            else -> editingHabit.frequency
+        }
+        mutableStateOf(initialFreq)
+    }
+    var specificDaysSet by rememberSaveable(inputs = arrayOf(editingHabit?.id), stateSaver = intSetSaver) {
         val rawDays = editingHabit?.specificDays
         val days = if (rawDays != null) {
             rawDays.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
@@ -108,33 +152,33 @@ fun CreateHabitScreen(
         }
         mutableStateOf(if (!days.isNullOrEmpty()) days else setOf(1, 2, 3, 4, 5))
     }
-    var timesWeekly by remember(editingHabit?.id) {
+    var timesWeekly by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         val num = if (editingHabit?.frequency == "TIMES_WEEKLY") editingHabit.specificDays.toIntOrNull() ?: 3 else 3
         mutableIntStateOf(num)
     }
-    var targetDaysPerMonth by remember(editingHabit?.id) {
+    var targetDaysPerMonth by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         val num = if (editingHabit?.frequency == "TIMES_MONTHLY") editingHabit.specificDays.toIntOrNull() ?: 15 else 15
         mutableIntStateOf(num)
     }
-    var intervalDays by remember(editingHabit?.id) {
+    var intervalDays by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         val num = if (editingHabit?.frequency == "INTERVAL") editingHabit.specificDays.toIntOrNull() ?: 2 else 2
         mutableIntStateOf(num)
     }
 
-    var startDateMillis by remember(editingHabit?.id) {
+    var startDateMillis by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableLongStateOf(editingHabit?.startDate ?: System.currentTimeMillis())
     }
-    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showStartDatePicker by rememberSaveable { mutableStateOf(false) }
 
-    var endDateMillis by remember(editingHabit?.id) {
+    var endDateMillis by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf<Long?>(null)
     }
-    var showEndDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by rememberSaveable { mutableStateOf(false) }
 
-    var reminderEnabled by remember(editingHabit?.id) {
+    var reminderEnabled by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.reminderEnabled ?: false)
     }
-    var remindersList by remember(editingHabit?.id) {
+    var remindersList by rememberSaveable(inputs = arrayOf(editingHabit?.id), stateSaver = stringListSaver) {
         if (editingHabit == null) {
             mutableStateOf<List<String>>(emptyList())
         } else {
@@ -149,10 +193,10 @@ fun CreateHabitScreen(
             mutableStateOf(list.distinct().sorted())
         }
     }
-    var showAddCustomDialog by remember { mutableStateOf(false) }
-    var reminderToEditTime by remember { mutableStateOf<String?>(null) }
+    var showAddCustomDialog by rememberSaveable { mutableStateOf(false) }
+    var reminderToEditTime by rememberSaveable { mutableStateOf<String?>(null) }
 
-    var minimalViableValueStr by remember(editingHabit?.id) {
+    var minimalViableValueStr by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(
             if (editingHabit != null && editingHabit.minimalViableValue != null) {
                 if (editingHabit.minimalViableValue % 1f == 0f) editingHabit.minimalViableValue.toInt().toString()
@@ -160,31 +204,31 @@ fun CreateHabitScreen(
             } else ""
         )
     }
-    var minimalViableText by remember(editingHabit?.id) {
+    var minimalViableText by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.minimalViableText ?: "")
     }
 
-    var placeholderWhy by remember(editingHabit?.id) {
+    var placeholderWhy by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.why ?: "")
     }
 
-    var stackedOnHabitId by remember(editingHabit?.id, initialStackedHabitId) {
+    var stackedOnHabitId by rememberSaveable(inputs = arrayOf(editingHabit?.id, initialStackedHabitId)) {
         mutableStateOf(editingHabit?.stackedOnHabitId ?: initialStackedHabitId)
     }
 
-    var isFinishable by remember(editingHabit?.id) {
+    var isFinishable by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.isFinishable ?: false)
     }
-    var difficulty by remember(editingHabit?.id) {
+    var difficulty by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.difficulty ?: "MEDIUM")
     }
-    var challengeMode by remember(editingHabit?.id) {
+    var challengeMode by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.challengeMode ?: "ACCUMULATE")
     }
-    var challengeSuccessRate by remember(editingHabit?.id) {
+    var challengeSuccessRate by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(editingHabit?.challengeSuccessRate ?: 90)
     }
-    var totalTargetValueStr by remember(editingHabit?.id) {
+    var totalTargetValueStr by rememberSaveable(inputs = arrayOf(editingHabit?.id)) {
         mutableStateOf(
             if (editingHabit != null && editingHabit.totalTargetValue != null) {
                 if (editingHabit.totalTargetValue % 1f == 0f) editingHabit.totalTargetValue.toInt().toString()
@@ -193,10 +237,10 @@ fun CreateHabitScreen(
         )
     }
 
-    var milestoneRewards by remember(editingHabit?.id, initialMilestoneRewards) {
+    var milestoneRewards by rememberSaveable(inputs = arrayOf(editingHabit?.id), stateSaver = milestoneRewardSaver) {
         mutableStateOf(if (initialMilestoneRewards.isNotEmpty()) initialMilestoneRewards else emptyList<MilestoneReward>())
     }
-    var showAddRewardDialog by remember { mutableStateOf(false) }
+    var showAddRewardDialog by rememberSaveable { mutableStateOf(false) }
 
     var activeExplanation by remember { mutableStateOf<Pair<String, String>?>(null) }
 
@@ -237,6 +281,74 @@ fun CreateHabitScreen(
         }
     }
 
+    var currentStep by rememberSaveable { mutableIntStateOf(1) }
+
+    val performSave = {
+        if (name.isNotBlank()) {
+            val targetVal = targetValueStr.replace(',', '.').toFloatOrNull()?.coerceAtLeast(0.01f) ?: 1f
+            val clickIncrementVal = clickIncrementStr.replace(',', '.').toFloatOrNull()?.coerceAtLeast(0.01f) ?: 1f
+            val specDays = when (frequency) {
+                "SPECIFIC" -> specificDaysSet.sorted().joinToString(",")
+                "TIMES_WEEKLY" -> timesWeekly.toString()
+                "TIMES_MONTHLY" -> targetDaysPerMonth.toString()
+                "INTERVAL" -> intervalDays.toString()
+                else -> ""
+            }
+
+            val firstReminder = remindersList.firstOrNull() ?: "18:00"
+            val firstParts = firstReminder.split(":")
+            val firstHour = firstParts.getOrNull(0)?.toIntOrNull() ?: 18
+            val firstMin = firstParts.getOrNull(1)?.toIntOrNull() ?: 0
+
+            val restReminders = if (remindersList.size > 1) remindersList.drop(1) else emptyList()
+            val customRemindersStr = restReminders.joinToString(",")
+
+            val minViableValue = if (type == "NUMBER") minimalViableValueStr.replace(',', '.').toFloatOrNull() else null
+            val minViableTextStr = if (type == "BINARY") minimalViableText else ""
+            val totalTargetVal = if (isFinishable) {
+                val parsed = totalTargetValueStr.replace(',', '.').toFloatOrNull()
+                if (parsed != null && parsed > 0f) parsed else 30f
+            } else null
+
+            // Ensure clean defaults for numeric vs binary
+            val finalUnit = if (type == "NUMBER") unit else ""
+            val finalTargetVal = if (type == "NUMBER") targetVal else 1f
+            val finalClickIncrement = if (type == "NUMBER") clickIncrementVal else 1f
+
+            onSave(
+                name, isNegative, category, selectedIcon, selectedColor, type, finalUnit, finalTargetVal, finalClickIncrement,
+                frequency, startDateMillis, specDays, reminderEnabled, firstHour, firstMin, customRemindersStr, description, milestoneRewards,
+                minViableValue, minViableTextStr, placeholderWhy, stackedOnHabitId,
+                isFinishable, totalTargetVal, if (isFinishable) difficulty else "MEDIUM",
+                selectedFolderId, challengeMode, challengeSuccessRate
+            )
+        } else {
+            nameError = true
+            if (currentStep != 1 && currentStep != 0) {
+                currentStep = 1
+            }
+            coroutineScope.launch {
+                scrollState.animateScrollTo(0)
+                kotlinx.coroutines.delay(100)
+                try {
+                    nameFocusRequester.requestFocus()
+                    keyboardController?.show()
+                } catch (e: Exception) {
+                    // Focus requester error ignored
+                }
+            }
+        }
+    }
+
+    val onStepSelected = { step: Int ->
+        if (step != currentStep) {
+            currentStep = step
+            coroutineScope.launch {
+                scrollState.scrollTo(0)
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -248,255 +360,391 @@ fun CreateHabitScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
-                .padding(start = 16.dp, end = 16.dp, top = 88.dp, bottom = 32.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 164.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Basic Info Card
-            HabitBasicInfoCard(
-                language = language,
-                name = name,
-                onNameChange = { name = it },
-                nameError = nameError,
-                onNameErrorChange = { nameError = it },
-                description = description,
-                onDescriptionChange = { description = it },
-                nameFocusRequester = nameFocusRequester
-            )
+            val renderBasisCards = @Composable {
+                // 1. Basic Info Card (Name & Beschreibung)
+                HabitBasicInfoCard(
+                    language = language,
+                    name = name,
+                    onNameChange = { name = it },
+                    nameError = nameError,
+                    onNameErrorChange = { nameError = it },
+                    description = description,
+                    onDescriptionChange = { description = it },
+                    nameFocusRequester = nameFocusRequester
+                )
 
-            // 2. Target / Goal Card
-            HabitTargetGoalCard(
-                language = language,
-                isNumeric = type == "NUMBER",
-                onNumericChange = { isNum ->
-                    type = if (isNum) "NUMBER" else "BINARY"
-                    if (isNum && unit.isBlank()) {
-                        val defaultMinutesUnit = tr(language, "Minuten", "წუთები", "分钟", "Minutes")
-                        unit = defaultMinutesUnit
-                        selectedChip = defaultMinutesUnit
-                    }
-                },
-                targetValue = targetValueStr,
-                onTargetValueChange = { input ->
-                    if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d*)?$"""))) {
-                        targetValueStr = input
-                    }
-                },
-                targetValueError = false,
-                clickIncrement = clickIncrementStr,
-                onClickIncrementChange = { input ->
-                    if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d*)?$"""))) {
-                        clickIncrementStr = input
-                    }
-                },
-                unit = unit,
-                onUnitChange = { unit = it },
-                selectedChip = selectedChip,
-                onChipSelect = { chip ->
-                    selectedChip = chip
-                    if (chip != "Anderes..." && chip != "Custom...") {
-                        unit = chip
-                    } else {
-                        unit = ""
-                    }
-                },
-                activeColor = activeColor,
-                isFinishable = isFinishable,
-                onFinishableChange = { isFinishable = it },
-                totalTargetValue = totalTargetValueStr,
-                onTotalTargetValueChange = { totalTargetValueStr = it },
-                endDateStr = endDateStr,
-                onEndDateClick = { showEndDatePicker = true },
-                onClearEndDate = { endDateMillis = null },
-                isNegative = isNegative,
-                onNegativeChange = { isNegative = it },
-                difficulty = difficulty,
-                onDifficultyChange = { difficulty = it },
-                challengeMode = challengeMode,
-                onChallengeModeChange = { challengeMode = it },
-                challengeSuccessRate = challengeSuccessRate,
-                onChallengeSuccessRateChange = { challengeSuccessRate = it },
-                isEditMode = editingHabit != null,
-                onShowInfoDialog = { title, explanation ->
-                    activeExplanation = title to explanation
-                }
-            )
+                // 2. Appearance Card (Icon & Farbe)
+                HabitAppearanceCard(
+                    language = language,
+                    selectedColor = selectedColor,
+                    onColorSelect = { selectedColor = it },
+                    selectedIcon = selectedIcon,
+                    onIconSelect = { selectedIcon = it },
+                    iconSearchQuery = iconSearchQuery,
+                    onIconSearchQueryChange = { iconSearchQuery = it },
+                    activeColor = activeColor,
+                    filteredIcons = filteredIcons
+                )
 
-            // 3. Appearance Card (Color & Icon)
-            HabitAppearanceCard(
-                language = language,
-                selectedColor = selectedColor,
-                onColorSelect = { selectedColor = it },
-                selectedIcon = selectedIcon,
-                onIconSelect = { selectedIcon = it },
-                iconSearchQuery = iconSearchQuery,
-                onIconSearchQueryChange = { iconSearchQuery = it },
-                activeColor = activeColor,
-                filteredIcons = filteredIcons
-            )
+                // 3. Folder Selection Card (Ordner / Lebensbereich)
+                HabitFolderSelectionCard(
+                    allFolders = allFolders,
+                    selectedFolderId = selectedFolderId,
+                    onFolderSelected = { selectedFolderId = it },
+                    language = language,
+                    accentColor = activeColor,
+                    onCreateFolder = onCreateFolder
+                )
+            }
 
-            // Folder Selection Card
-            HabitFolderSelectionCard(
-                allFolders = allFolders,
-                selectedFolderId = selectedFolderId,
-                onFolderSelected = { selectedFolderId = it },
-                language = language,
-                accentColor = accentColor,
-                onCreateFolder = onCreateFolder
-            )
-
-            // 4. Schedule Card
-            HabitScheduleCard(
-                language = language,
-                frequencyType = frequency,
-                onFrequencyTypeChange = { frequency = it },
-                targetDaysPerWeek = timesWeekly,
-                onTargetDaysPerWeekChange = { timesWeekly = it },
-                targetDaysPerMonth = targetDaysPerMonth,
-                onTargetDaysPerMonthChange = { targetDaysPerMonth = it },
-                intervalDays = intervalDays,
-                onIntervalDaysChange = { intervalDays = it },
-                selectedWeekdays = specificDaysSet,
-                onToggleWeekday = { day ->
-                    specificDaysSet = if (day in specificDaysSet) {
-                        if (specificDaysSet.size > 1) specificDaysSet - day else specificDaysSet
-                    } else {
-                        specificDaysSet + day
-                    }
-                },
-                activeColor = activeColor
-            )
-
-            // 5. Reminders Card
-            HabitRemindersCard(
-                language = language,
-                reminders = remindersList,
-                onAddReminderClick = {
-                    reminderToEditTime = null
-                    showAddCustomDialog = true
-                },
-                onRemoveReminder = { index ->
-                    val item = remindersList.getOrNull(index)
-                    if (item != null) {
-                        remindersList = remindersList - item
-                        if (remindersList.isEmpty()) {
-                            reminderEnabled = false
-                        }
-                    }
-                },
-                onEditReminder = { _, time ->
-                    reminderToEditTime = time
-                    showAddCustomDialog = true
-                },
-                activeColor = activeColor
-            )
-
-            // 6. Milestone Rewards Card
-            HabitMilestoneRewardsCard(
-                language = language,
-                milestoneRewards = milestoneRewards,
-                onAddRewardClick = { showAddRewardDialog = true },
-                onRemoveReward = { reward ->
-                    milestoneRewards = milestoneRewards.filter { it.id != reward.id }
-                },
-                onShowInfoDialog = {
-                    activeExplanation = Pair(
-                        tr(language, "Meilenstein-Belohnungen", "Milestone ჯილდოები", "里程碑奖励", "Milestone Rewards"),
-                        tr(language, "Verknüpfe Belohnungen direkt mit Erfolgen (z.B. 30 Tage Streak = Massage oder neues Buch). Sobald du den Meilenstein erreichst, wird dir die Belohnung freigeschaltet!", "დააკავშირეთ ჯილდოები მიღწევებთან. როდესაც მიაღწევთ ეტაპს, ჯილდო განბლოკილია!", "将奖励直接与成就关联（如达到 30 天连续打卡 = 奖励自己一次按摩或一本新书）。一旦达到里程碑，奖励即刻解锁！", "Link rewards directly to milestones (e.g., 30-day streak = get a massage or buy a book). Once you hit the milestone, your reward is unlocked!")
-                    )
-                }
-            )
-
-            // 7. Advanced Settings Cards
-            HabitAdvancedSettingsCards(
-                language = language,
-                startDateStr = startDateStr,
-                onStartDateClick = { showStartDatePicker = true },
-                motivationWhy = placeholderWhy,
-                onMotivationWhyChange = { placeholderWhy = it },
-                minimalViableRule = if (type == "NUMBER") minimalViableValueStr else minimalViableText,
-                onMinimalViableRuleChange = { input ->
-                    if (type == "NUMBER") {
+            val renderZielCards = @Composable {
+                CreateHabitStepZiel(
+                    language = language,
+                    activeColor = activeColor,
+                    type = type,
+                    onTypeChange = { type = it },
+                    targetValueStr = targetValueStr,
+                    onTargetValueChange = { input ->
                         if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d*)?$"""))) {
-                            minimalViableValueStr = input
+                            targetValueStr = input
                         }
+                    },
+                    clickIncrementStr = clickIncrementStr,
+                    onClickIncrementChange = { input ->
+                        if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d*)?$"""))) {
+                            clickIncrementStr = input
+                        }
+                    },
+                    unit = unit,
+                    onUnitChange = { unit = it },
+                    selectedChip = selectedChip,
+                    onChipSelect = { chip ->
+                        selectedChip = chip
+                        if (chip != "Anderes..." && chip != "Custom...") {
+                            unit = chip
+                        } else {
+                            unit = ""
+                        }
+                    },
+                    isFinishable = isFinishable,
+                    onFinishableChange = { isFinishable = it },
+                    totalTargetValueStr = totalTargetValueStr,
+                    onTotalTargetValueChange = { totalTargetValueStr = it },
+                    endDateStr = endDateStr,
+                    onEndDateClick = { showEndDatePicker = true },
+                    onClearEndDate = { endDateMillis = null },
+                    isNegative = isNegative,
+                    onNegativeChange = { isNegative = it },
+                    difficulty = difficulty,
+                    onDifficultyChange = { difficulty = it },
+                    challengeMode = challengeMode,
+                    onChallengeModeChange = { challengeMode = it },
+                    challengeSuccessRate = challengeSuccessRate,
+                    onChallengeSuccessRateChange = { challengeSuccessRate = it },
+                    isEditMode = editingHabit != null,
+                    frequency = frequency,
+                    onFrequencyChange = { frequency = it },
+                    timesWeekly = timesWeekly,
+                    onTimesWeeklyChange = { timesWeekly = it },
+                    targetDaysPerMonth = targetDaysPerMonth,
+                    onTargetDaysPerMonthChange = { targetDaysPerMonth = it },
+                    intervalDays = intervalDays,
+                    onIntervalDaysChange = { intervalDays = it },
+                    selectedWeekdays = specificDaysSet,
+                    onToggleWeekday = { day ->
+                        specificDaysSet = if (day in specificDaysSet) {
+                            if (specificDaysSet.size > 1) specificDaysSet - day else specificDaysSet
+                        } else {
+                            specificDaysSet + day
+                        }
+                    },
+                    startDateStr = startDateStr,
+                    onStartDateClick = { showStartDatePicker = true },
+                    onShowInfoDialog = { title, explanation ->
+                        activeExplanation = title to explanation
+                    }
+                )
+            }
+
+            val renderDetailsCards = @Composable {
+                // Reminders Card (Erinnerungen & Benachrichtigungen)
+                HabitRemindersCard(
+                    language = language,
+                    reminders = remindersList,
+                    onAddReminderClick = {
+                        reminderToEditTime = null
+                        showAddCustomDialog = true
+                    },
+                    onRemoveReminder = { index ->
+                        val item = remindersList.getOrNull(index)
+                        if (item != null) {
+                            remindersList = remindersList - item
+                            if (remindersList.isEmpty()) {
+                                reminderEnabled = false
+                            }
+                        }
+                    },
+                    onEditReminder = { _, time ->
+                        reminderToEditTime = time
+                        showAddCustomDialog = true
+                    },
+                    activeColor = activeColor
+                )
+
+                // Habit Stacking Card (Anker-Routine)
+                HabitStackingCard(
+                    language = language,
+                    selectedStackedHabit = activeHabits.find { it.id == stackedOnHabitId },
+                    onSelectStackedHabit = { habit ->
+                        stackedOnHabitId = habit?.id
+                    },
+                    activeHabits = activeHabits.filter { it.id != (editingHabit?.id ?: -1) },
+                    allFolders = allFolders,
+                    accentColor = activeColor,
+                    onShowInfoDialog = { title, explanation ->
+                        activeExplanation = title to explanation
+                    }
+                )
+
+                // Motivation Card (Dein „Warum“ - Psychologischer Anker)
+                HabitMotivationCard(
+                    language = language,
+                    motivationWhy = placeholderWhy,
+                    onMotivationWhyChange = { placeholderWhy = it },
+                    accentColor = activeColor,
+                    onShowInfoDialog = { title, explanation ->
+                        activeExplanation = title to explanation
+                    }
+                )
+
+                // Milestone Rewards Card (Erfolge & Meilensteine)
+                HabitMilestoneRewardsCard(
+                    language = language,
+                    milestoneRewards = milestoneRewards,
+                    onAddRewardClick = { showAddRewardDialog = true },
+                    onRemoveReward = { reward ->
+                        milestoneRewards = milestoneRewards.filter { it.id != reward.id }
+                    },
+                    onShowInfoDialog = {
+                        activeExplanation = Pair(
+                            tr(language, "Meilenstein-Belohnungen", "Milestone ჯილდოები", "里程碑奖励", "Milestone Rewards"),
+                            tr(language, "Verknüpfe Belohnungen direkt mit Erfolgen (z.B. 30 Tage Streak = Massage oder neues Buch). Sobald du den Meilenstein erreichst, wird dir die Belohnung freigeschaltet!", "დააკავშირეთ ჯილდოები მიღწევებთან. როდესაც მიაღწევთ ეტაპს, ჯილდო განბლოკილია!", "将奖励直接与成就关联（如达到 30 天连续打卡 = 奖励自己一次按摩或一本新书）。一旦达到里程碑，奖励即刻解锁！", "Link rewards directly to milestones (e.g., 30-day streak = get a massage or buy a book). Once you hit the milestone, your reward is unlocked!")
+                        )
+                    }
+                )
+
+                // Minimal Viable Version (MVV / 2-Minuten-Regel für stressige Tage)
+                HabitMinimalViableCard(
+                    language = language,
+                    minimalViableRule = if (type == "NUMBER") minimalViableValueStr else minimalViableText,
+                    onMinimalViableRuleChange = { input ->
+                        if (type == "NUMBER") {
+                            if (input.isEmpty() || input.matches(Regex("""^\d*([.,]\d*)?$"""))) {
+                                minimalViableValueStr = input
+                            }
+                        } else {
+                            minimalViableText = input
+                        }
+                    },
+                    isNumeric = type == "NUMBER",
+                    unit = unit,
+                    accentColor = activeColor,
+                    onShowInfoDialog = { title, explanation ->
+                        activeExplanation = title to explanation
+                    }
+                )
+            }
+
+            AnimatedContent(
+                targetState = currentStep,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally { width -> width / 2 } + fadeIn())
+                            .togetherWith(slideOutHorizontally { width -> -width / 2 } + fadeOut())
                     } else {
-                        minimalViableText = input
+                        (slideInHorizontally { width -> -width / 2 } + fadeIn())
+                            .togetherWith(slideOutHorizontally { width -> width / 2 } + fadeOut())
                     }
                 },
-                isNumeric = type == "NUMBER",
-                unit = unit,
-                selectedStackedHabit = activeHabits.find { it.id == stackedOnHabitId },
-                onSelectStackedHabit = { habit ->
-                    stackedOnHabitId = habit?.id
-                },
-                activeHabits = activeHabits.filter { it.id != (editingHabit?.id ?: -1) },
-                onShowInfoDialog = { title, explanation ->
-                    activeExplanation = title to explanation
-                },
-                activeColor = activeColor
-            )
+                label = "wizard_step_transition"
+            ) { step ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    when (step) {
+                        1 -> renderBasisCards()
+                        2 -> renderZielCards()
+                        else -> renderDetailsCards()
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Action Buttons (Cancel / Save)
-            CreateHabitBottomBar(
-                isEditing = editingHabit != null,
-                language = language,
-                onCancel = onDismiss,
-                onSaveClick = {
-                    if (name.isNotBlank()) {
-                        val targetVal = targetValueStr.replace(',', '.').toFloatOrNull()?.coerceAtLeast(0.01f) ?: 1f
-                        val clickIncrementVal = clickIncrementStr.replace(',', '.').toFloatOrNull()?.coerceAtLeast(0.01f) ?: 1f
-                        val specDays = when (frequency) {
-                            "SPECIFIC" -> specificDaysSet.sorted().joinToString(",")
-                            "TIMES_WEEKLY" -> timesWeekly.toString()
-                            "TIMES_MONTHLY" -> targetDaysPerMonth.toString()
-                            "INTERVAL" -> intervalDays.toString()
-                            else -> ""
+            // Navigation Buttons (Back / Next) - Habit saving is exclusively via the checkmark (Haken) at the top!
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                when (currentStep) {
+                    1 -> {
+                        // Step 1: Cancel + Next: Ziel
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onDismiss,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                                    .testTag("cancel_habit_button"),
+                                border = BorderStroke(1.dp, AppBorder),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                            ) {
+                                Text(
+                                    text = tr(language, "Abbrechen", "გაუქმება", "取消", "Cancel"),
+                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (name.isBlank()) {
+                                        performSave() // Triggers error validation & focus on name
+                                    } else {
+                                        currentStep = 2
+                                        coroutineScope.launch { scrollState.scrollTo(0) }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = activeColor),
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(50.dp)
+                                    .testTag("step_next_button"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = tr(language, "Weiter: Ziel →", "შემდეგი: მიზანი →", "下一步：目标 →", "Next: Target →"),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White
+                                )
+                            }
                         }
+                    }
+                    2 -> {
+                        // Step 2: Back to Step 1 + Next: Details
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    currentStep = 1
+                                    coroutineScope.launch { scrollState.scrollTo(0) }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                                    .testTag("step_back_button"),
+                                border = BorderStroke(1.dp, AppBorder),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                            ) {
+                                Text(
+                                    text = tr(language, "Zurück", "უკან", "上一步", "Back"),
+                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
 
-                        val firstReminder = remindersList.firstOrNull() ?: "18:00"
-                        val firstParts = firstReminder.split(":")
-                        val firstHour = firstParts.getOrNull(0)?.toIntOrNull() ?: 18
-                        val firstMin = firstParts.getOrNull(1)?.toIntOrNull() ?: 0
+                            Button(
+                                onClick = {
+                                    currentStep = 3
+                                    coroutineScope.launch { scrollState.scrollTo(0) }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = activeColor),
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(50.dp)
+                                    .testTag("step_next_button"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = tr(language, "Weiter: Details →", "შემდეგი: დეტალები →", "下一步：详情 →", "Next: Details →"),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        // Step 3 (Details): Back to Step 2 + Create / Save button
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    currentStep = 2
+                                    coroutineScope.launch { scrollState.scrollTo(0) }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                                    .testTag("step_back_button"),
+                                border = BorderStroke(1.dp, AppBorder),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                            ) {
+                                Text(
+                                    text = tr(language, "← Zurück", "← უკან", "← 上一步", "← Back"),
+                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
 
-                        val restReminders = if (remindersList.size > 1) remindersList.drop(1) else emptyList()
-                        val customRemindersStr = restReminders.joinToString(",")
-
-                        val minViableValue = if (type == "NUMBER") minimalViableValueStr.replace(',', '.').toFloatOrNull() else null
-                        val minViableTextStr = if (type == "BINARY") minimalViableText else ""
-                        val totalTargetVal = if (isFinishable) {
-                            val parsed = totalTargetValueStr.replace(',', '.').toFloatOrNull()
-                            if (parsed != null && parsed > 0f) parsed else 30f
-                        } else null
-
-                        // Ensure clean defaults for numeric vs binary
-                        val finalUnit = if (type == "NUMBER") unit else ""
-                        val finalTargetVal = if (type == "NUMBER") targetVal else 1f
-                        val finalClickIncrement = if (type == "NUMBER") clickIncrementVal else 1f
-
-                        onSave(
-                            name, isNegative, category, selectedIcon, selectedColor, type, finalUnit, finalTargetVal, finalClickIncrement,
-                            frequency, startDateMillis, specDays, reminderEnabled, firstHour, firstMin, customRemindersStr, description, milestoneRewards,
-                            minViableValue, minViableTextStr, placeholderWhy, stackedOnHabitId,
-                            isFinishable, totalTargetVal, if (isFinishable) difficulty else "MEDIUM",
-                            selectedFolderId, challengeMode, challengeSuccessRate
-                        )
-                    } else {
-                        nameError = true
-                        coroutineScope.launch {
-                            scrollState.animateScrollTo(0)
-                            kotlinx.coroutines.delay(100)
-                            try {
-                                nameFocusRequester.requestFocus()
-                                keyboardController?.show()
-                            } catch (e: Exception) {
-                                // Focus requester error ignored
+                            Button(
+                                onClick = { performSave() },
+                                colors = ButtonDefaults.buttonColors(containerColor = activeColor),
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(50.dp)
+                                    .testTag("step_create_habit_button"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (editingHabit != null) {
+                                        tr(language, "Speichern", "შენახვა", "保存", "Save")
+                                    } else {
+                                        tr(language, "Erstellen", "შექმნა", "创建", "Create")
+                                    },
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = Color.White
+                                )
                             }
                         }
                     }
                 }
-            )
+            }
         }
 
         // Overlays & Dialogs
@@ -548,12 +796,59 @@ fun CreateHabitScreen(
             language = language
         )
 
-        // Floating Header Overlay with vertical gradient fade-out
+        // Sticky Header Overlay with pinned Zeitstrahl (stepper) and save checkmark (Haken oben)
         CreateHabitHeaderOverlay(
             isEditing = editingHabit != null,
             language = language,
             onDismiss = onDismiss,
-            modifier = Modifier.align(Alignment.TopCenter)
+            accentColor = activeColor,
+            onSaveClick = { performSave() },
+            modifier = Modifier.align(Alignment.TopCenter),
+            stepperContent = {
+                HabitWizardStepper(
+                    currentStep = currentStep,
+                    activeColor = activeColor,
+                    language = language,
+                    onStepSelected = onStepSelected
+                )
+            }
         )
     }
 }
+
+@Composable
+private fun CreateHabitSectionHeader(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accentColor: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = accentColor.copy(alpha = 0.15f),
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+    }
+}
+

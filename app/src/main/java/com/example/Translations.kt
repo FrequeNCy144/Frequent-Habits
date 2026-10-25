@@ -133,3 +133,77 @@ private fun translateDynamicChinese(en: String, de: String): String {
     str = str.replace("E-Mail", "电子邮件")
     return str
 }
+
+fun getLocalizedUnit(unit: String, language: String): String {
+    val trimmed = unit.trim()
+    if (trimmed.isEmpty()) return ""
+    return when (trimmed.lowercase()) {
+        "minuten", "minutes", "minute", "min", "წუთები", "წუთი", "分钟" -> when (language) {
+            "de" -> "Minuten"
+            "ka" -> "წუთი"
+            "zh" -> "分钟"
+            else -> "Minutes"
+        }
+        "stunden", "hours", "hour", "std", "h", "საათი", "საათები", "小时" -> when (language) {
+            "de" -> "Stunden"
+            "ka" -> "საათი"
+            "zh" -> "小时"
+            else -> "Hours"
+        }
+        "tassen", "cups", "cup", "ჭიქა", "杯" -> when (language) {
+            "de" -> "Tassen"
+            "ka" -> "ჭიქა"
+            "zh" -> "杯"
+            else -> "Cups"
+        }
+        "zigaretten", "cigarettes", "cigarette", "cig", "სიგარეტი", "支", "根" -> when (language) {
+            "de" -> "Zigaretten"
+            "ka" -> "სიგარეტი"
+            "zh" -> "支"
+            else -> "Cigarettes"
+        }
+        "mal", "times", "time", "x", "ჯერ", "次" -> when (language) {
+            "de" -> "Mal"
+            "ka" -> "ჯერ"
+            "zh" -> "次"
+            else -> "Times"
+        }
+        "liter", "liters", "l", "ლიტრი", "升" -> when (language) {
+            "de" -> "Liter"
+            "ka" -> "ლიტრი"
+            "zh" -> "升"
+            else -> "Liters"
+        }
+        "km", "kilometer", "kilometres", "kilometers", "კმ", "公里", "千米" -> when (language) {
+            "de" -> "km"
+            "ka" -> "კმ"
+            "zh" -> "公里"
+            else -> "km"
+        }
+        "seiten", "pages", "page", "გვერდი", "页" -> when (language) {
+            "de" -> "Seiten"
+            "ka" -> "გვერდი"
+            "zh" -> "页"
+            else -> "Pages"
+        }
+        "schritte", "steps", "step", "ნაბიჯი", "步" -> when (language) {
+            "de" -> "Schritte"
+            "ka" -> "ნაბიჯი"
+            "zh" -> "步"
+            else -> "Steps"
+        }
+        "gläser", "glaeser", "glasses", "glass", "ჭიქები" -> when (language) {
+            "de" -> "Gläser"
+            "ka" -> "ჭიქა"
+            "zh" -> "杯"
+            else -> "Glasses"
+        }
+        "tage", "days", "day", "დღე", "天" -> when (language) {
+            "de" -> "Tage"
+            "ka" -> "დღე"
+            "zh" -> "天"
+            else -> "Days"
+        }
+        else -> trimmed
+    }
+}

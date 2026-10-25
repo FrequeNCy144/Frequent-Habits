@@ -49,13 +49,14 @@ fun WidgetAddValueManualSection(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        val locUnit = com.example.getLocalizedUnit(habit.unit, language)
         Text(
             text = tr(
                 language,
-                "Manuell eintragen (${habit.unit}):",
-                "ხელით შეყვანა (${habit.unit}):",
-                "手动记录 (${habit.unit}):",
-                "Manual log (${habit.unit}):"
+                "Manuell eintragen ($locUnit):",
+                "ხელით შეყვანა ($locUnit):",
+                "手动记录 ($locUnit):",
+                "Manual log ($locUnit):"
             ),
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 13.sp,

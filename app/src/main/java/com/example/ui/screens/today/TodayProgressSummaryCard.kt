@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.example.data.PerfectDaysStats
+import com.example.tr
 import com.example.ui.dialogs.animatedGlowingBorder
 import com.example.ui.theme.*
 import kotlinx.coroutines.launch
@@ -158,88 +160,119 @@ fun TodayProgressSummaryCard(
                 .fillMaxWidth()
                 .onGloballyPositioned { parentCoordinates = it }
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
-                // Progress Bar
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(36.dp)
-                        .onGloballyPositioned { coords ->
-                            val pCoords = parentCoordinates
-                            if (pCoords != null && pCoords.isAttached && coords.isAttached) {
-                                val relPos = pCoords.localPositionOf(coords, Offset.Zero)
-                                progressBarPos = relPos to coords.size.toSize()
-                            }
-                        }
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(AppCard)
-                        .border(1.dp, AppBorder, RoundedCornerShape(18.dp)),
-                    contentAlignment = Alignment.CenterStart
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (animatedFraction > 0f) {
+                    // Progress Bar
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .onGloballyPositioned { coords ->
+                                val pCoords = parentCoordinates
+                                if (pCoords != null && pCoords.isAttached && coords.isAttached) {
+                                    val relPos = pCoords.localPositionOf(coords, Offset.Zero)
+                                    progressBarPos = relPos to coords.size.toSize()
+                                }
+                            }
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(AppCard)
+                            .border(1.dp, AppBorder, RoundedCornerShape(18.dp)),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (animatedFraction > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(animatedFraction.coerceIn(0f, 1f))
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(SuccessGreen)
+                            )
+                        }
+
                         Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(animatedFraction.coerceIn(0f, 1f))
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(SuccessGreen)
-                        )
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$progressText (${(fraction * 100).toInt()}%)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        }
                     }
 
+                    // Perfect Days Streak Counter Chip
                     Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier
+                            .onGloballyPositioned { coords ->
+                                val pCoords = parentCoordinates
+                                if (pCoords != null && pCoords.isAttached && coords.isAttached) {
+                                    val relPos = pCoords.localPositionOf(coords, Offset.Zero)
+                                    streakChipPos = relPos to coords.size.toSize()
+                                }
+                            }
+                            .border(
+                                if (displayedStreak >= 1) 1.5.dp else 1.dp,
+                                if (displayedStreak >= 1) PerfectStreakFlame else AppBorder,
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(AppCard)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
-                        Text(
-                            text = "$progressText (${(fraction * 100).toInt()}%)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocalFireDepartment,
+                                contentDescription = "Perfect Days Streak",
+                                tint = if (displayedStreak > 0) PerfectStreakFlame else TextSecondary.copy(alpha = 0.4f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "${displayedStreak}d",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                modifier = Modifier.scale(streakScale.value)
+                            )
+                        }
                     }
                 }
 
-                // Perfect Days Streak Counter Chip
-                Box(
-                    modifier = Modifier
-                        .onGloballyPositioned { coords ->
-                            val pCoords = parentCoordinates
-                            if (pCoords != null && pCoords.isAttached && coords.isAttached) {
-                                val relPos = pCoords.localPositionOf(coords, Offset.Zero)
-                                streakChipPos = relPos to coords.size.toSize()
-                            }
-                        }
-                        .border(
-                            if (displayedStreak >= 1) 1.5.dp else 1.dp,
-                            if (displayedStreak >= 1) PerfectStreakFlame else AppBorder,
-                            RoundedCornerShape(14.dp)
-                        )
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppCard)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
+                if (isAllDone) {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(SuccessGreen.copy(alpha = 0.12f))
+                            .border(0.8.dp, SuccessGreen.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalFireDepartment,
-                            contentDescription = "Perfect Days Streak",
-                            tint = if (displayedStreak > 0) PerfectStreakFlame else TextSecondary.copy(alpha = 0.4f),
-                            modifier = Modifier.size(20.dp)
-                        )
                         Text(
-                            text = "${displayedStreak}d",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            modifier = Modifier.scale(streakScale.value)
+                            text = "✨ " + tr(
+                                language,
+                                "Fantastisch! Alle Gewohnheiten für heute gemeistert",
+                                "ფანტასტიკურია! დღევანდელი ყველა ჩვევა შესრულებულია",
+                                "太棒了！今天的所有习惯均已完成",
+                                "Fantastic! All habits crushed for today"
+                            ),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SuccessGreen
                         )
                     }
                 }

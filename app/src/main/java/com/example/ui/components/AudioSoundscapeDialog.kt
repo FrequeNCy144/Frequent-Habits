@@ -105,6 +105,160 @@ object AudioSoundscapeManager {
         prefs.edit().putString(PREFIX_CATEGORY + filename, category).apply()
     }
 
+    val SUPPORTED_EXTENSIONS = listOf("mp3", "m4a", "wav", "ogg", "aac", "flac", "opus", "wma", "webm")
+
+    val AUDIO_MIME_TYPES = arrayOf(
+        "audio/*",
+        "application/ogg",
+        "application/x-ogg",
+        "application/octet-stream",
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/m4a",
+        "audio/x-m4a",
+        "audio/mp4",
+        "audio/aac",
+        "audio/flac",
+        "audio/x-flac",
+        "audio/opus",
+        "audio/x-opus",
+        "video/mp4",
+        "*/*"
+    )
+
+    fun getAudioDirectory(context: Context): File {
+        val dir = File(context.filesDir, "audios")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    fun listImportedAudios(context: Context): List<File> {
+        val dir = getAudioDirectory(context)
+        return dir.listFiles()?.filter {
+            it.isFile && (it.extension.lowercase() in SUPPORTED_EXTENSIONS)
+        }?.sortedBy { it.name } ?: emptyList()
+    }
+
+    fun importAudioFromUri(context: Context, uri: android.net.Uri): File? {
+        try {
+            val contentResolver = context.contentResolver
+            var displayName: String? = null
+            
+            // 1. Safely query OpenableColumns.DISPLAY_NAME without failing on providers
+            try {
+                val projection = arrayOf(android.provider.OpenableColumns.DISPLAY_NAME)
+                contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex != -1 && cursor.moveToFirst()) {
+                        val n = cursor.getString(nameIndex)
+                        if (!n.isNullOrBlank()) {
+                            displayName = n.trim()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // Fallback display name from URI path if cursor didn't provide one
+            if (displayName.isNullOrBlank()) {
+                val lastSegment = uri.lastPathSegment
+                if (!lastSegment.isNullOrBlank()) {
+                    displayName = lastSegment.substringAfterLast("/").substringAfterLast(":")
+                }
+            }
+
+            // Try decoding URL-encoded characters (e.g. My%20Song.mp3)
+            if (!displayName.isNullOrBlank()) {
+                try {
+                    displayName = java.net.URLDecoder.decode(displayName, "UTF-8")
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+
+            // 2. Safely deduce MIME type
+            var mimeType = ""
+            try {
+                mimeType = contentResolver.getType(uri)?.lowercase() ?: ""
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            val defaultExt = when {
+                mimeType.contains("wav") -> "wav"
+                mimeType.contains("ogg") -> "ogg"
+                mimeType.contains("aac") -> "aac"
+                mimeType.contains("flac") -> "flac"
+                mimeType.contains("opus") -> "opus"
+                mimeType.contains("m4a") || mimeType.contains("mp4") -> "m4a"
+                mimeType.contains("wma") -> "wma"
+                mimeType.contains("webm") -> "webm"
+                else -> "mp3"
+            }
+
+            var baseName: String
+            var extension: String
+
+            if (displayName.isNullOrBlank()) {
+                baseName = "audio_${System.currentTimeMillis()}"
+                extension = defaultExt
+            } else {
+                val lastDot = displayName!!.lastIndexOf('.')
+                if (lastDot > 0 && lastDot < displayName!!.length - 1) {
+                    val rawExt = displayName!!.substring(lastDot + 1).lowercase().trim()
+                    if (rawExt in SUPPORTED_EXTENSIONS) {
+                        extension = rawExt
+                        baseName = displayName!!.substring(0, lastDot)
+                    } else if (mimeType.startsWith("audio/") || mimeType.contains("ogg") || mimeType.contains("mp4")) {
+                        extension = defaultExt
+                        baseName = displayName!!.substring(0, lastDot)
+                    } else {
+                        // User selected an unsupported file type
+                        return null
+                    }
+                } else {
+                    baseName = displayName!!
+                    extension = defaultExt
+                }
+            }
+
+            // Clean baseName of filesystem-invalid chars and leading dots
+            baseName = baseName.replace("[/\\\\:*?\"<>|]".toRegex(), "_").trim().trimStart('.').trimEnd('.')
+            if (baseName.isBlank()) {
+                baseName = "audio_${System.currentTimeMillis()}"
+            }
+
+            val destDir = getAudioDirectory(context)
+            var targetFile = File(destDir, "$baseName.$extension")
+            var counter = 1
+            while (targetFile.exists()) {
+                targetFile = File(destDir, "${baseName}_$counter.$extension")
+                counter++
+            }
+
+            // 3. Read input stream directly into target file
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                targetFile.outputStream().use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            } ?: return null
+
+            if (targetFile.exists() && targetFile.length() > 0) {
+                setLastSelectedAudio(context, targetFile.name)
+                return targetFile
+            } else {
+                targetFile.delete()
+                return null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
     fun renameAudioFile(context: Context, file: File, newNameWithoutExtension: String): File? {
         val trimmed = newNameWithoutExtension.trim()
         if (trimmed.isEmpty()) return null
@@ -139,7 +293,8 @@ fun AudioSoundscapeDialog(
     onSelectAudio: (File?) -> Unit,
     onDeleteAudioClick: (File) -> Unit,
     onDismiss: () -> Unit,
-    onImportAudioClick: (() -> Unit)? = null
+    onImportAudioClick: (() -> Unit)? = null,
+    onAudiosChanged: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -234,6 +389,22 @@ fun AudioSoundscapeDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
+                }
+                if (onImportAudioClick != null) {
+                    IconButton(
+                        onClick = onImportAudioClick,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(PrimaryViolet.copy(alpha = 0.15f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Import Audio",
+                            tint = PrimaryViolet,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -504,22 +675,44 @@ fun AudioSoundscapeDialog(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Button(
-                    onClick = {
-                        try {
-                            previewPlayer?.stop()
-                            previewPlayer?.release()
-                            previewPlayer = null
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                        onDismiss()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(tr(language, "Fertig", "შესრულებულია", "完成", "Done"), color = Color.White, fontWeight = FontWeight.Bold)
+                    if (onImportAudioClick != null) {
+                        OutlinedButton(
+                            onClick = onImportAudioClick,
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, PrimaryViolet),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryViolet),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = tr(language, "Audio importieren", "აუდიოს იმპორტი", "导入音频", "Import Audio"),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            try {
+                                previewPlayer?.stop()
+                                previewPlayer?.release()
+                                previewPlayer = null
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(tr(language, "Fertig", "შესრულებულია", "完成", "Done"), color = Color.White, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -556,8 +749,11 @@ fun AudioSoundscapeDialog(
                 TextButton(
                     onClick = {
                         val newFile = AudioSoundscapeManager.renameAudioFile(context, targetFile, renameText)
-                        if (newFile != null && selectedAudioFile?.absolutePath == targetFile.absolutePath) {
-                            onSelectAudio(newFile)
+                        if (newFile != null) {
+                            if (selectedAudioFile?.absolutePath == targetFile.absolutePath) {
+                                onSelectAudio(newFile)
+                            }
+                            onAudiosChanged?.invoke()
                         }
                         fileToRename = null
                     }

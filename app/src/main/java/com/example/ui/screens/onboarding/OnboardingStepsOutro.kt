@@ -24,96 +24,140 @@ import com.example.ui.theme.*
 
 @Composable
 fun OnboardingStepAndMuchMore(language: String) {
+    val scrollState = rememberScrollState()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth().padding(12.dp)
+        verticalArrangement = Arrangement.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .verticalScroll(scrollState)
     ) {
         Text(
-            text = tr(language, "Und vieles mehr", "და კიდევ ბევრი რამ", "以及更多丰富功能", "And much more"),
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 32.sp, lineHeight = 38.sp),
+            text = tr(language, "Features im Überblick", "ფუნქციების მიმოხილვა", "功能特性一览", "Feature Overview", "Aperçu des fonctionnalités"),
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp, lineHeight = 34.sp),
             color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.ExtraBold,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = tr(language, "Entdecke viele weitere durchdachte Funktionen:", "აღმოაჩინეთ კიდევ ბევრი გააზრებულად შემუშავებული ფუნქცია:", "探索更多精心雕琢的实用功能：", "Discover many more thoughtfully crafted features:"),
-            style = MaterialTheme.typography.bodySmall,
+            text = tr(language, "Einige der beliebtesten Werkzeuge für deinen täglichen Erfolg:", "ყველაზე პოპულარული ინსტრუმენტები შენი წარმატებისთვის:", "助你达成日常目标的实用工具：", "A selection of popular tools for your daily success:", "Une sélection d'outils populaires pour votre réussite au quotidien :"),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        // Asymmetric Feature Mosaic Grid
+        // Asymmetric Feature Mosaic Grid covering all features
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Row 1 (Asymmetric widths: 1.3f vs 1.0f)
+            // Row 1: Smart Insights & Reviews/Time Capsule
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 FeatureTile(
-                    icon = Icons.Default.MusicNote,
-                    title = tr(language, "Audio Timer", "აუდიო ტაიმერი", "白噪音计时器", "Audio Timer"),
-                    subtitle = tr(language, "Fokus & Soundscapes", "ფოკუსი და ხმოვანი პეიზაჟები", "专注与背景白噪音", "Focus & Soundscapes"),
-                    color = PrimaryViolet,
-                    modifier = Modifier.weight(1.3f)
+                    icon = Icons.Default.Lightbulb,
+                    title = tr(language, "Smart Insights", "სმარტ ინსაიტები", "智能洞察分析", "Smart Insights"),
+                    subtitle = tr(language, "Trends & Verhaltensmuster", "ტენდენციები და ქცევა", "打卡趋势与行为规律", "Trends & behavior patterns"),
+                    color = HabitCyan,
+                    modifier = Modifier.weight(1.2f)
                 )
                 FeatureTile(
-                    icon = Icons.Default.BarChart,
-                    title = tr(language, "Unrivaled Analytics", "შეუდარებელი ანალიტიკა", "深度数据分析", "Unrivaled Analytics"),
-                    subtitle = tr(language, "Heatmaps & Trends", "სითბოს რუქები და ტენდენციები", "打卡热力图与趋势", "Heatmaps & Trends"),
-                    color = HabitBlue,
+                    icon = Icons.Default.AutoStories,
+                    title = tr(language, "Monats-Rückblick", "თვიური მიმოხილვა", "月度与年度回顾", "Monthly Review"),
+                    subtitle = tr(language, "Stories & Zeitkapsel", "ისტორიები და კაფსულა", "故事卡片与时光胶囊", "Stories & Time Capsule"),
+                    color = PrimaryViolet,
                     modifier = Modifier.weight(1.0f)
                 )
             }
 
-            // Row 2 (Asymmetric widths: 1.0f vs 1.4f)
+            // Row 2: Milestones/Rewards & Audio Focus Timer
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FeatureTile(
+                    icon = Icons.Default.EmojiEvents,
+                    title = tr(language, "Meilensteine", "მიღწევები და ჯილდოები", "里程碑与自定义奖励", "Milestone Rewards"),
+                    subtitle = tr(language, "Belohnungen bei Streaks", "ჯილდოები სერიებისთვის", "连续打卡解锁自我奖励", "Rewards at streak goals"),
+                    color = HabitYellow,
+                    modifier = Modifier.weight(1.0f)
+                )
+                FeatureTile(
+                    icon = Icons.Default.MusicNote,
+                    title = tr(language, "Fokus & Audio", "ფოკუსი და აუდიო", "专注计时与音效", "Focus & Soundscapes"),
+                    subtitle = tr(language, "Pomodoro & 12 Naturklänge", "პომოდორო და 12 ხმა", "番茄钟与12种自然白噪音", "Pomodoro & 12 ambiances"),
+                    color = SecondaryViolet,
+                    modifier = Modifier.weight(1.3f)
+                )
+            }
+
+            // Row 3: Heatmaps/Analytics & Homescreen Widgets
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FeatureTile(
+                    icon = Icons.Default.BarChart,
+                    title = tr(language, "Tiefe Analysen", "დეტალური ანალიტიკა", "深度数据热力图", "Deep Analytics"),
+                    subtitle = tr(language, "GitHub Heatmap & Trends", "სითბური რუკა და გრაფიკები", "热力矩阵与完成率曲线", "Activity Heatmaps & Trends"),
+                    color = HabitBlue,
+                    modifier = Modifier.weight(1.2f)
+                )
+                FeatureTile(
+                    icon = Icons.Default.Widgets,
+                    title = tr(language, "Widget Support", "ვიჯეტის მხარდაჭერა", "桌面快捷组件", "Homescreen Widget"),
+                    subtitle = tr(language, "1-Tap direkt abhaken", "1 შეხებით მონიშვნა", "桌面一键打卡", "1-Tap Quick checking"),
+                    color = HabitOrange,
+                    modifier = Modifier.weight(1.0f)
+                )
+            }
+
+            // Row 4: Mini Notebook & 100% Offline/Auto-Backup
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 FeatureTile(
                     icon = Icons.Default.EditNote,
-                    title = tr(language, "Mini Notebook", "მინი ნოუთბუქი", "迷你随手记", "Mini Notebook"),
-                    subtitle = tr(language, "Notizen zu Habits", "შენიშვნები და ანარეკლები", "习惯感悟与笔记", "Notes & Reflections"),
-                    color = HabitOrange,
+                    title = tr(language, "Mini-Notizbuch", "მინი ნოუთბუქი", "随手记事本", "Mini Notebook"),
+                    subtitle = tr(language, "Reflexion zu jedem Habit", "შენიშვნა ყველა ჩვევაზე", "每日打卡随笔感悟", "Daily reflections & notes"),
+                    color = HabitPink,
                     modifier = Modifier.weight(1.0f)
                 )
                 FeatureTile(
-                    icon = Icons.Default.Share,
-                    title = tr(language, "Sharing Options", "გაზიარების პარამეტრები", "丰富分享功能", "Sharing Options"),
-                    subtitle = tr(language, "Karten & Export", "ბარათები და ექსპორტი", "卡片生成与导出", "Cards & Export"),
+                    icon = Icons.Default.Security,
+                    title = tr(language, "100% Offline", "100% ოფლაინ", "100% 本地离线", "100% Offline"),
+                    subtitle = tr(language, "Volle Privatsphäre & Backup", "სრული კონფიდენციალურობა", "无追踪、自动本地备份", "Private & Daily Backups"),
                     color = HabitGreen,
-                    modifier = Modifier.weight(1.4f)
-                )
-            }
-
-            // Row 3 (Asymmetric widths: 1.2f vs 1.0f)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FeatureTile(
-                    icon = Icons.Default.Widgets,
-                    title = tr(language, "Homescreen Widget", "საწყისი ეკრანის ვიჯეტი", "桌面小组件", "Homescreen Widget"),
-                    subtitle = tr(language, "Schnelles Abhaken", "სწრაფი შემოწმება", "桌面快捷打卡", "Quick Checking"),
-                    color = SecondaryViolet,
                     modifier = Modifier.weight(1.2f)
-                )
-                FeatureTile(
-                    icon = Icons.Default.EmojiEvents,
-                    title = tr(language, "Gamification", "გემიფიკაცია", "趣味成长体系", "Gamification"),
-                    subtitle = tr(language, "Trophäen & Level", "ტროფები და სამკერდე ნიშნები", "奖杯与成就勋章", "Trophies & Badges"),
-                    color = HabitYellow,
-                    modifier = Modifier.weight(1.0f)
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = tr(
+                language,
+                "...und vieles mehr!",
+                "...და კიდევ ბევრი სხვა!",
+                "……以及更多精彩功能！",
+                "...and much more!",
+                "...et bien plus encore !"
+            ),
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

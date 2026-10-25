@@ -56,106 +56,7 @@ data class MonthlyReviewData(
 )
 
 fun calculateHabitStrengthOnDate(habit: Habit, logs: List<HabitLog>, targetDateStr: String): Int {
-    val todayStr = java.time.LocalDate.now().toString()
-    if (targetDateStr >= todayStr) {
-        return com.example.data.calculateHabitStrength(habit, logs)
-    }
-
-    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-    val targetDate = try { sdf.parse(targetDateStr) } catch (e: Exception) { java.util.Date() }
-    val targetMillis = targetDate?.time ?: System.currentTimeMillis()
-    val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
-    val startSdfStr = sdf.format(java.util.Date(validStartMillis))
-    
-    val filteredLogs = logs.filter { it.date <= targetDateStr && it.date >= startSdfStr }
-    val habitLogs = filteredLogs.filter { it.habitId == habit.id }
-    
-    val completedEpochDays = habitLogs.filter { log ->
-        com.example.data.isLogCompleted(habit, log)
-    }.map { 
-        try {
-            java.time.LocalDate.parse(it.date).toEpochDay().toInt()
-        } catch (e: Exception) {
-            0
-        }
-    }.toSet()
-    
-    if (habit.frequency == "TIMES_WEEKLY") {
-        val targetTimes = habit.specificDays.toIntOrNull() ?: 3
-        val activeDays = (targetMillis - validStartMillis) / (24 * 3600 * 1000) + 1
-        val activeWeeks = (activeDays / 7.0).coerceAtMost(4.0).coerceAtLeast(1.0)
-        val expectedCompletions = (activeWeeks * targetTimes).toInt().coerceAtLeast(1)
-        
-        val limitMillis = targetMillis - 28L * 24 * 3600 * 1000
-        val limitSdfStr = sdf.format(java.util.Date(limitMillis.coerceAtLeast(validStartMillis)))
-        val completedInLast4Weeks = habitLogs.filter { log ->
-            com.example.data.isLogCompleted(habit, log) && log.date >= limitSdfStr
-        }.size
-        
-        return (completedInLast4Weeks.toFloat() / expectedCompletions.toFloat() * 100).toInt().coerceIn(0, 100)
-    }
-    
-    val loggedEpochDays = habitLogs.map { 
-        try {
-            java.time.LocalDate.parse(it.date).toEpochDay().toInt()
-        } catch (e: Exception) {
-            0
-        }
-    }.toSet()
-    
-    val todayEpoch = try {
-        java.time.LocalDate.parse(targetDateStr).toEpochDay().toInt()
-    } catch (e: Exception) {
-        0
-    }
-    val startEpoch = try {
-        java.time.Instant.ofEpochMilli(validStartMillis).atZone(java.time.ZoneId.systemDefault()).toLocalDate().toEpochDay().toInt()
-    } catch (e: Exception) {
-        (validStartMillis / 86400000L).toInt()
-    }
-    
-    var weightedCompleted = 0
-    var totalPossibleWeight = 0
-    val totalDaysToCheck = 30
-    
-    val maxDays = if (todayEpoch - startEpoch + 1 < totalDaysToCheck) {
-        todayEpoch - startEpoch + 1
-    } else {
-        totalDaysToCheck
-    }
-    
-    if (maxDays <= 0) return 0
-    
-    val realTodayEpoch = java.time.LocalDate.now().toEpochDay().toInt()
-    
-    for (i in 0 until maxDays) {
-        val currentEpoch = todayEpoch - i
-        val dayWeight = 20 + (totalDaysToCheck - i)
-        
-        val successful = if (habit.isNegative) {
-            !loggedEpochDays.contains(currentEpoch) || completedEpochDays.contains(currentEpoch)
-        } else {
-            completedEpochDays.contains(currentEpoch)
-        }
-        
-        // Skip penalizing if it's the actual today, it's a positive habit, and hasn't been logged yet
-        val isPendingRealToday = (currentEpoch == realTodayEpoch) && !habit.isNegative && !loggedEpochDays.contains(currentEpoch)
-        if (isPendingRealToday) {
-            continue
-        }
-        
-        if (successful) {
-            weightedCompleted += dayWeight
-        }
-        totalPossibleWeight += dayWeight
-    }
-    
-    val percentage = if (totalPossibleWeight > 0) {
-        (weightedCompleted.toFloat() / totalPossibleWeight.toFloat() * 100).toInt()
-    } else {
-        0
-    }
-    return percentage.coerceIn(0, 100)
+    return com.example.data.calculateHabitStrength(habit, logs, targetDateStr)
 }
 
 fun isLogCompleted(log: HabitLog, habit: Habit?): Boolean {
@@ -179,14 +80,16 @@ fun calculateStreakFast(habit: Habit, logs: List<HabitLog>): Pair<Int, Int> {
         val targetTimes = habit.specificDays.toIntOrNull() ?: 3
         val today = java.time.LocalDate.now()
         val habitStartDate = try {
-            java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L))
+            val validStart = if (validStartMillis > 946684800000L) validStartMillis else System.currentTimeMillis()
+            java.time.Instant.ofEpochMilli(validStart)
                 .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         } catch (e: Exception) {
             today
-        }
+        }.coerceAtLeast(today.minusDays(365))
 
         if (habitStartDate.isAfter(today)) return 0 to 0
 
+        val failedDates = habitLogs.filter { it.value == -1f }.map { it.date }.toSet()
         val pausedDates = habitLogs.filter { it.isPaused }.map { it.date }.toSet()
         var longestStreak = 0
         var tempStreak = 0
@@ -199,8 +102,15 @@ fun calculateStreakFast(habit: Habit, logs: List<HabitLog>): Pair<Int, Int> {
             var pausedInWindow = 0
             for (d in 0..6) {
                 val dayStr = startOf7Days.plusDays(d.toLong()).toString()
-                if (completedDates.contains(dayStr)) completedInWindow++
-                if (pausedDates.contains(dayStr)) pausedInWindow++
+                if (pausedDates.contains(dayStr)) {
+                    pausedInWindow++
+                } else if (habit.isNegative) {
+                    if (!failedDates.contains(dayStr)) {
+                        completedInWindow++
+                    }
+                } else {
+                    if (completedDates.contains(dayStr)) completedInWindow++
+                }
             }
             val adjustedTarget = (targetTimes - pausedInWindow).coerceAtLeast(1)
             val isSuccess = completedInWindow >= adjustedTarget

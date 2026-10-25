@@ -115,6 +115,9 @@ import com.example.ui.HabitsViewModel
 import com.example.ui.components.*
 import com.example.ui.dialogs.*
 import com.example.ui.screens.stats.*
+import com.example.ui.screens.today.HabitActionBottomSheet
+import com.example.ui.screens.today.TodayArchiveConfirmDialog
+import com.example.ui.screens.today.TodayDeleteConfirmDialog
 import com.example.ui.theme.*
 import java.io.File
 import java.text.SimpleDateFormat
@@ -131,11 +134,14 @@ fun StatsScreen(
     onAddClick: () -> Unit,
     onHabitClick: (Int) -> Unit,
     onOverallClick: () -> Unit,
+    onEditHabit: ((Habit) -> Unit)? = null,
+    onReorderClick: (() -> Unit)? = null,
     listState: LazyListState = rememberLazyListState()
 ) {
     val strength by viewModel.totalStrength.collectAsStateWithLifecycle()
     val longestStreak by viewModel.longestStreakOfAll.collectAsStateWithLifecycle()
     val habitsWithStats by viewModel.statsScreenData.collectAsStateWithLifecycle()
+    val allFolders by viewModel.allFolders.collectAsStateWithLifecycle()
     val todayProgressTuple by viewModel.todayProgress.collectAsStateWithLifecycle()
     val perfectDaysStats by viewModel.perfectDaysStats.collectAsStateWithLifecycle()
 
@@ -164,6 +170,9 @@ fun StatsScreen(
     }
 
     var showDailyNoteDialog by remember { mutableStateOf(false) }
+    var longPressedHabit by remember { mutableStateOf<Habit?>(null) }
+    var showDeleteConfirmHabit by remember { mutableStateOf<Habit?>(null) }
+    var showArchiveConfirmHabit by remember { mutableStateOf<Habit?>(null) }
 
     val onSelectDayRemembered = remember(viewModel) {
         { dateStr: String ->
@@ -446,7 +455,11 @@ fun StatsScreen(
                         dayNumbers = dayNumbers,
                         language = language,
                         accentColor = accentColor,
-                        onClick = onStatItemClick
+                        allFolders = allFolders,
+                        onClick = onStatItemClick,
+                        onLongClick = { habit ->
+                            longPressedHabit = habit
+                        }
                     )
                 }
             }
@@ -546,6 +559,65 @@ fun StatsScreen(
                 viewModel = viewModel,
                 language = language,
                 onDismiss = { showRewardsOverview = false }
+            )
+        }
+
+        if (longPressedHabit != null) {
+            val habit = longPressedHabit!!
+            HabitActionBottomSheet(
+                habit = habit,
+                language = language,
+                isPausedOnSelectedDate = false,
+                isMinimalViableOnSelectedDate = false,
+                onTogglePause = {
+                    viewModel.togglePauseHabit(habit.id)
+                    longPressedHabit = null
+                },
+                onToggleMinimalViable = {
+                    viewModel.toggleMinimalViableHabit(habit.id)
+                    longPressedHabit = null
+                },
+                onEditHabit = {
+                    val h = habit
+                    longPressedHabit = null
+                    onEditHabit?.invoke(h)
+                },
+                onArchiveHabit = {
+                    showArchiveConfirmHabit = habit
+                    longPressedHabit = null
+                },
+                onDeleteHabit = {
+                    showDeleteConfirmHabit = habit
+                    longPressedHabit = null
+                },
+                allFolders = allFolders,
+                onMoveToFolder = { newFolderId ->
+                    viewModel.updateHabit(habit.copy(folderId = newFolderId))
+                    longPressedHabit = null
+                },
+                onStartReorder = {
+                    longPressedHabit = null
+                    onReorderClick?.invoke()
+                },
+                onDismiss = { longPressedHabit = null }
+            )
+        }
+
+        showDeleteConfirmHabit?.let { habitToDelete ->
+            TodayDeleteConfirmDialog(
+                habit = habitToDelete,
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showDeleteConfirmHabit = null }
+            )
+        }
+
+        showArchiveConfirmHabit?.let { habitToArchive ->
+            TodayArchiveConfirmDialog(
+                habit = habitToArchive,
+                viewModel = viewModel,
+                language = language,
+                onDismiss = { showArchiveConfirmHabit = null }
             )
         }
     }

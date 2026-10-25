@@ -89,89 +89,7 @@ fun OnboardingStepGameMode(language: String, viewModel: HabitsViewModel) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Option 1: Story-Modus
-        Surface(
-            onClick = { viewModel.setGameMode("STORY") },
-            color = if (gameMode == "STORY") PrimaryViolet.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(
-                width = if (gameMode == "STORY") 2.dp else 1.dp,
-                color = if (gameMode == "STORY") PrimaryViolet else MaterialTheme.colorScheme.outline
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("onboarding_mode_story")
-        ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .background(PrimaryViolet.copy(alpha = 0.2f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_gamepad),
-                                contentDescription = null,
-                                tint = PrimaryViolet,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Column {
-                            Text(
-                                text = tr(language, "Story-Modus 🎮", "Story Mode 🎮"),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Surface(
-                                color = PrimaryViolet.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = tr(language, "Fokus & Belohnung", "Focus & Reward"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = PrimaryViolet,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    RadioButton(
-                        selected = (gameMode == "STORY"),
-                        onClick = { viewModel.setGameMode("STORY") },
-                        colors = RadioButtonDefaults.colors(selectedColor = accentColor)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = tr(
-                        language,
-                        "• Starte mit 1 Gewohnheits-Slot\n• Meistere 30 Tage mit ≥ 85% Erfolgsquote\n• Schalte Schritt für Schritt neue Slots frei!",
-                        "• Start with 1 habit slot\n• Master 30 days with ≥ 85% success rate\n• Step by step unlock new habit slots!"
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Option 2: Freies Spiel
+        // Option 1: Freies Spiel (Above Story Mode as requested)
         Surface(
             onClick = { viewModel.setGameMode("FREE") },
             color = if (gameMode == "FREE") PrimaryViolet.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
@@ -243,6 +161,88 @@ fun OnboardingStepGameMode(language: String, viewModel: HabitsViewModel) {
                         language,
                         "• Unbegrenzte Gewohnheiten sofort freigeschaltet\n• Keine Vorbedingungen oder Slot-Sperren\n• Ideal für erfahrene Gewohnheits-Tracker",
                         "• Unlimited habit slots unlocked immediately\n• No prerequisites or slot restrictions\n• Ideal for experienced habit trackers"
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Option 2: Story-Modus
+        Surface(
+            onClick = { viewModel.setGameMode("STORY") },
+            color = if (gameMode == "STORY") PrimaryViolet.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(
+                width = if (gameMode == "STORY") 2.dp else 1.dp,
+                color = if (gameMode == "STORY") PrimaryViolet else MaterialTheme.colorScheme.outline
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("onboarding_mode_story")
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(PrimaryViolet.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_gamepad),
+                                contentDescription = null,
+                                tint = PrimaryViolet,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = tr(language, "Story-Modus 🎮", "Story Mode 🎮"),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Surface(
+                                color = PrimaryViolet.copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = tr(language, "Fokus & Belohnung", "Focus & Reward"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = PrimaryViolet,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    RadioButton(
+                        selected = (gameMode == "STORY"),
+                        onClick = { viewModel.setGameMode("STORY") },
+                        colors = RadioButtonDefaults.colors(selectedColor = accentColor)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = tr(
+                        language,
+                        "• Starte mit 1 Gewohnheits-Slot\n• Meistere 30 Tage mit ≥ 85% Erfolgsquote\n• Schalte Schritt für Schritt neue Slots frei!",
+                        "• Start with 1 habit slot\n• Master 30 days with ≥ 85% success rate\n• Step by step unlock new habit slots!"
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

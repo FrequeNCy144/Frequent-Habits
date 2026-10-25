@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -69,6 +71,8 @@ fun TodayHabitsLazyList(
     onMoveFolderDown: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val coloredFolderCards by viewModel.coloredFolderCardsEnabled.collectAsStateWithLifecycle()
+
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -234,6 +238,7 @@ fun TodayHabitsLazyList(
                             vibrationEnabled = vibrationEnabled,
                             isReorderMode = isReorderMode,
                             listState = listState,
+                            coloredFolderCards = coloredFolderCards,
                             onToggleCollapse = { viewModel.toggleFolderCollapsed(displayItem.folder.id) },
                             onToggleFolderCompletion = { viewModel.toggleFolderCompletion(displayItem.folder.id) },
                             onEditFolder = { onEditFolder(displayItem.folder) },

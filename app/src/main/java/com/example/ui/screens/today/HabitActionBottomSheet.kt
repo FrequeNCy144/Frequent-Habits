@@ -10,21 +10,26 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.Habit
+import com.example.data.HabitFolder
 import com.example.tr
+import com.example.getLocalizedUnit
 import com.example.ui.HabitIconMapping
 import com.example.ui.components.StandardSheetDragHandle
 import com.example.ui.theme.*
+import com.frequent.habits.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,10 +43,18 @@ fun HabitActionBottomSheet(
     onEditHabit: () -> Unit,
     onArchiveHabit: () -> Unit,
     onDeleteHabit: () -> Unit,
+    onStartReorder: (() -> Unit)? = null,
+    allFolders: List<HabitFolder> = emptyList(),
+    onMoveToFolder: ((folderId: Int?) -> Unit)? = null,
+    onCreateFolderAndMove: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val habitColor = HabitIconMapping.getColor(habit.color)
     val hasMinimalViableConfig = (habit.minimalViableValue != null && habit.minimalViableValue > 0f) || habit.minimalViableText.isNotBlank()
+    var showFolderPicker by remember { mutableStateOf(false) }
+    val currentFolder = remember(allFolders, habit.folderId) {
+        allFolders.find { it.id == habit.folderId }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -143,7 +156,7 @@ fun HabitActionBottomSheet(
                                 } else {
                                     if (habit.type == "NUMBER" && habit.minimalViableValue != null) {
                                         val minValStr = if (habit.minimalViableValue % 1f == 0f) habit.minimalViableValue.toInt().toString() else habit.minimalViableValue.toString()
-                                        val unitStr = if (habit.unit.isNotEmpty()) " ${habit.unit}" else ""
+                                        val unitStr = if (habit.unit.isNotEmpty()) " ${getLocalizedUnit(habit.unit, language)}" else ""
                                         tr(language, "Zielwert für heute auf $minValStr$unitStr reduzieren", "მიზნის შემცირება: $minValStr$unitStr", "今日目标降低为 $minValStr$unitStr", "Reduce target for today to $minValStr$unitStr")
                                     } else if (habit.minimalViableText.isNotBlank()) {
                                         habit.minimalViableText
@@ -249,6 +262,243 @@ fun HabitActionBottomSheet(
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
+                    }
+                }
+            }
+
+            // In Ordner verschieben / zuweisen (Move to Folder) Action
+            if (onMoveToFolder != null) {
+                Surface(
+                    onClick = { showFolderPicker = !showFolderPicker },
+                    shape = RoundedCornerShape(16.dp),
+                    color = ProgressTrack,
+                    modifier = Modifier.fillMaxWidth().testTag("btn_assign_folder")
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(PrimaryViolet.copy(alpha = 0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_folder),
+                                    contentDescription = "Folder",
+                                    tint = PrimaryViolet,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = tr(language, "In Ordner verschieben", "საქაღალდეში გადატანა", "移至文件夹", "Move to Folder"),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (currentFolder != null) {
+                                        tr(language, "Aktuell: ${currentFolder.name}", "მიმდინარე: ${currentFolder.name}", "当前: ${currentFolder.name}", "Current: ${currentFolder.name}")
+                                    } else {
+                                        tr(language, "Keinem Ordner zugeordnet", "არ არის საქაღალდეში", "未分配文件夹", "No folder assigned")
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                            }
+                            Icon(
+                                imageVector = if (showFolderPicker) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Expanded Folder List
+                        if (showFolderPicker) {
+                            HorizontalDivider(color = AppBorder.copy(alpha = 0.5f), thickness = 1.dp)
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                // Option: No Folder (Remove from folder)
+                                Surface(
+                                    onClick = {
+                                        onMoveToFolder(null)
+                                        onDismiss()
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (habit.folderId == null) PrimaryViolet.copy(alpha = 0.15f) else Color.Transparent,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = null,
+                                            tint = if (habit.folderId == null) PrimaryViolet else TextSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = tr(language, "Kein Ordner (Herausnehmen)", "საქაღალდის გარეშე", "无文件夹（移出）", "No Folder (Remove from folder)"),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (habit.folderId == null) PrimaryViolet else TextPrimary,
+                                            fontWeight = if (habit.folderId == null) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                }
+
+                                // List of existing folders
+                                allFolders.forEach { folder ->
+                                    val fColor = HabitIconMapping.getColor(folder.color)
+                                    val isCurrent = folder.id == habit.folderId
+                                    Surface(
+                                        onClick = {
+                                            onMoveToFolder(folder.id)
+                                            onDismiss()
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isCurrent) fColor.copy(alpha = 0.15f) else Color.Transparent,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(CircleShape)
+                                                    .background(fColor.copy(alpha = 0.2f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = HabitIconMapping.getIcon(folder.icon),
+                                                    contentDescription = null,
+                                                    tint = fColor,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = folder.name,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = if (isCurrent) fColor else TextPrimary,
+                                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            if (isCurrent) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = fColor,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Option: Create New Folder
+                                if (onCreateFolderAndMove != null) {
+                                    Surface(
+                                        onClick = {
+                                            onDismiss()
+                                            onCreateFolderAndMove()
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color.Transparent,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = null,
+                                                tint = PrimaryViolet,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Text(
+                                                text = tr(language, "+ Neuen Ordner erstellen...", "+ ახალი საქაღალდე...", "+ 创建新文件夹...", "+ Create new folder..."),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = PrimaryViolet,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Reihenfolge anpassen (Reorder) Action
+            if (onStartReorder != null) {
+                Surface(
+                    onClick = {
+                        onDismiss()
+                        onStartReorder()
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = ProgressTrack,
+                    modifier = Modifier.fillMaxWidth().testTag("btn_reorder_habits_action")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(TextSecondary.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SwapVert,
+                                contentDescription = null,
+                                tint = TextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = tr(language, "Reihenfolge anpassen", "თანმიმდევრობის შეცვლა", "调整排序", "Reorder Habits"),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = tr(language, "Gewohnheiten nach oben oder unten verschieben", "ჩვევების ზემოთ ან ქვემოთ გადაადგილება", "上下移动自定义习惯展示顺序", "Move habits up or down"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
                     }
                 }
             }

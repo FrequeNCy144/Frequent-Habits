@@ -120,7 +120,7 @@ fun WidgetManualInputSection(
                 ),
                 trailingIcon = {
                     Text(
-                        text = habit.unit,
+                        text = com.example.getLocalizedUnit(habit.unit, language),
                         style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary,
                         modifier = Modifier.padding(end = 12.dp)

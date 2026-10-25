@@ -32,9 +32,11 @@ import com.example.ui.theme.*
 
 fun LazyListScope.appearanceSettingsSection(
     language: String,
+    themeMode: String,
     isDark: Boolean,
     isVibrationEnabled: Boolean,
     isInfoCardsEnabled: Boolean,
+    coloredFolderCardsEnabled: Boolean = true,
     widgetOpacity: Float,
     accentColorName: String,
     viewModel: HabitsViewModel,
@@ -99,7 +101,7 @@ fun LazyListScope.appearanceSettingsSection(
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = tr(language, "Wechsle zwischen hellem und dunklem Design", "Switch between light and dark theme"),
+                                    text = tr(language, "Wähle zwischen automatischer System-Anpassung, Dunkel oder Hell", "Choose between automatic system theme, dark, or light"),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary
                                 )
@@ -107,12 +109,49 @@ fun LazyListScope.appearanceSettingsSection(
                                 AppSegmentedButtonWithIcons(
                                     options = listOf(
                                         tr(language, "Dunkel", "Dark") to Icons.Default.DarkMode,
-                                        tr(language, "Hell", "Light") to Icons.Default.LightMode
+                                        tr(language, "Hell", "Light") to Icons.Default.LightMode,
+                                        tr(language, "System", "System") to Icons.Default.PhoneAndroid
                                     ),
-                                    selectedIndex = if (isDark) 0 else 1,
-                                    onOptionSelected = { index -> viewModel.setDarkModeEnabled(index == 0) },
+                                    selectedIndex = when (themeMode) {
+                                        "DARK" -> 0
+                                        "LIGHT" -> 1
+                                        "SYSTEM" -> 2
+                                        else -> 0
+                                    },
+                                    onOptionSelected = { index ->
+                                        val mode = when (index) {
+                                            0 -> "DARK"
+                                            1 -> "LIGHT"
+                                            else -> "SYSTEM"
+                                        }
+                                        viewModel.setThemeMode(mode)
+                                    },
                                     testTagPrefix = "app_theme_toggle"
                                 )
+                                if (themeMode == "SYSTEM") {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = PrimaryViolet,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Text(
+                                            text = tr(
+                                                language,
+                                                "Folgt dem Android-System (aktuell: ${if (isDark) "Dunkel" else "Hell"})",
+                                                "Follows Android system (currently: ${if (isDark) "Dark" else "Light"})"
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = PrimaryViolet,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -146,7 +185,97 @@ fun LazyListScope.appearanceSettingsSection(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary
                                 )
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Dynamic Material You System Accent Color option
+                                val isDynamicSelected = accentColorName.equals("SYSTEM", ignoreCase = true)
+                                val systemColor = remember { HabitIconMapping.systemAccentColor ?: Color(0xFF783CFA) }
+                                val isAndroid12Plus = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+
+                                Surface(
+                                    shape = RoundedCornerShape(14.dp),
+                                    color = if (isDynamicSelected) systemColor.copy(alpha = 0.16f) else AppBg,
+                                    border = BorderStroke(
+                                        if (isDynamicSelected) 1.5.dp else 1.dp,
+                                        if (isDynamicSelected) systemColor else AppBorder
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.setAccentColorName("SYSTEM") }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .background(systemColor, CircleShape)
+                                                    .border(1.5.dp, Color.White.copy(alpha = 0.8f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isDynamicSelected) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                            Column {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = tr(language, "Systemfarbe (Material You)", "System Color (Material You)"),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = TextPrimary
+                                                    )
+                                                    if (isAndroid12Plus) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(4.dp))
+                                                                .background(systemColor.copy(alpha = 0.2f))
+                                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "Auto",
+                                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                                                                color = systemColor
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                Text(
+                                                    text = tr(
+                                                        language,
+                                                        "Farbe automatisch vom Handy-Hintergrundbild übernehmen",
+                                                        "Automatically adapt from phone wallpaper"
+                                                    ),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = TextSecondary
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = tr(language, "Oder feste Farbe wählen:", "Or choose a preset color:"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextSecondary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
                                 com.example.ui.components.ColorPaletteSelector(
                                     selectedColorKey = accentColorName,
                                     onColorSelected = { viewModel.setAccentColorName(it) },
@@ -263,6 +392,68 @@ fun LazyListScope.appearanceSettingsSection(
                                     Switch(
                                         checked = isInfoCardsEnabled,
                                         onCheckedChange = { viewModel.setInfoCardsEnabled(it) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = PrimaryViolet,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = ProgressTrack
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Card 4.5: Gefärbte Ordner
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = AppCard),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, AppBorder, RoundedCornerShape(20.dp))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FolderSpecial,
+                                            contentDescription = "Colored Folders",
+                                            tint = PrimaryViolet,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = tr(language, "Gefärbte Ordner", "ფერადი საქაღალდეები", "彩色文件夹", "Colored Folders"),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = TextPrimary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = tr(
+                                                    language,
+                                                    "Ordnerhintergrund in der gewählten Ordnerfarbe einfärben",
+                                                    "საქაღალდის ფონის შეღებვა არჩეული ფერით",
+                                                    "使用文件夹自身颜色作为卡片背景",
+                                                    "Tint folder background in its assigned folder color"
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = TextSecondary
+                                            )
+                                        }
+                                    }
+                                    Switch(
+                                        checked = coloredFolderCardsEnabled,
+                                        onCheckedChange = { viewModel.setColoredFolderCardsEnabled(it) },
                                         colors = SwitchDefaults.colors(
                                             checkedThumbColor = Color.White,
                                             checkedTrackColor = PrimaryViolet,

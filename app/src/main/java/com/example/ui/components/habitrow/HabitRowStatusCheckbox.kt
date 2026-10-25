@@ -3,10 +3,16 @@ import com.frequent.habits.R
 
 import androidx.compose.ui.res.painterResource
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -14,7 +20,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -24,12 +37,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.data.Habit
+import com.example.ui.components.FeedbackHelper
 import com.example.ui.theme.FailedRed
 import com.example.ui.theme.HabitOrange
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -49,12 +66,47 @@ fun HabitRowStatusCheckbox(
     animatedProgressRatio: Float,
     onClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val bounceScale = remember { Animatable(1f) }
+    var floatingDeltaText by remember { mutableStateOf<String?>(null) }
+    val deltaAnim = remember { Animatable(0f) }
+
+    val handleTapped = {
+        coroutineScope.launch {
+            bounceScale.snapTo(0.85f)
+            bounceScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.55f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+        }
+        if (isNumerical && !isCompleted && !isPaused && !isFailed) {
+            FeedbackHelper.playCompletionFeedback(context, vibrationEnabled = true)
+            val step = if (habit.clickIncrement > 0f) habit.clickIncrement else 1f
+            val deltaStr = "+${if (step % 1f == 0f) step.toInt().toString() else step.toString()}"
+            floatingDeltaText = deltaStr
+            coroutineScope.launch {
+                deltaAnim.snapTo(0f)
+                deltaAnim.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing)
+                )
+                floatingDeltaText = null
+            }
+        }
+        onClick()
+    }
+
     Box(
         modifier = Modifier
             .size(36.dp)
             .graphicsLayer {
-                scaleX = checkboxScale + extraPopScale
-                scaleY = checkboxScale + extraPopScale
+                val totalScale = (checkboxScale + extraPopScale) * bounceScale.value
+                scaleX = totalScale
+                scaleY = totalScale
                 rotationZ = popRotation
             }
             .drawBehind {
@@ -144,21 +196,15 @@ fun HabitRowStatusCheckbox(
                 },
                 shape = CircleShape
             )
-            .clickable(enabled = !isPaused, onClick = onClick),
+            .clickable(enabled = !isPaused, onClick = handleTapped),
         contentAlignment = Alignment.Center
     ) {
         when {
             isPaused -> {
                 Icon(painter = painterResource(id = R.drawable.ic_pause), contentDescription = "Paused", tint = Color.White, modifier = Modifier.size(16.dp))
             }
-            isCompleted -> {
-                Icon(Icons.Default.Check, contentDescription = "Completed", tint = Color.White, modifier = Modifier.size(18.dp))
-            }
             isFailed -> {
                 Icon(Icons.Default.Close, contentDescription = "Failed", tint = Color.White, modifier = Modifier.size(16.dp))
-            }
-            habit.frequency == "TIMES_WEEKLY" && isWeeklyTargetReached -> {
-                Icon(Icons.Default.Check, contentDescription = "Weekly Target Reached", tint = SuccessGreen, modifier = Modifier.size(18.dp))
             }
             isNumerical -> {
                 Icon(
@@ -168,6 +214,28 @@ fun HabitRowStatusCheckbox(
                     modifier = Modifier.size(18.dp)
                 )
             }
+            isCompleted -> {
+                Icon(Icons.Default.Check, contentDescription = "Completed", tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+            (habit.frequency == "TIMES_WEEKLY" || habit.frequency == "TIMES_MONTHLY") && isWeeklyTargetReached -> {
+                Icon(Icons.Default.Check, contentDescription = "Target Reached", tint = SuccessGreen, modifier = Modifier.size(18.dp))
+            }
+        }
+
+        if (floatingDeltaText != null && deltaAnim.value < 1f) {
+            Text(
+                text = floatingDeltaText!!,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = habitColor,
+                modifier = Modifier
+                    .offset(y = (-24).dp * deltaAnim.value)
+                    .graphicsLayer {
+                        alpha = (1f - deltaAnim.value).coerceIn(0f, 1f)
+                        scaleX = 0.9f + (0.35f * (1f - deltaAnim.value))
+                        scaleY = 0.9f + (0.35f * (1f - deltaAnim.value))
+                    }
+            )
         }
     }
 }

@@ -117,7 +117,7 @@ object HabitUiEngine {
                 habit.minimalViableValue
             } else habit.targetValue
 
-            val status = when {
+            var status = when {
                 isPaused -> "PAUSED"
                 log == null -> if (habit.isNegative) "SUCCESS" else "PENDING"
                 log.value == -1f -> "FAILED"
@@ -135,46 +135,151 @@ object HabitUiEngine {
                     }
                 }
             }
-            val isCompleted = status == "SUCCESS"
-            val isFailed = status == "FAILED"
+
+            // Calculation of Weekly Period targets
             var isWeeklyTargetReached = false
             var weeklyLoggedCount = 0
             var weeklyTargetCount = 0
+            var isWeeklyNumeric = false
+            var weeklySum = 0f
+
             if (habit.frequency == "TIMES_WEEKLY") {
-                weeklyTargetCount = habit.specificDays.toIntOrNull() ?: 3
                 val curDate = try { LocalDate.parse(date) } catch (e: Exception) { LocalDate.now() }
                 val startOf7Days = curDate.minusDays(6)
                 val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
                 val habitStartDate = try {
                     java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L)).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                 } catch (e: Exception) { curDate }
-                if (habit.isNegative) {
-                    val habitLogsMap = logs.filter { it.habitId == habit.id }.associateBy { it.date }
-                    var cleanInWindow = 0
-                    var pausedInWindow = 0
-                    for (d in 0..6) {
-                        val checkDate = startOf7Days.plusDays(d.toLong())
-                        if (!checkDate.isBefore(habitStartDate) && !checkDate.isAfter(curDate)) {
-                            val l = habitLogsMap[checkDate.toString()]
-                            if (l?.isPaused == true) pausedInWindow++
-                            else if (l == null || isLogCompleted(habit, l)) cleanInWindow++
-                        }
+
+                val effectiveStart = if (startOf7Days.isBefore(habitStartDate)) habitStartDate else startOf7Days
+                val startOf7DaysStr = effectiveStart.toString()
+                val endOf7DaysStr = curDate.toString()
+                val habitLogsInWindow = logs.filter { l ->
+                    l.habitId == habit.id && l.date >= startOf7DaysStr && l.date <= endOf7DaysStr
+                }
+
+                val daysInWindow = (java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, curDate) + 1).toInt().coerceIn(1, 7)
+                val pausedInWindow = habitLogsInWindow.count { it.isPaused }
+                val activeDays = (daysInWindow - pausedInWindow).coerceAtLeast(1)
+
+                if (habit.type == "NUMBER") {
+                    isWeeklyNumeric = true
+                    val effectiveTarget = if (activeDays < 7) {
+                        ((habit.targetValue * activeDays) / 7f).coerceAtLeast(0.1f)
+                    } else {
+                        habit.targetValue
                     }
-                    weeklyLoggedCount = cleanInWindow
-                    val adjustedTarget = (weeklyTargetCount - pausedInWindow).coerceAtLeast(1)
-                    isWeeklyTargetReached = weeklyLoggedCount >= adjustedTarget
+                    weeklySum = habitLogsInWindow.filter { !it.isPaused }.sumOf { it.value.toDouble() }.toFloat()
+                    isWeeklyTargetReached = if (habit.isNegative) {
+                        weeklySum <= effectiveTarget
+                    } else {
+                        weeklySum >= effectiveTarget
+                    }
+                    // For weekly numeric, the overall day status is success if we are under the limit (or met target)
+                    status = if (isWeeklyTargetReached) "SUCCESS" else {
+                        if (habit.isNegative) "FAILED" else "PENDING"
+                    }
                 } else {
-                    val startOf7DaysStr = startOf7Days.toString()
-                    val endOf7DaysStr = curDate.toString()
-                    val habitLogsInWindow = logs.filter { l ->
-                        l.habitId == habit.id && l.date >= startOf7DaysStr && l.date <= endOf7DaysStr
+                    val rawTarget = habit.specificDays.toIntOrNull() ?: 3
+                    weeklyTargetCount = if (daysInWindow < 7) {
+                        ((rawTarget.toFloat() * daysInWindow) / 7f).toInt().coerceAtLeast(1)
+                    } else {
+                        rawTarget
                     }
-                    val pausedInWindow = habitLogsInWindow.count { it.isPaused }
-                    weeklyLoggedCount = habitLogsInWindow.count { !it.isPaused && isLogCompleted(habit, it) }
-                    val adjustedTarget = (weeklyTargetCount - pausedInWindow).coerceAtLeast(1)
-                    isWeeklyTargetReached = weeklyLoggedCount >= adjustedTarget
+                    if (habit.isNegative) {
+                        val habitLogsMap = logs.filter { it.habitId == habit.id }.associateBy { it.date }
+                        var cleanInWindow = 0
+                        var dDate = effectiveStart
+                        while (!dDate.isAfter(curDate)) {
+                            val l = habitLogsMap[dDate.toString()]
+                            if (l == null || isLogCompleted(habit, l)) cleanInWindow++
+                            dDate = dDate.plusDays(1)
+                        }
+                        weeklyLoggedCount = cleanInWindow
+                        val adjustedTarget = (weeklyTargetCount - pausedInWindow).coerceAtLeast(1)
+                        isWeeklyTargetReached = weeklyLoggedCount >= adjustedTarget
+                    } else {
+                        weeklyLoggedCount = habitLogsInWindow.count { !it.isPaused && isLogCompleted(habit, it) }
+                        val adjustedTarget = (weeklyTargetCount - pausedInWindow).coerceAtLeast(1)
+                        isWeeklyTargetReached = weeklyLoggedCount >= adjustedTarget
+                    }
                 }
             }
+
+            // Calculation of Monthly Period targets
+            var isMonthlyTargetReached = false
+            var monthlyLoggedCount = 0
+            var monthlyTargetCount = 0
+            var isMonthlyNumeric = false
+            var monthlySum = 0f
+
+            if (habit.frequency == "TIMES_MONTHLY") {
+                val curDate = try { LocalDate.parse(date) } catch (e: Exception) { LocalDate.now() }
+                val startOf30Days = curDate.minusDays(29)
+                val validStartMillis = if (habit.startDate > 946684800000L) habit.startDate else habit.createdAt
+                val habitStartDate = try {
+                    java.time.Instant.ofEpochMilli(validStartMillis.coerceAtLeast(946684800000L)).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                } catch (e: Exception) { curDate }
+
+                val effectiveStart = if (startOf30Days.isBefore(habitStartDate)) habitStartDate else startOf30Days
+                val startStr = effectiveStart.toString()
+                val endStr = curDate.toString()
+                val habitLogsInWindow = logs.filter { l ->
+                    l.habitId == habit.id && l.date >= startStr && l.date <= endStr
+                }
+
+                // If habit has existed for fewer than 30 days, pro-rate the window target
+                val daysInWindow = (java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, curDate) + 1).toInt().coerceIn(1, 30)
+
+                if (habit.type == "NUMBER") {
+                    isMonthlyNumeric = true
+                    val effectiveNumericTarget = if (daysInWindow < 30) {
+                        ((habit.targetValue * daysInWindow) / 30f).coerceAtLeast(0.1f)
+                    } else {
+                        habit.targetValue
+                    }
+                    monthlySum = habitLogsInWindow.filter { !it.isPaused }.sumOf { it.value.toDouble() }.toFloat()
+                    isMonthlyTargetReached = if (habit.isNegative) {
+                        monthlySum <= effectiveNumericTarget
+                    } else {
+                        monthlySum >= effectiveNumericTarget
+                    }
+                    status = if (isMonthlyTargetReached) "SUCCESS" else {
+                        if (habit.isNegative) "FAILED" else "PENDING"
+                    }
+                } else {
+                    val rawTargetCount = habit.specificDays.toIntOrNull() ?: 15
+                    monthlyTargetCount = if (daysInWindow < 30) {
+                        ((rawTargetCount.toFloat() * daysInWindow) / 30f).toInt().coerceAtLeast(1)
+                    } else {
+                        rawTargetCount
+                    }
+                    if (habit.isNegative) {
+                        val habitLogsMap = logs.filter { it.habitId == habit.id }.associateBy { it.date }
+                        var cleanInWindow = 0
+                        var pausedInWindow = 0
+                        var dDate = effectiveStart
+                        while (!dDate.isAfter(curDate)) {
+                            val l = habitLogsMap[dDate.toString()]
+                            if (l?.isPaused == true) pausedInWindow++
+                            else if (l == null || isLogCompleted(habit, l)) cleanInWindow++
+                            dDate = dDate.plusDays(1)
+                        }
+                        monthlyLoggedCount = cleanInWindow
+                        val adjustedTarget = (monthlyTargetCount - pausedInWindow).coerceAtLeast(1)
+                        isMonthlyTargetReached = monthlyLoggedCount >= adjustedTarget
+                    } else {
+                        val pausedInWindow = habitLogsInWindow.count { it.isPaused }
+                        monthlyLoggedCount = habitLogsInWindow.count { !it.isPaused && isLogCompleted(habit, it) }
+                        val adjustedTarget = (monthlyTargetCount - pausedInWindow).coerceAtLeast(1)
+                        isMonthlyTargetReached = monthlyLoggedCount >= adjustedTarget
+                    }
+                }
+            }
+
+            val isCompleted = status == "SUCCESS"
+            val isFailed = status == "FAILED"
+
             val (streakVal, _) = HabitCalculationEngine.calculateStreak(habit, logs, targetDateStr = date)
             val totalAchievedValue = if (habit.isFinishable) HabitCalculationEngine.calculateTotalAchievedValue(habit, logs) else 0f
             val isGoalTargetReached = habit.isFinishable && !habit.isCompletedGoal && HabitCalculationEngine.isGoalTargetReached(habit, logs)
@@ -191,7 +296,14 @@ object HabitUiEngine {
                 streak = streakVal,
                 isMinimalViable = isMinimalViable,
                 totalAchievedValue = totalAchievedValue,
-                isGoalTargetReached = isGoalTargetReached
+                isGoalTargetReached = isGoalTargetReached,
+                isMonthlyTargetReached = isMonthlyTargetReached,
+                monthlyLoggedCount = monthlyLoggedCount,
+                monthlyTargetCount = monthlyTargetCount,
+                isWeeklyNumeric = isWeeklyNumeric,
+                weeklySum = weeklySum,
+                isMonthlyNumeric = isMonthlyNumeric,
+                monthlySum = monthlySum
             )
         }
         val itemsById = mappedItems.associateBy { it.habit.id }

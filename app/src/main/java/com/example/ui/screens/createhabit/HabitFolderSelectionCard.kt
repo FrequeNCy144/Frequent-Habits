@@ -221,10 +221,12 @@ fun HabitFolderSelectionCard(
                             isDropdownOpen = false
                             searchQuery = ""
                         },
+                        shape = RoundedCornerShape(16.dp),
+                        containerColor = AppCard,
                         modifier = Modifier
                             .fillMaxWidth(0.78f)
-                            .background(ProgressTrack)
-                            .border(1.dp, AppBorder, RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(1.dp, AppBorder, RoundedCornerShape(16.dp))
                     ) {
                         // Search inside dropdown if there are folders
                         if (allFolders.size > 4) {

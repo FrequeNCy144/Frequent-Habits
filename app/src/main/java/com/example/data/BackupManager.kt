@@ -156,6 +156,7 @@ object BackupManager {
             put("widget_opacity", prefs.getFloat("widget_opacity", 1.0f).toDouble())
             put("vibration_enabled", prefs.getBoolean("vibration_enabled", true))
             put("info_cards_enabled", prefs.getBoolean("info_cards_enabled", true))
+            put("colored_folder_cards_enabled", prefs.getBoolean("colored_folder_cards_enabled", true))
             put("notifications_enabled", prefs.getBoolean("notifications_enabled", true))
             put("insight_notifications_enabled", prefs.getBoolean("insight_notifications_enabled", true))
             put("monthly_review_enabled", prefs.getBoolean("monthly_review_enabled", true))
@@ -199,9 +200,14 @@ object BackupManager {
 
     suspend fun restoreDatabaseFromJson(context: Context, jsonString: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val rootJson = JSONObject(jsonString)
-            val habitsArray = rootJson.getJSONArray("habits")
-            val logsArray = rootJson.getJSONArray("logs")
+            val cleanJson = jsonString.trim().removePrefix("\uFEFF")
+            val rootJson = if (cleanJson.startsWith("{")) JSONObject(cleanJson) else JSONObject()
+            val habitsArray = if (cleanJson.startsWith("[")) {
+                JSONArray(cleanJson)
+            } else {
+                rootJson.optJSONArray("habits") ?: JSONArray()
+            }
+            val logsArray = rootJson.optJSONArray("logs") ?: JSONArray()
             val notesArray = rootJson.optJSONArray("dailyNotes")
             val tcNotesArray = rootJson.optJSONArray("timeCapsuleNotes")
             val milestoneArray = rootJson.optJSONArray("milestoneRewards")
@@ -342,6 +348,7 @@ object BackupManager {
                 if (settingsJson.has("widget_opacity")) editor.putFloat("widget_opacity", settingsJson.optDouble("widget_opacity", 1.0).toFloat())
                 if (settingsJson.has("vibration_enabled")) editor.putBoolean("vibration_enabled", settingsJson.optBoolean("vibration_enabled", true))
                 if (settingsJson.has("info_cards_enabled")) editor.putBoolean("info_cards_enabled", settingsJson.optBoolean("info_cards_enabled", true))
+                if (settingsJson.has("colored_folder_cards_enabled")) editor.putBoolean("colored_folder_cards_enabled", settingsJson.optBoolean("colored_folder_cards_enabled", true))
                 if (settingsJson.has("notifications_enabled")) editor.putBoolean("notifications_enabled", settingsJson.optBoolean("notifications_enabled", true))
                 if (settingsJson.has("insight_notifications_enabled")) editor.putBoolean("insight_notifications_enabled", settingsJson.optBoolean("insight_notifications_enabled", true))
                 if (settingsJson.has("monthly_review_enabled")) editor.putBoolean("monthly_review_enabled", settingsJson.optBoolean("monthly_review_enabled", true))
@@ -403,13 +410,17 @@ object BackupManager {
     }
 
     suspend fun restoreDatabaseFromInputStream(context: Context, inputStream: java.io.InputStream): Boolean = withContext(Dispatchers.IO) {
+        restoreDatabaseFromInputStreamDetailed(context, inputStream).first
+    }
+
+    suspend fun restoreDatabaseFromInputStreamDetailed(context: Context, inputStream: java.io.InputStream): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
             val bytes = inputStream.readBytes()
-            if (bytes.isEmpty()) return@withContext false
+            if (bytes.isEmpty()) return@withContext Pair(false, "Datei ist leer (0 Bytes)")
 
             var jsonString: String? = null
 
-            // Try reading as ZIP archive
+            // 1. Try reading as ZIP archive
             try {
                 val zis = java.util.zip.ZipInputStream(bytes.inputStream())
                 var entry = zis.nextEntry
@@ -420,14 +431,27 @@ object BackupManager {
                 while (entry != null) {
                     hasZipEntries = true
                     val entryName = entry.name
-                    if (entryName == "backup.json" || entryName.endsWith(".json")) {
-                        jsonString = zis.bufferedReader().readText()
+                    val isJsonEntry = entryName.equals("backup.json", ignoreCase = true) ||
+                            entryName.endsWith(".json", ignoreCase = true)
+
+                    if (isJsonEntry && jsonString == null) {
+                        val baos = java.io.ByteArrayOutputStream()
+                        val buf = ByteArray(4096)
+                        var n: Int
+                        while (zis.read(buf).also { n = it } > 0) {
+                            baos.write(buf, 0, n)
+                        }
+                        jsonString = baos.toString(Charsets.UTF_8.name())
                     } else if (entryName.startsWith("audios/")) {
                         val audioFileName = entryName.removePrefix("audios/")
                         if (audioFileName.isNotEmpty()) {
                             val destFile = java.io.File(audioDir, audioFileName)
                             destFile.outputStream().use { os ->
-                                zis.copyTo(os)
+                                val buf = ByteArray(4096)
+                                var n: Int
+                                while (zis.read(buf).also { n = it } > 0) {
+                                    os.write(buf, 0, n)
+                                }
                             }
                         }
                     }
@@ -440,12 +464,78 @@ object BackupManager {
                 jsonString = null
             }
 
-            // Fallback to plain JSON string if not a ZIP archive or if ZIP extraction didn't yield jsonString
+            // 2. Fallback to plain JSON string if not a ZIP archive or if ZIP extraction didn't yield jsonString
             if (jsonString == null) {
                 jsonString = String(bytes, Charsets.UTF_8)
             }
 
-            restoreDatabaseFromJson(context, jsonString)
+            val success = restoreDatabaseFromJson(context, jsonString)
+            if (success) {
+                Pair(true, "OK")
+            } else {
+                Pair(false, "Ungültiges JSON-Format")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Pair(false, e.localizedMessage ?: "Wiederherstellungsfehler")
+        }
+    }
+
+    suspend fun exportBackupToOutputStream(context: Context, outputStream: java.io.OutputStream): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val jsonContent = exportDatabaseToJson(context)
+            val audioFiles = com.example.ui.components.AudioSoundscapeManager.listImportedAudios(context)
+
+            val zos = java.util.zip.ZipOutputStream(outputStream)
+            // 1. Write backup.json
+            zos.putNextEntry(java.util.zip.ZipEntry("backup.json"))
+            zos.write(jsonContent.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+
+            // 2. Write custom audio files
+            audioFiles.forEach { aFile ->
+                try {
+                    zos.putNextEntry(java.util.zip.ZipEntry("audios/${aFile.name}"))
+                    aFile.inputStream().use { input ->
+                        input.copyTo(zos)
+                    }
+                    zos.closeEntry()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            zos.close()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    suspend fun createBackupZipFile(context: Context): java.io.File = withContext(Dispatchers.IO) {
+        val backupDir = java.io.File(context.cacheDir, "backups")
+        if (!backupDir.exists()) backupDir.mkdirs()
+        val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US)
+        val file = java.io.File(backupDir, "backup_frequent_habits_${sdf.format(Date())}.zip")
+        file.outputStream().use { os ->
+            exportBackupToOutputStream(context, os)
+        }
+        file
+    }
+
+    suspend fun exportBackupToUri(context: Context, targetUri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val success = context.contentResolver.openOutputStream(targetUri)?.use { os ->
+                exportBackupToOutputStream(context, os)
+            } ?: false
+            if (success) {
+                val timeStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+                context.getSharedPreferences("habits_settings", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("last_backup_time", timeStr)
+                    .apply()
+            }
+            success
         } catch (e: Exception) {
             e.printStackTrace()
             false
@@ -463,34 +553,12 @@ object BackupManager {
             val dateStr = sdf.format(Date())
             val filename = "backup_frequent_habits_$dateStr.zip"
 
-            val jsonContent = exportDatabaseToJson(context)
-            val audioDir = java.io.File(context.filesDir, "audios")
-            val audioFiles = if (audioDir.exists()) {
-                audioDir.listFiles()?.filter { it.isFile && it.extension.lowercase() in listOf("mp3", "m4a", "wav", "ogg", "aac") } ?: emptyList()
-            } else emptyList()
-
             val backupFile = rootFolder.createFile("application/zip", filename) ?: return@withContext false
-            context.contentResolver.openOutputStream(backupFile.uri)?.use { os ->
-                val zos = java.util.zip.ZipOutputStream(os)
-                // 1. Write backup.json
-                zos.putNextEntry(java.util.zip.ZipEntry("backup.json"))
-                zos.write(jsonContent.toByteArray(Charsets.UTF_8))
-                zos.closeEntry()
+            val success = context.contentResolver.openOutputStream(backupFile.uri)?.use { os ->
+                exportBackupToOutputStream(context, os)
+            } ?: false
 
-                // 2. Write custom audio files
-                audioFiles.forEach { aFile ->
-                    try {
-                        zos.putNextEntry(java.util.zip.ZipEntry("audios/${aFile.name}"))
-                        aFile.inputStream().use { input ->
-                            input.copyTo(zos)
-                        }
-                        zos.closeEntry()
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-                zos.close()
-            }
+            if (!success) return@withContext false
 
             // Cleanup oldest backups if count > 3
             val files = rootFolder.listFiles()

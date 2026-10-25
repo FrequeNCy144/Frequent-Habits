@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.Habit
+import com.example.data.HabitFolder
 import com.example.data.HabitLog
 import com.example.data.HabitStatModel
 import com.example.tr
@@ -30,6 +31,7 @@ import com.example.ui.components.getEncouragementText
 import com.example.ui.components.getStrengthLabel
 import com.example.ui.theme.*
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HabitStatItem(
     model: HabitStatModel,
@@ -37,7 +39,9 @@ fun HabitStatItem(
     dayNumbers: List<String>,
     language: String,
     accentColor: Color = PrimaryViolet,
+    allFolders: List<HabitFolder> = emptyList(),
     onClick: (Int) -> Unit,
+    onLongClick: ((Habit) -> Unit)? = null,
     onToggleDay: ((Int, String) -> Unit)? = null
 ) {
     val habit = model.habit
@@ -64,10 +68,11 @@ fun HabitStatItem(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, if (isPressed) accentColor.copy(alpha = 0.5f) else AppBorder, RoundedCornerShape(16.dp))
-            .clickable(
+            .combinedClickable(
                 interactionSource = interactionSource,
                 indication = ripple(),
-                onClick = { onClick(habit.id) }
+                onClick = { onClick(habit.id) },
+                onLongClick = if (onLongClick != null) { { onLongClick(habit) } } else null
             )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -114,12 +119,49 @@ fun HabitStatItem(
                             } catch (e: Exception) { "" }
                         }
 
-                        Text(
-                            text = habit.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
+                        val parentFolder = remember(habit.folderId, allFolders) {
+                            if (habit.folderId != null) allFolders.find { it.id == habit.folderId } else null
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = habit.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (parentFolder != null) {
+                                val folderColor = HabitIconMapping.getColor(parentFolder.color)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(folderColor.copy(alpha = 0.15f))
+                                        .border(0.5.dp, folderColor.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = HabitIconMapping.getIcon(parentFolder.icon),
+                                            contentDescription = parentFolder.name,
+                                            tint = folderColor,
+                                            modifier = Modifier.size(10.dp)
+                                        )
+                                        Text(
+                                            text = parentFolder.name,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                            color = folderColor,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Text(
                             text = tr(language, "Stärke: $strength", "სიძლიერე: $strength", "稳固度：$strength", "Strength: $strength"),
                             style = MaterialTheme.typography.bodyMedium,

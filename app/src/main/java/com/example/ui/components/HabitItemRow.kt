@@ -58,7 +58,14 @@ fun HabitItemRow(
     onDragEnd: (() -> Unit)? = null,
     totalAchievedValue: Float = 0f,
     isGoalTargetReached: Boolean = false,
-    onCompleteGoal: ((Habit) -> Unit)? = null
+    onCompleteGoal: ((Habit) -> Unit)? = null,
+    isMonthlyTargetReached: Boolean = false,
+    monthlyLoggedCount: Int = 0,
+    monthlyTargetCount: Int = 0,
+    isWeeklyNumeric: Boolean = false,
+    weeklySum: Float = 0f,
+    isMonthlyNumeric: Boolean = false,
+    monthlySum: Float = 0f
 ) {
     val context = LocalContext.current
     val habitColor = HabitIconMapping.getColor(habit.color)
@@ -92,7 +99,13 @@ fun HabitItemRow(
 
     val isNumerical = habit.type == "NUMBER" || habit.type == "NUMERICAL" || (habit.targetValue > 1f && habit.type != "BINARY")
     val targetVal = if (habit.targetValue > 0f) habit.targetValue else 1f
-    val progressRatio = if (isNumerical) (currentValue / targetVal).coerceIn(0f, 1f) else if (isCompleted) 1f else 0f
+    val progressRatio = when {
+        isWeeklyNumeric -> (weeklySum / targetVal).coerceIn(0f, 1f)
+        isMonthlyNumeric -> (monthlySum / targetVal).coerceIn(0f, 1f)
+        isNumerical -> (currentValue / targetVal).coerceIn(0f, 1f)
+        isCompleted -> 1f
+        else -> 0f
+    }
     val animatedProgressRatio by animateFloatAsState(
         targetValue = progressRatio,
         animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
@@ -259,7 +272,14 @@ fun HabitItemRow(
                 anchorCompleted = anchorCompleted,
                 totalAchievedValue = totalAchievedValue,
                 language = language,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                isMonthlyTargetReached = isMonthlyTargetReached,
+                monthlyLoggedCount = monthlyLoggedCount,
+                monthlyTargetCount = monthlyTargetCount,
+                isWeeklyNumeric = isWeeklyNumeric,
+                weeklySum = weeklySum,
+                isMonthlyNumeric = isMonthlyNumeric,
+                monthlySum = monthlySum
             )
 
             Row(

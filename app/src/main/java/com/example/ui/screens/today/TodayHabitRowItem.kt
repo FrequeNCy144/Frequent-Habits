@@ -60,8 +60,9 @@ fun TodayHabitRowItem(
     val anchorCompleted = anchorHabit?.isCompleted == true
     val isAnchorJustCompleted = anchorCompleted &&
         currentHabit.stackedOnHabitId != null &&
-        justCompletedEvent?.first == currentHabit.stackedOnHabitId &&
-        (System.currentTimeMillis() - (justCompletedEvent?.second ?: 0L)) < 4000L
+        justCompletedEvent != null &&
+        justCompletedEvent.first == currentHabit.stackedOnHabitId &&
+        (System.currentTimeMillis() - justCompletedEvent.second) < 4000L
 
     val itemContent = @Composable {
         HabitItemRow(
@@ -97,7 +98,14 @@ fun TodayHabitRowItem(
             onDragEnd = onDragEnd,
             totalAchievedValue = uiItem.totalAchievedValue,
             isGoalTargetReached = uiItem.isGoalTargetReached,
-            onCompleteGoal = onCompleteGoal
+            onCompleteGoal = onCompleteGoal,
+            isMonthlyTargetReached = uiItem.isMonthlyTargetReached,
+            monthlyLoggedCount = uiItem.monthlyLoggedCount,
+            monthlyTargetCount = uiItem.monthlyTargetCount,
+            isWeeklyNumeric = uiItem.isWeeklyNumeric,
+            weeklySum = uiItem.weeklySum,
+            isMonthlyNumeric = uiItem.isMonthlyNumeric,
+            monthlySum = uiItem.monthlySum
         )
     }
 

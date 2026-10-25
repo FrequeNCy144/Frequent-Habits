@@ -89,7 +89,7 @@ fun calculateHabitSuccessStatsForPeriod(
         val dateStr = current.toString()
         if (isHabitActiveOnDate(habit, dateStr)) {
             val log = logsByDate[dateStr]
-            val status = if (habit.frequency == "TIMES_WEEKLY") {
+            val status = if (habit.frequency == "TIMES_WEEKLY" || habit.frequency == "TIMES_MONTHLY") {
                 if (dateStr < startSdfStr || dateStr > todayStr) "INACTIVE"
                 else if (log != null && log.isPaused) "PAUSED"
                 else if (log != null && log.value == -1f) "FAILED"

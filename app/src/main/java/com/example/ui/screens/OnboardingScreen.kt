@@ -36,7 +36,7 @@ fun OnboardingScreen(
     onFinish: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val totalSteps = 8
+    val totalSteps = 5
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { totalSteps })
 
     Box(
@@ -109,11 +109,8 @@ fun OnboardingScreen(
                     0 -> OnboardingStepWelcome(language = language)
                     1 -> OnboardingStepPersonalize(language = language, viewModel = viewModel)
                     2 -> OnboardingStepGameMode(language = language, viewModel = viewModel)
-                    3 -> OnboardingStepTransition(language = language)
-                    4 -> OnboardingStepSmartInsights(language = language)
-                    5 -> OnboardingStepReviewTimeCapsule(language = language)
-                    6 -> OnboardingStepMilestoneRewards(language = language)
-                    7 -> OnboardingStepAndMuchMore(language = language)
+                    3 -> OnboardingStepAndMuchMore(language = language)
+                    4 -> OnboardingStepFinalLaunch(language = language, onComplete = onFinish)
                 }
             }
 

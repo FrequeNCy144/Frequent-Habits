@@ -123,6 +123,7 @@ import com.example.data.*
 import com.example.ui.*
 import com.example.ui.HabitIconMapping
 import com.example.ui.HabitsViewModel
+import com.example.ui.components.EmergencyRepairScreen
 import com.example.ui.components.AppSegmentedButton
 import com.example.ui.components.AppSegmentedButtonWithIcons
 import com.example.ui.components.AppTextField
@@ -141,31 +142,105 @@ val LocalHapticsEnabled = androidx.compose.runtime.compositionLocalOf { true }
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val prevHandler = Thread.getDefaultUncaughtExceptionHandler()
+        super.onCreate(savedInstanceState)
+        val crashPrefs = getSharedPreferences("crash_logs", Context.MODE_PRIVATE)
+        val previousCrash = crashPrefs.getString("last_crash", null)
+
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
                 android.util.Log.e("HabitsCrash", "Uncaught exception on thread ${thread.name}", throwable)
-                val prefs = getSharedPreferences("crash_logs", Context.MODE_PRIVATE)
-                prefs.edit().putString("last_crash", "${throwable::class.java.simpleName}: ${throwable.message}\n${throwable.stackTraceToString().take(3000)}").commit()
-            } catch (_: Exception) {}
-            prevHandler?.uncaughtException(thread, throwable)
+                val crashStr = "${throwable::class.java.simpleName}: ${throwable.message}\n${throwable.stackTraceToString().take(2000)}"
+                crashPrefs.edit().putString("last_crash", crashStr).apply()
+            } catch (_: Throwable) {}
+            defaultHandler?.uncaughtException(thread, throwable)
         }
 
-        super.onCreate(savedInstanceState)
-        val viewModel = androidx.lifecycle.ViewModelProvider(this)[HabitsViewModel::class.java]
-        handleWidgetIntent(intent, viewModel)
-        handleReviewIntent(intent, viewModel)
+        try { com.example.ui.HabitIconMapping.initSystemAccentColor(this) } catch (_: Throwable) {}
         enableEdgeToEdge()
+
+        var initError: Throwable? = null
+        val viewModel = try {
+            androidx.lifecycle.ViewModelProvider(this)[HabitsViewModel::class.java]
+        } catch (e: Throwable) {
+            initError = e
+            android.util.Log.e("HabitsCrash", "Primary viewModel init failed, attempting safe recovery", e)
+            try {
+                // Wipe any corrupted temporary preferences and retry
+                val p = getSharedPreferences("habit_app_prefs", Context.MODE_PRIVATE)
+                p.edit().remove("known_unlocked_achievement_ids").remove("dismissed_goal_dialog_ids").apply()
+                AppDatabase.getDatabase(applicationContext)
+                androidx.lifecycle.ViewModelProvider(this)[HabitsViewModel::class.java]
+            } catch (e2: Throwable) {
+                initError = e2
+                null
+            }
+        }
+
+        if (viewModel == null) {
+            setContent {
+                EmergencyRepairScreen(
+                    errorMessage = initError?.message ?: previousCrash ?: "Initialisierungsfehler abgefangen",
+                    stackTrace = initError?.stackTraceToString() ?: previousCrash ?: "",
+                    onRepairAndRestart = {
+                        try {
+                            crashPrefs.edit().remove("last_crash").apply()
+                        } catch (_: Throwable) {}
+                        val cleanIntent = Intent(applicationContext, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        }
+                        startActivity(cleanIntent)
+                        finish()
+                    },
+                    onResetPrefs = {
+                        try {
+                            getSharedPreferences("habit_app_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+                            crashPrefs.edit().remove("last_crash").apply()
+                        } catch (_: Throwable) {}
+                        val cleanIntent = Intent(applicationContext, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        }
+                        startActivity(cleanIntent)
+                        finish()
+                    }
+                )
+            }
+            return
+        }
+
+        try { handleWidgetIntent(intent, viewModel) } catch (_: Throwable) {}
+        try { handleReviewIntent(intent, viewModel) } catch (_: Throwable) {}
+
         setContent {
-            val darkModeEnabled by viewModel.darkModeEnabled.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(2000)
+                try { crashPrefs.edit().remove("last_crash").apply() } catch (_: Throwable) {}
+            }
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            val systemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+            val effectiveDarkMode = when (themeMode) {
+                "DARK" -> true
+                "LIGHT" -> false
+                else -> systemInDark
+            }
+            LaunchedEffect(effectiveDarkMode) {
+                com.example.ui.theme.updateThemeColors(effectiveDarkMode)
+            }
+            val accentColorName by viewModel.accentColorName.collectAsStateWithLifecycle()
+            LaunchedEffect(accentColorName) {
+                com.example.ui.theme.updateAccentColors(accentColorName)
+            }
             val hapticsEnabled by viewModel.vibrationEnabled.collectAsStateWithLifecycle()
             val infoCardsEnabled by viewModel.infoCardsEnabled.collectAsStateWithLifecycle()
             CompositionLocalProvider(
-                LocalDarkMode provides darkModeEnabled,
+                LocalDarkMode provides effectiveDarkMode,
                 LocalHapticsEnabled provides hapticsEnabled,
                 LocalInfoCardsEnabled provides infoCardsEnabled
             ) {
-                MyApplicationTheme(darkTheme = darkModeEnabled) {
+                MyApplicationTheme(
+                    darkTheme = effectiveDarkMode,
+                    dynamicColor = accentColorName.equals("SYSTEM", ignoreCase = true)
+                ) {
                     MainAppScreen(viewModel = viewModel)
                 }
             }
@@ -280,7 +355,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
         }
     }
 
-    var editingHabit by remember { mutableStateOf<Habit?>(null) }
+    val editingHabit by viewModel.editingHabit.collectAsStateWithLifecycle()
 
     val allHabitsForPopup by viewModel.allHabits.collectAsStateWithLifecycle()
     val allLogsForPopup by viewModel.allLogs.collectAsStateWithLifecycle()
@@ -383,7 +458,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
             previousRoute = currentRoute
         }
         if (currentRoute != "CREATE") {
-            editingHabit = null
+            viewModel.setEditingHabit(null)
         }
     }
 
@@ -398,7 +473,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
         if (gameMode == "STORY" && activeCount >= unlockedStorySlots) {
             showStorySlotLockedDialog = true
         } else {
-            editingHabit = null
+            viewModel.setEditingHabit(null)
             navController.navigate("CREATE") {
                 launchSingleTop = true
             }
@@ -458,7 +533,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            if (currentRoute != null && !currentRoute.startsWith("DETAIL") && currentRoute != "CREATE" && currentRoute != "OVERALL_STATS" && !currentRoute.startsWith("MORE") && editingHabit == null) {
+            if (currentRoute != null && !currentRoute.startsWith("DETAIL") && currentRoute != "CREATE" && currentRoute != "OVERALL_STATS" && currentRoute != "REORDER" && !currentRoute.startsWith("MORE") && editingHabit == null) {
                 HabitBottomNavigation(
                     selectedTab = selectedTab,
                     onTabSelected = { tab ->
@@ -510,7 +585,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
                 todayListState = todayListState,
                 statsListState = statsListState,
                 editingHabit = editingHabit,
-                onSetEditingHabit = { editingHabit = it },
+                onSetEditingHabit = { viewModel.setEditingHabit(it) },
                 showCreateFirstHabitHint = showCreateFirstHabitHint,
                 onSetShowCreateFirstHabitHint = { showCreateFirstHabitHint = it },
                 handleAddHabit = handleAddHabit,
@@ -520,7 +595,7 @@ fun MainAppScreen(viewModel: HabitsViewModel) {
             )
 
             // Fading overlay at the bottom so content beautifully fades out behind the floating nav bar
-            if (currentRoute != null && !currentRoute.startsWith("DETAIL") && currentRoute != "CREATE" && currentRoute != "OVERALL_STATS" && !currentRoute.startsWith("MORE") && editingHabit == null) {
+            if (currentRoute != null && !currentRoute.startsWith("DETAIL") && currentRoute != "CREATE" && currentRoute != "OVERALL_STATS" && currentRoute != "REORDER" && !currentRoute.startsWith("MORE") && editingHabit == null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
