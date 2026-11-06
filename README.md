@@ -54,31 +54,32 @@
 
 ## ✨ Key Features
 
-🧠 Science-Based Habit Principles to build lasting habits — Habit Stacking, Minimum Viable Mode and more...
+🎯 Track at Your Frequency — Build any habit imaginable with flexible targets, rolling time windows & color-coded folders.
+
+📊 Unrivaled Statistics — Yearly heatmaps, discipline scores, streak records, completion trends, and much more...
+
+🏆 Celebrate Your Milestones — Stay motivated with streak badges and treat yourself to real-life personal rewards.
+
+📜 Reflect Your Journey — Look back on your greatest achievements, daily reflection notes, and write notes to your future self.
+
+🎨 Your App. Your Style. — True black AMOLED, clean light mode, E-Ink paper theme & custom accent colors.
+
+🧠 Science-Based Habit Principles — Master habit stacking, minimum viable mode, and structured routines.
 
 🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
 
-📊 Deep Analytics — Yearly heatmaps, weekday frequency charts, and much more...
+💡 Algorithmic Smart Insights — Discover meaningful patterns and trends in your daily routine.
 
-🏆 Trophies & Gold Series — Unlock achievements as your habits grow.
-
-🎉 Custom Self-Rewards — Define your own rewards for your dedication to your goals.
-
-💡 Algorithmic Smart Insights — Get interesting insights into your tracking patterns.
-
-📝 Weekly & Annual Reviews — Structured reflections built right into your routine.
-
-⏳ Time Capsules — Leave notes for your future self, tied to your habit history.
-
-🎨 Make It Yours — Choose light or dark mode with custom accent colors.
+☁️ Self-Hosted WebDAV Sync — Keep your devices in sync privately using your own Nextcloud, Synology, or WebDAV server.
 
 💾 Local JSON Backup & Restore — Full data ownership via Android's Storage Access Framework.
 
-📥 1-Click Habit Import — Switch from other habit trackers without losing your history.
+📥 1-Click Habit Import — Switch seamlessly from other habit trackers without losing your history.
 
-⚡ Homescreen Widget — Check off habits right from your home screen.
+⚡ Homescreen Widgets — Check off habits right from your home screen with customizable scales.
 
-🔒 100% Offline, No Ads, No Tracking — Everything stays strictly on your device.
+🔒 100% Private, No Ads, No Tracking — Everything stays strictly under your control. Offline-first by default.
+
 
 ---
 
