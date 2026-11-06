@@ -1,1 +1,1 @@
-A modern, privacy-focused & feature-packed open-source habit tracker for Android.
+A beautiful, private & feature-packed open-source habit tracker for Android.
