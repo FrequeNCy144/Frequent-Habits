@@ -87,21 +87,14 @@
 
 ## 📸 Screenshots
 
-<div align="center">
-  <img width="23%" alt="Build Lasting Habits" src="https://github.com/user-attachments/assets/81dfbb1a-0211-400e-b8bc-ed377e9e2aa3" />
-  <img width="23%" alt="Audio Timer" src="https://github.com/user-attachments/assets/d049e9b7-a615-490f-ac73-31ae7b5e458a" />
-  <img width="23%" alt="Unrivaled Analytics" src="https://github.com/user-attachments/assets/72631e43-aba7-417d-9c55-d8e6c8314759" />
-  <img width="23%" alt="Actionable Smart Insights" src="https://github.com/user-attachments/assets/e7beea72-0b26-4f63-b0e0-4d9466c0f0b3" />
-  
-  <br><br>
 
-  <img width="23%" alt="Gamification & Rewards" src="https://github.com/user-attachments/assets/a17a47f7-dff2-4327-b798-a415a85d3428" />
-  <img width="23%" alt="Reflect Your Journey" src="https://github.com/user-attachments/assets/e648d727-fbe8-4b9a-af08-045e8f13a8ec" />
-  <img width="23%" alt="Your App, Your Style" src="https://github.com/user-attachments/assets/a86559ad-ed1e-4263-9a1d-a3193fe140ab" />
-  <img width="23%" alt="100% Private & Offline" src="https://github.com/user-attachments/assets/277ba91d-0a7e-4c0f-9b72-3fc09c7f20a7" />
-</div>
 
----
+---<img width="1242" height="2682" alt="05_your_app_your_style__1242x2688_en" src="https://github.com/user-attachments/assets/4ffae975-0e40-448a-bf01-d8287da10109" />
+<img width="1242" height="2682" alt="04_reflect_your_journey_1242x2688_en" src="https://github.com/user-attachments/assets/deafba0d-66b2-45d4-8a55-3a6991a9d347" />
+<img width="1242" height="2682" alt="03_celebrate_your_milestones_1242x2688_en" src="https://github.com/user-attachments/assets/11c6fb8f-336b-4010-a06b-1f8dd84cb113" />
+<img width="1242" height="2682" alt="02_unrivaled_statistics_1242x2688_en" src="https://github.com/user-attachments/assets/3be54648-ab1b-4925-9a95-3508aeb6b83f" />
+<img width="1242" height="2682" alt="01_track_at_your_frequency_1242x2688_en" src="https://github.com/user-attachments/assets/7b0837f7-9561-42f7-9f7e-eef8b0082d7f" />
+
 
 
 ## 🚀 Installation
