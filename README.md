@@ -1,26 +1,28 @@
 <div align="center">
 
   <!-- Header Banner -->
-<img width="2560" height="1160" alt="github-banner" src="https://github.com/user-attachments/assets/4f523688-6d23-479e-8a7e-b7818d7bbab7" />
-
+  <img width="100%" alt="github-banner" src="https://github.com/user-attachments/assets/4f523688-6d23-479e-8a7e-b7818d7bbab7" />
 
   <br><br>
 
-  <!-- Subtitle -->
+  <!-- Title & Slogan -->
+  <h1>FREQUENT HABITS</h1>
   <p>
-    <b>A modern, privacy-focused & feature-packed open-source habit tracker for Android.</b>
+    <b>FREQUENT HABITS — PERMANENT RESULTS</b><br>
+    <i>A modern, privacy-focused & feature-packed open-source habit tracker for Android.</i>
   </p>
 
   <!-- Tags / Badges -->
   <a href="https://github.com/FrequeNCy144/Frequent-Habits/releases"><img src="https://img.shields.io/github/v/release/FrequeNCy144/Frequent-Habits?style=for-the-badge&logo=github&color=7356FF" alt="GitHub Release" /></a>
+  &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge" alt="License: GPLv3" /></a>
 
   <br><br>
 
   <!-- Prominent Download Badges -->
-  <a href="https://f-droid.org/packages/com.frequent.habits/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="85" alt="Get it on F-Droid" /></a>
+  <a href="https://f-droid.org/packages/com.frequent.habits/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="80" alt="Get it on F-Droid" /></a>
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/FrequeNCy144/Frequent-Habits"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="85" alt="Get it on Obtainium" /></a>
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/FrequeNCy144/Frequent-Habits"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="80" alt="Get it on Obtainium" /></a>
 
   <br><br>
 
@@ -49,53 +51,52 @@
 > 
 > Enjoy! ❤️  
 > @FrequeNCy144
+
 <br>
 
 ---
 
 ## ✨ Key Features
 
-🎯 Track at Your Frequency — Build any habit imaginable with flexible targets, rolling time windows & color-coded folders.
+🎯 **Track at Your Frequency** — Build any habit imaginable with flexible targets, rolling time windows & color-coded folders.
 
-📊 Unrivaled Statistics — Yearly heatmaps, discipline scores, streak records, completion trends, and much more...
+📊 **Unrivaled Statistics** — Yearly heatmaps, discipline scores, streak records, completion trends, and much more...
 
-🏆 Celebrate Your Milestones — Stay motivated with streak badges and treat yourself to real-life personal rewards.
+🏆 **Celebrate Your Milestones** — Stay motivated with streak badges and treat yourself to real-life personal rewards.
 
-📜 Reflect Your Journey — Look back on your greatest achievements, daily reflection notes, and write notes to your future self.
+📜 **Reflect Your Journey** — Look back on your greatest achievements, daily reflection notes, and write notes to your future self.
 
-🎨 Your App. Your Style. — True black AMOLED, clean light mode, E-Ink paper theme & custom accent colors.
+🎨 **Your App. Your Style.** — True black AMOLED, clean light mode, E-Ink paper theme & custom accent colors.
 
-🧠 Science-Based Habit Principles — Master habit stacking, minimum viable mode, and structured routines.
+🧠 **Science-Based Habit Principles** — Master habit stacking, minimum viable mode, and structured routines.
 
-🎧 In-App Focus Timer — Deep work timer with ambient soundscapes and custom audio import.
+🎧 **In-App Focus Timer** — Deep work timer with ambient soundscapes and custom audio import.
 
-💡 Algorithmic Smart Insights — Discover meaningful patterns and trends in your daily routine.
+💡 **Algorithmic Smart Insights** — Discover meaningful patterns and trends in your daily routine.
 
-☁️ Self-Hosted WebDAV Sync — Keep your devices in sync privately using your own Nextcloud, Synology, or WebDAV server.
+☁️ **Self-Hosted WebDAV Sync** — Keep your devices in sync privately using your own Nextcloud, Synology, or WebDAV server.
 
-💾 Local JSON Backup & Restore — Full data ownership via Android's Storage Access Framework.
+💾 **Local JSON Backup & Restore** — Full data ownership via Android's Storage Access Framework.
 
-📥 1-Click Habit Import — Switch seamlessly from other habit trackers without losing your history.
+📥 **1-Click Habit Import** — Switch seamlessly from other habit trackers without losing your history.
 
-⚡ Homescreen Widgets — Check off habits right from your home screen with customizable scales.
+⚡ **Homescreen Widgets** — Check off habits right from your home screen with customizable scales.
 
-🔒 100% Private, No Ads, No Tracking — Everything stays strictly under your control. Offline-first by default.
-
+🔒 **100% Private, No Ads, No Tracking** — Everything stays strictly under your control. Offline-first by default.
 
 ---
 
-
 ## 📸 Screenshots
 
+<div align="center">
+  <img width="19%" alt="01 Track at Your Frequency" src="https://github.com/user-attachments/assets/7b0837f7-9561-42f7-9f7e-eef8b0082d7f" />
+  <img width="19%" alt="02 Unrivaled Statistics" src="https://github.com/user-attachments/assets/3be54648-ab1b-4925-9a95-3508aeb6b83f" />
+  <img width="19%" alt="03 Celebrate Your Milestones" src="https://github.com/user-attachments/assets/11c6fb8f-336b-4010-a06b-1f8dd84cb113" />
+  <img width="19%" alt="04 Reflect Your Journey" src="https://github.com/user-attachments/assets/deafba0d-66b2-45d4-8a55-3a6991a9d347" />
+  <img width="19%" alt="05 Your App Your Style" src="https://github.com/user-attachments/assets/4ffae975-0e40-448a-bf01-d8287da10109" />
+</div>
 
-
----<img width="1242" height="2682" alt="05_your_app_your_style__1242x2688_en" src="https://github.com/user-attachments/assets/4ffae975-0e40-448a-bf01-d8287da10109" />
-<img width="1242" height="2682" alt="04_reflect_your_journey_1242x2688_en" src="https://github.com/user-attachments/assets/deafba0d-66b2-45d4-8a55-3a6991a9d347" />
-<img width="1242" height="2682" alt="03_celebrate_your_milestones_1242x2688_en" src="https://github.com/user-attachments/assets/11c6fb8f-336b-4010-a06b-1f8dd84cb113" />
-<img width="1242" height="2682" alt="02_unrivaled_statistics_1242x2688_en" src="https://github.com/user-attachments/assets/3be54648-ab1b-4925-9a95-3508aeb6b83f" />
-<img width="1242" height="2682" alt="01_track_at_your_frequency_1242x2688_en" src="https://github.com/user-attachments/assets/7b0837f7-9561-42f7-9f7e-eef8b0082d7f" />
-
-
+---
 
 ## 🚀 Installation
 
@@ -106,7 +107,6 @@ You can install and update **Frequent Habits** in three convenient ways:
 3. **Manual APK:** Download the latest `FrequentHabits.apk` directly from our [Releases Page](https://github.com/FrequeNCy144/Frequent-Habits/releases) and install it manually.
 
 ---
-
 
 ## 🤝 Contributing
 
@@ -120,7 +120,6 @@ Head over to our **[Issue Tracker](https://github.com/FrequeNCy144/Frequent-Habi
 *Note: You can also access these forms directly inside the app via **Settings > Report Bug / Request Feature**.*
 
 ---
-
 
 ## ⭐ Support
 
