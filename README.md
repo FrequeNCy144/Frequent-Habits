@@ -8,8 +8,7 @@
   <!-- Title & Slogan -->
   <h1>FREQUENT HABITS</h1>
   <p>
-    <b>FREQUENT HABITS — PERMANENT RESULTS</b><br>
-    <i>A modern, privacy-focused & feature-packed open-source habit tracker for Android.</i>
+    <i>A beautiful, private & feature-packed open-source habit tracker for Android.</i>
   </p>
 
   <!-- Tags / Badges -->
