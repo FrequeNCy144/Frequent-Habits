@@ -57,19 +57,34 @@
 
 ### ✨ Key Features
 
+### ✨ Key Features
+
 - 🎯 **Track at Your Frequency** — Build any habit imaginable with flexible targets, rolling time windows & color-coded folders.
+
 - 📊 **Unrivaled Statistics** — Yearly heatmaps, discipline scores, streak records, completion trends, and much more...
+
 - 📝 **Seamless Obsidian Daily Notes** — Auto-export daily habit reviews, callouts & statistics directly into your Obsidian vault.
+
 - ☁️ **Self-Hosted WebDAV Sync** — Keep your devices in sync privately using your own Nextcloud, Synology, or WebDAV server.
+
 - 🏆 **Celebrate Your Milestones** — Stay motivated with streak badges and treat yourself to real-life personal rewards.
+
 - 📜 **Reflect Your Journey** — Look back on your greatest achievements, daily reflection notes, and write notes to your future self.
+
 - 🎨 **Your App. Your Style.** — True black AMOLED, clean light mode, E-Ink paper theme & custom accent colors.
+
 - 🧠 **Science-Based Habit Principles** — Master habit stacking, minimum viable mode, and structured routines.
+
 - 🎧 **In-App Focus Timer** — Deep work timer with ambient soundscapes and custom audio import.
+
 - 💡 **Algorithmic Smart Insights** — Discover meaningful patterns and trends in your daily routine.
+
 - 💾 **Local JSON Backup & Restore** — Full data ownership via Android's Storage Access Framework.
+
 - 📥 **1-Click Habit Import** — Switch seamlessly from other habit trackers without losing your history.
+
 - ⚡ **Homescreen Widgets** — Check off habits right from your home screen with customizable scales.
+
 - 🔒 **100% Private, No Ads, No Tracking** — Everything stays strictly under your control. Offline-first & local-first by default.
 
 ---
