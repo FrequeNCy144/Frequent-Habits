@@ -55,33 +55,31 @@
 
 ---
 
-## ✨ Key Features
+🎯 **Ziel-Flexibilität (Track at Your Frequency) – Flexible Targets, rollierende Zeitfenster & Farbordner
 
-🎯 **Track at Your Frequency** — Build any habit imaginable with flexible targets, rolling time windows & color-coded folders.
+📊 **Reichhaltige Statistiken (Unrivaled Statistics) – Jährliche Heatmaps, Discipline-Scores & Trends
 
-📊 **Unrivaled Statistics** — Yearly heatmaps, discipline scores, streak records, completion trends, and much more...
+📝 **Obsidian Daily Notes Sync – Automatischer Export von Callout-Boxen & Statistiken in dein Obsidian Vault
 
-🏆 **Celebrate Your Milestones** — Stay motivated with streak badges and treat yourself to real-life personal rewards.
+☁️ **WebDAV Cloud Sync – Privater Abgleich über deinen eigenen Nextcloud-, Synology- oder WebDAV-Server
 
-📜 **Reflect Your Journey** — Look back on your greatest achievements, daily reflection notes, and write notes to your future self.
+🏆 **Meilensteine & Belohnungen (Milestone Rewards) – Streak-Badges & echte persönliche Belohnungen
 
-🎨 **Your App. Your Style.** — True black AMOLED, clean light mode, E-Ink paper theme & custom accent colors.
+📜 **Tagebuch & Zeitkapsel (Reflect Your Journey) – Tägliche Reflexionen & Briefe an dein zukünftiges Ich
 
-🧠 **Science-Based Habit Principles** — Master habit stacking, minimum viable mode, and structured routines.
+🧠 **Habit-Psychologie – Habit Stacking, Minimum-Viable-Mode & strukturierte Routinen
 
-🎧 **In-App Focus Timer** — Deep work timer with ambient soundscapes and custom audio import.
+🎧 **In-App Fokus-Timer – Pomodoro mit 12 Naturklängen & eigenem Audio-Import
 
-💡 **Algorithmic Smart Insights** — Discover meaningful patterns and trends in your daily routine.
+💡 **Algorithmetische Smart Insights – Muster- und Routine-Analysen
 
-☁️ **Self-Hosted WebDAV Sync** — Keep your devices in sync privately using your own Nextcloud, Synology, or WebDAV server.
+⚡ **Homescreen Widgets – 1-Tap Schnell-Abhaken direkt vom Startbildschirm
 
-💾 **Local JSON Backup & Restore** — Full data ownership via Android's Storage Access Framework.
+🎨 **Eigener Style – AMOLED True Black, Clean Light Mode, E-Ink Papier-Theme & Farbakzente
 
-📥 **1-Click Habit Import** — Switch seamlessly from other habit trackers without losing your history.
+📥 **1-Klick Import & JSON Backup – Nahtloser Umstieg von anderen Trackern & volle Datensouveränität
 
-⚡ **Homescreen Widgets** — Check off habits right from your home screen with customizable scales.
-
-🔒 **100% Private, No Ads, No Tracking** — Everything stays strictly under your control. Offline-first by default.
+🔒 **100% Privat & Werbefrei – Null Tracking, keine Registrierung, standardmäßig Offline-First
 
 ---
 
