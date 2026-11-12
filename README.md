@@ -55,7 +55,7 @@
 
 ---
 
-🎯 **Ziel-Flexibilität (Track at Your Frequency) – Flexible Targets, rollierende Zeitfenster & Farbordner
+🎯 ** Ziel-Flexibilität (Track at Your Frequency) – Flexible Targets, rollierende Zeitfenster & Farbordner
 
 📊 **Reichhaltige Statistiken (Unrivaled Statistics) – Jährliche Heatmaps, Discipline-Scores & Trends
 
