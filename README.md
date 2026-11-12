@@ -57,7 +57,6 @@
 
 ### ✨ Key Features
 
-### ✨ Key Features
 
 - 🎯 **Track at Your Frequency** — Build any habit imaginable with flexible targets, rolling time windows & color-coded folders.
 
